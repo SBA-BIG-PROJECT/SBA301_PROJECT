@@ -51,6 +51,8 @@ const fetchRows = async () => {
 const fetchMovie = (movieId) => fetchFromTmdb(`/movie/${movieId}`)
 const fetchMovieCredits = (movieId) => fetchFromTmdb(`/movie/${movieId}/credits`)
 const fetchMovieVideos = (movieId) => fetchFromTmdb(`/movie/${movieId}/videos`)
+const fetchMovieReviews = (movieId) => fetchFromTmdb(`/movie/${movieId}/reviews`)
+const fetchRelatedMovies = (movieId) => fetchFromTmdb(`/movie/${movieId}/similar`)
 const searchMovies = (query) =>
   fetchFromTmdb(
     `/search/movie?query=${encodeURIComponent(query)}&include_adult=false`
@@ -117,6 +119,8 @@ export {
   fetchMovie,
   fetchMovieCredits,
   fetchMovieVideos,
+  fetchMovieReviews,
+  fetchRelatedMovies,
   fetchGenres,
   fetchByGenre,
   fetchGenreRows,

@@ -8,18 +8,26 @@ import {
   IMAGE_BASE_URL,
   fetchMovie,
   fetchMovieCredits,
+  fetchMovieReviews,
+  fetchRelatedMovies,
   formatRating,
   getYear
 } from '../lib/tmdb'
+import { useWatchlist } from '../hooks/useWatchlist'
+import PosterCard from '../components/PosterCard.jsx'
 
 const Detail = () => {
   const { id } = useParams()
   const [movie, setMovie] = useState(null)
   const [credits, setCredits] = useState(null)
+  const [reviews, setReviews] = useState([])
+  const [relatedMovies, setRelatedMovies] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const navigate = useNavigate()
-
+  
+  const { watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist } = useWatchlist()
+  
   useEffect(() => {
     let active = true
 
@@ -28,9 +36,11 @@ const Detail = () => {
       setErrorMessage('')
 
       try {
-        const [movieData, creditsData] = await Promise.all([
+        const [movieData, creditsData, reviewsData, relatedData] = await Promise.all([
           fetchMovie(id),
-          fetchMovieCredits(id)
+          fetchMovieCredits(id),
+          fetchMovieReviews(id),
+          fetchRelatedMovies(id)
         ])
 
         if (!active) {
@@ -39,6 +49,8 @@ const Detail = () => {
 
         setMovie(movieData)
         setCredits(creditsData)
+        setReviews(reviewsData.results || [])
+        setRelatedMovies(relatedData.results || [])
       } catch (error) {
         console.error(`Error fetching details: ${error}`)
         if (active) {
@@ -120,6 +132,25 @@ const Detail = () => {
               >
                 Watch Trailer
               </button>
+              
+              {isInWatchlist(movie.id) ? (
+                <button
+                  className="btn btn--ghost text-red-300 border-red-300/30 hover:border-red-400"
+                  type="button"
+                  onClick={() => removeFromWatchlist(movie.id)}
+                >
+                  Remove from Watchlist
+                </button>
+              ) : (
+                <button
+                  className="btn btn--ghost"
+                  type="button"
+                  onClick={() => addToWatchlist(movie)}
+                >
+                  Add to Watchlist
+                </button>
+              )}
+              
               <button
                 className="btn btn--ghost"
                 type="button"
@@ -160,6 +191,81 @@ const Detail = () => {
                 </div>
               </div>
             ))
+          )}
+        </div>
+      </div>
+
+      <div className="detail__related mt-10">
+        <div className="row__header">
+          <h2>Related Movies</h2>
+        </div>
+        <div className="row__list-wrapper pb-6">
+          <div className="row__list">
+            {relatedMovies.length === 0 ? (
+              <p className="search-results__empty">No related movies found.</p>
+            ) : (
+              relatedMovies.slice(0, 10).map((rm) => (
+                <PosterCard 
+                  key={rm.id} 
+                  movie={rm} 
+                  onSelect={() => navigate(`/movie/${rm.id}`)}
+                  onPlay={(e) => {
+                    navigate(`/watch/${rm.id}`)
+                  }}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="detail__reviews mt-10">
+        <div className="row__header">
+          <h2>Reviews</h2>
+        </div>
+        <div className="detail__reviews-list mt-6 grid gap-4 lg:grid-cols-2">
+          {reviews.length === 0 ? (
+            <p className="search-results__empty">No reviews yet.</p>
+          ) : (
+            reviews.slice(0, 4).map(review => {
+              let avatarUrl = review.author_details?.avatar_path;
+              if (avatarUrl) {
+                if (avatarUrl.startsWith('/https')) {
+                  avatarUrl = avatarUrl.substring(1);
+                } else {
+                  avatarUrl = `${IMAGE_BASE_URL}${avatarUrl}`;
+                }
+              }
+
+              return (
+                <div key={review.id} className="review-card">
+                  <div className="review-card__header">
+                    <div className="review-card__avatar">
+                      {avatarUrl ? (
+                        <img 
+                          src={avatarUrl} 
+                          alt={review.author} 
+                          onError={(e) => { e.target.style.display = 'none' }}
+                        />
+                      ) : (
+                        <div className="review-card__avatar-placeholder">
+                          {review.author.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="review-card__meta">
+                      <h4>{review.author}</h4>
+                      {review.author_details?.rating && (
+                        <span className="review-card__rating">★ {review.author_details.rating}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="review-card__content line-clamp-4">
+                    <p>{review.content}</p>
+                  </div>
+                </div>
+              )
+            })
           )}
         </div>
       </div>

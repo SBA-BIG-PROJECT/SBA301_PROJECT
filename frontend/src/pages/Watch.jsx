@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Spinner from '../components/Spinner.jsx'
 import { fetchMovie, fetchMovieVideos, getTrailerKey } from '../lib/tmdb'
+import { useHistory } from '../hooks/useHistory'
 
 const Watch = () => {
   const { id } = useParams()
@@ -9,6 +10,8 @@ const Watch = () => {
   const [trailerKey, setTrailerKey] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  
+  const { addToHistory } = useHistory()
 
   useEffect(() => {
     let active = true
@@ -29,6 +32,11 @@ const Watch = () => {
 
         setMovie(movieData)
         setTrailerKey(getTrailerKey(videoData.results || []))
+        
+        // Add to history when loaded
+        if (movieData) {
+          addToHistory(movieData)
+        }
       } catch (error) {
         console.error(`Error fetching trailer: ${error}`)
         if (active) {

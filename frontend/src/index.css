@@ -1,4 +1,3 @@
-
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap");
 
@@ -60,7 +59,8 @@
   }
 
   .nav {
-    @apply grid w-full grid-cols-[auto_1fr_auto] items-center gap-5 rounded-2xl border border-white/10 bg-black/90 px-5 py-4 shadow-[0_18px_50px_rgba(3,0,20,0.5)] backdrop-blur;
+    @apply grid w-full grid-cols-[1fr_auto_1fr] items-center gap-5 rounded-2xl border border-white/10 bg-black/90 px-5 py-4 backdrop-blur;
+    box-shadow: 0 18px 50px rgba(3, 0, 20, 0.5);
     transition: background 0.35s ease, padding 0.35s ease, transform 0.35s ease;
   }
 
@@ -84,7 +84,7 @@
   }
 
   .nav__brand span {
-    @apply text-lg font-semibold tracking-wide;
+    @apply text-lg font-semibold tracking-wide whitespace-nowrap;
     color: #f6e6b0;
   }
 
@@ -123,7 +123,8 @@
   }
 
   .nav__genres-panel {
-    @apply absolute left-1/2 top-full mt-3 w-screen max-w-3xl -translate-x-1/2 rounded-2xl border border-white/10 bg-black/95 p-4 shadow-[0_24px_60px_rgba(3,0,20,0.55)] backdrop-blur;
+    @apply absolute left-1/2 top-full mt-3 w-screen max-w-3xl -translate-x-1/2 rounded-2xl border border-white/10 bg-black/95 p-4 backdrop-blur;
+    box-shadow: 0 24px 60px rgba(3, 0, 20, 0.55);
     max-height: 60vh;
     overflow: auto;
     z-index: 60;
@@ -147,30 +148,94 @@
   }
 
   .nav__search {
-    @apply w-full max-w-[360px];
+    @apply w-[700px] max-w-full;
     transition: transform 0.35s ease;
   }
 
   .nav__right {
-    @apply flex items-center justify-end;
+    @apply flex items-center justify-end gap-4;
   }
 
-  .nav__member {
-    @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition;
-    box-shadow: 0 0 16px rgba(255, 214, 128, 0.18);
+  .nav__action-island {
+    @apply flex items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1.5 shadow-inner shadow-white/5 backdrop-blur;
   }
 
-  .nav__member:hover {
-    @apply border-yellow-200/40;
-    box-shadow: 0 0 22px rgba(255, 214, 128, 0.28);
+  .nav__avatar {
+    @apply flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-white/10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white transition hover:border-purple-400;
   }
 
-  .nav__member-icon {
-    @apply flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/5 text-light-100;
+  .nav__avatar:hover {
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
   }
 
-  .nav__member-icon svg {
+  .nav__avatar svg {
+    @apply h-5 w-5;
+  }
+
+  .nav__action-btn {
+    @apply relative flex h-9 w-9 items-center justify-center rounded-full text-light-200 transition hover:bg-white/10 hover:text-white;
+  }
+
+  .nav__action-btn svg {
     @apply h-4 w-4;
+  }
+
+  .nav__badge {
+    @apply absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white;
+  }
+
+  .nav__notifications-panel {
+    @apply absolute right-0 top-full mt-3 w-[320px] rounded-2xl border border-white/10 bg-black/95 p-4 backdrop-blur;
+    box-shadow: 0 24px 60px rgba(3, 0, 20, 0.55);
+    z-index: 60;
+  }
+
+  .nav__notifications-header {
+    @apply mb-3 flex items-center justify-between border-b border-white/10 pb-3;
+  }
+
+  .nav__notifications-header h3 {
+    @apply text-sm font-semibold text-white;
+  }
+
+  .nav__notifications-header button {
+    @apply text-xs text-light-200 hover:text-white transition;
+  }
+
+  .nav__notifications-list {
+    @apply flex max-h-80 flex-col gap-2 overflow-auto hide-scrollbar;
+  }
+
+  .nav__notifications-empty {
+    @apply py-6 text-center text-sm text-light-200;
+  }
+
+  .nav__notification-item {
+    @apply flex items-start gap-3 rounded-xl p-3 transition hover:bg-white/5;
+  }
+
+  .nav__notification-item--unread {
+    @apply bg-white/5 border border-white/5;
+  }
+
+  .nav__notification-icon {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-light-100;
+  }
+
+  .nav__notification-icon svg {
+    @apply h-4 w-4;
+  }
+
+  .nav__notification-content {
+    @apply flex flex-col gap-1;
+  }
+
+  .nav__notification-content p {
+    @apply text-sm text-white line-clamp-2;
+  }
+
+  .nav__notification-content span {
+    @apply text-xs text-light-200;
   }
 
   .site-header--scrolled .nav__search {
@@ -183,15 +248,15 @@
 
   @media (max-width: 1024px) {
     .nav {
-      @apply grid-cols-1 gap-3;
+      @apply grid-cols-[auto_1fr_auto] gap-3;
+    }
+
+    .nav__left {
+      @apply w-auto;
     }
 
     .nav__center {
-      @apply flex-col gap-3;
-    }
-
-    .nav__menu {
-      @apply justify-start;
+      @apply w-full;
     }
   }
 
@@ -234,6 +299,10 @@
 
   .nav__mobile-toggle {
     @apply inline-flex items-center justify-center rounded-md p-2 text-light-200 bg-transparent border border-white/5;
+  }
+
+  .nav__mobile-divider {
+    @apply my-2 h-px w-full bg-white/10;
   }
 
   .hero {
@@ -526,6 +595,46 @@
     @apply text-xs text-light-200;
   }
 
+  .detail__reviews-list {
+    @apply grid grid-cols-1 gap-4 lg:grid-cols-2;
+  }
+
+  .review-card {
+    @apply flex flex-col gap-3 rounded-2xl border border-white/5 bg-dark-100/80 p-5 shadow-sm;
+  }
+
+  .review-card__header {
+    @apply flex items-center gap-3;
+  }
+
+  .review-card__avatar {
+    @apply h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/5;
+  }
+
+  .review-card__avatar img {
+    @apply h-full w-full object-cover;
+  }
+
+  .review-card__avatar-placeholder {
+    @apply flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-500 to-indigo-600 font-bold text-white;
+  }
+
+  .review-card__meta h4 {
+    @apply text-sm font-semibold text-white;
+  }
+
+  .review-card__rating {
+    @apply mt-1 inline-flex items-center gap-1 rounded bg-yellow-500/10 px-1.5 py-0.5 text-xs font-semibold text-yellow-500;
+  }
+
+  .review-card__content {
+    @apply text-sm leading-relaxed text-light-200;
+  }
+
+  .detail__related {
+    @apply flex flex-col gap-6;
+  }
+
   .watch {
     @apply flex flex-col gap-6;
   }
@@ -665,6 +774,7 @@
     opacity: 0;
     transform: translateY(18px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -674,6 +784,7 @@
 @utility text-gradient {
   @apply bg-linear-to-r from-[#D6C7FF] to-[#AB8BFF] bg-clip-text text-transparent;
 }
+
 @utility fancy-text {
   -webkit-text-stroke: 5px rgba(206, 206, 251, 0.5);
   font-size: 190px;
@@ -694,6 +805,7 @@
     opacity: 0;
     transform: scale(0.96) translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);

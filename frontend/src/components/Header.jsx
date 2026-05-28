@@ -9,10 +9,9 @@ import { useDebounce } from 'react-use'
 import Search from './Search.jsx'
 import logo from '../assets/logo.svg'
 import { fetchGenres } from '../lib/tmdb'
-
+import { useNotifications } from '../hooks/useNotifications'
 const Header = () => {
   const menuItems = [
-    { id: 'topics', label: 'Topics' },
     { id: 'genres', label: 'Genres' },
     { id: 'movies', label: 'Movies' },
     { id: 'series', label: 'Series' }
@@ -21,6 +20,10 @@ const Header = () => {
   const [genresError, setGenresError] = useState('')
   const [genresOpen, setGenresOpen] = useState(false)
   const [mobileGenresOpen, setMobileGenresOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  
+  const { notifications, unreadCount, markAllAsRead } = useNotifications()
+  
   const [searchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get('query') || ''
@@ -165,6 +168,7 @@ const Header = () => {
     setMobileOpen(false)
     setGenresOpen(false)
     setMobileGenresOpen(false)
+    setNotificationsOpen(false)
   }, [location.pathname])
 
   const handleGenreSelect = (genreId) => {
@@ -184,16 +188,8 @@ const Header = () => {
             <img src={logo} alt="SBA Movies" />
             <span>SBA Movies</span>
           </Link>
-        </div>
-
-        <div className="nav__center">
-          <Search
-            className="nav__search"
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            placeholder="Search movies, actors"
-          />
-          <div className="nav__menu" role="list">
+          
+          <div className="nav__menu hidden lg:flex" role="list">
             {menuItems.map((item) => {
               if (item.id === 'genres') {
                 return (
@@ -266,8 +262,84 @@ const Header = () => {
           </div>
         </div>
 
+        <div className="nav__center">
+          <Search
+            className="nav__search"
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            placeholder="Search movies, actors"
+          />
+        </div>
+
         <div className="nav__right">
-          <button
+          <div className="nav__action-island hidden sm:flex">
+            {/* History Icon */}
+            <Link className="nav__action-btn" to="/history" aria-label="History" title="History">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </Link>
+
+            {/* Watchlist Icon */}
+            <Link className="nav__action-btn" to="/watchlist" aria-label="Watchlist" title="Watchlist">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              </svg>
+            </Link>
+
+            {/* Notifications Dropdown */}
+            <div className="relative flex">
+              <button 
+                className="nav__action-btn"
+                aria-label="Notifications"
+                title="Notifications"
+                onClick={() => setNotificationsOpen(v => !v)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="nav__badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                )}
+              </button>
+              
+              {notificationsOpen && (
+                <div className="nav__notifications-panel">
+                  <div className="nav__notifications-header">
+                    <h3>Notifications</h3>
+                    {unreadCount > 0 && (
+                      <button type="button" onClick={markAllAsRead}>Mark all read</button>
+                    )}
+                  </div>
+                  <div className="nav__notifications-list">
+                    {notifications.length === 0 ? (
+                      <p className="nav__notifications-empty">No notifications yet.</p>
+                    ) : (
+                      notifications.map(note => (
+                        <div key={note.id} className={`nav__notification-item ${!note.isRead ? 'nav__notification-item--unread' : ''}`}>
+                          <div className="nav__notification-icon">
+                             {note.type === 'episode' ? (
+                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                             ) : (
+                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                             )}
+                          </div>
+                          <div className="nav__notification-content">
+                            <p>{note.message}</p>
+                            <span>{new Date(note.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* <button
             className="nav__mobile-toggle"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileOpen}
@@ -282,18 +354,12 @@ const Header = () => {
                 <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               )}
             </svg>
-          </button>
+          </button> */}
 
-          <Link className="nav__member" to="/login">
-            <span className="nav__member-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" role="img">
-                <path
-                  d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Zm0 2c-3.866 0-7 3.134-7 7h2c0-2.757 2.243-5 5-5s5 2.243 5 5h2c0-3.866-3.134-7-7-7Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </span>
-            Member
+          <Link className="nav__avatar" to="/login" title="Member Profile">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Zm0 2c-3.866 0-7 3.134-7 7h2c0-2.757 2.243-5 5-5s5 2.243 5 5h2c0-3.866-3.134-7-7-7Z" />
+            </svg>
           </Link>
         </div>
       </nav>
@@ -354,6 +420,14 @@ const Header = () => {
                   </button>
                 )
               })}
+              
+              <div className="nav__mobile-divider" />
+              <Link className="nav__mobile-item" to="/watchlist" onClick={() => setMobileOpen(false)}>
+                My Watchlist
+              </Link>
+              <Link className="nav__mobile-item" to="/history" onClick={() => setMobileOpen(false)}>
+                Watch History
+              </Link>
             </div>
           </div>
         </div>
