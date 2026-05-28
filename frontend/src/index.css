@@ -123,7 +123,7 @@
   }
 
   .nav__genres-panel {
-    @apply absolute left-1/2 top-full mt-3 w-screen max-w-3xl -translate-x-1/2 rounded-2xl border border-white/10 bg-black/95 p-4 backdrop-blur;
+    @apply absolute left-0 top-full mt-3 w-[600px] max-w-[85vw] rounded-2xl border border-white/10 bg-black/95 p-4 backdrop-blur;
     box-shadow: 0 24px 60px rgba(3, 0, 20, 0.55);
     max-height: 60vh;
     overflow: auto;
