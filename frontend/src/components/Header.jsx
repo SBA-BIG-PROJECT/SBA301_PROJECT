@@ -8,18 +8,19 @@ import {
 import { useDebounce } from 'react-use'
 import Search from './Search.jsx'
 import logo from '../assets/logo.svg'
+import { fetchGenres } from '../lib/tmdb'
 
 const Header = () => {
   const menuItems = [
-    'Chu De',
-    'The loai',
-    'Phim Le',
-    'Phim Bo',
-    'Xem Chung',
-    'Quoc Gia',
-    'Dien Vien',
-    'Lich Chieu'
+    { id: 'topics', label: 'Topics' },
+    { id: 'genres', label: 'Genres' },
+    { id: 'movies', label: 'Movies' },
+    { id: 'series', label: 'Series' }
   ]
+  const [genres, setGenres] = useState([])
+  const [genresError, setGenresError] = useState('')
+  const [genresOpen, setGenresOpen] = useState(false)
+  const [mobileGenresOpen, setMobileGenresOpen] = useState(false)
   const [searchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get('query') || ''
@@ -29,8 +30,41 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false)
   const toggleRef = useRef(null)
   const panelRef = useRef(null)
+  const genresButtonRef = useRef(null)
+  const genresPanelRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
+
+  useEffect(() => {
+    let active = true
+
+    const loadGenres = async () => {
+      setGenresError('')
+
+      try {
+        const data = await fetchGenres()
+        if (!active) {
+          return
+        }
+
+        const sorted = (data?.genres || []).slice().sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+        setGenres(sorted)
+      } catch (error) {
+        console.error(`Error fetching genres: ${error}`)
+        if (active) {
+          setGenresError('Could not load genres.')
+        }
+      }
+    }
+
+    loadGenres()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     const query = searchParams.get('query') || ''
@@ -89,10 +123,56 @@ const Header = () => {
     return undefined
   }, [mobileOpen])
 
+  useEffect(() => {
+    if (!genresOpen) {
+      return
+    }
+
+    const handleClick = (event) => {
+      const target = event.target
+      if (
+        genresPanelRef.current?.contains(target) ||
+        genresButtonRef.current?.contains(target)
+      ) {
+        return
+      }
+
+      setGenresOpen(false)
+    }
+
+    const handleKey = (event) => {
+      if (event.key === 'Escape') {
+        setGenresOpen(false)
+      }
+    }
+
+    window.addEventListener('mousedown', handleClick)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [genresOpen])
+
+  useEffect(() => {
+    if (mobileOpen) {
+      setGenresOpen(false)
+    }
+  }, [mobileOpen])
+
   // close mobile panel on navigation
   useEffect(() => {
     setMobileOpen(false)
+    setGenresOpen(false)
+    setMobileGenresOpen(false)
   }, [location.pathname])
+
+  const handleGenreSelect = (genreId) => {
+    setGenresOpen(false)
+    setMobileOpen(false)
+    setMobileGenresOpen(false)
+    navigate(`/genre/${genreId}`)
+  }
 
   return (
     <header
@@ -111,18 +191,78 @@ const Header = () => {
             className="nav__search"
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
-            placeholder="Tim kiem phim, dien vien"
+            placeholder="Search movies, actors"
           />
           <div className="nav__menu" role="list">
-            {menuItems.map((item) => (
-              <button
-                className="nav__menu-item"
-                type="button"
-                key={item}
-              >
-                {item}
-              </button>
-            ))}
+            {menuItems.map((item) => {
+              if (item.id === 'genres') {
+                return (
+                  <div className="nav__menu-item--dropdown" key={item.id}>
+                    <button
+                      className="nav__menu-trigger"
+                      type="button"
+                      aria-expanded={genresOpen}
+                      aria-controls="genres-panel"
+                      onClick={() => setGenresOpen((value) => !value)}
+                      ref={genresButtonRef}
+                    >
+                      {item.label}
+                      <svg
+                        viewBox="0 0 20 20"
+                        className="nav__menu-caret"
+                        aria-hidden
+                      >
+                        <path
+                          d="M5.5 7.5 10 12l4.5-4.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                    {genresOpen && (
+                      <div
+                        className="nav__genres-panel"
+                        id="genres-panel"
+                        ref={genresPanelRef}
+                        role="listbox"
+                      >
+                        {genres.length === 0 ? (
+                          <p className="nav__genres-status">
+                            {genresError || 'Loading genres...'}
+                          </p>
+                        ) : (
+                          <div className="nav__genres-grid">
+                            {genres.map((genre) => (
+                              <button
+                                className="nav__genres-item"
+                                key={genre.id}
+                                type="button"
+                                onClick={() => handleGenreSelect(genre.id)}
+                              >
+                                {genre.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+
+              return (
+                <button
+                  className="nav__menu-item"
+                  type="button"
+                  key={item.id}
+                >
+                  {item.label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -153,7 +293,7 @@ const Header = () => {
                 />
               </svg>
             </span>
-            Thanh vien
+            Member
           </Link>
         </div>
       </nav>
@@ -163,16 +303,57 @@ const Header = () => {
           <div className="nav__mobile-scrim" onClick={() => setMobileOpen(false)} />
           <div className="nav__mobile-body" ref={panelRef}>
             <div className="nav__mobile-list">
-              {menuItems.map((item) => (
-                <button
-                  className="nav__mobile-item"
-                  key={item}
-                  type="button"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {item}
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                if (item.id === 'genres') {
+                  return (
+                    <div className="nav__mobile-section" key={item.id}>
+                      <button
+                        className="nav__mobile-item"
+                        type="button"
+                        aria-expanded={mobileGenresOpen}
+                        onClick={() =>
+                          setMobileGenresOpen((value) => !value)
+                        }
+                      >
+                        {item.label}
+                      </button>
+                      {mobileGenresOpen && (
+                        <div className="nav__mobile-genres">
+                          {genres.length === 0 ? (
+                            <p className="nav__genres-status">
+                              {genresError || 'Loading genres...'}
+                            </p>
+                          ) : (
+                            <div className="nav__mobile-genres-grid">
+                              {genres.map((genre) => (
+                                <button
+                                  className="nav__mobile-genre-item"
+                                  key={genre.id}
+                                  type="button"
+                                  onClick={() => handleGenreSelect(genre.id)}
+                                >
+                                  {genre.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+
+                return (
+                  <button
+                    className="nav__mobile-item"
+                    key={item.id}
+                    type="button"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {item.label}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>

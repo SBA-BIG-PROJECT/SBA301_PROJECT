@@ -94,14 +94,51 @@
 
   .nav__menu {
     @apply flex w-full items-center justify-center gap-4 text-xs uppercase tracking-[0.24em] text-light-200;
-    overflow-x: auto;
+    overflow: visible;
     white-space: nowrap;
-    @apply hide-scrollbar;
   }
 
   .nav__menu-item {
     @apply rounded-full border border-transparent px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-gray-100 transition;
     background: transparent;
+  }
+
+  .nav__menu-item--dropdown {
+    @apply relative;
+  }
+
+  .nav__menu-trigger {
+    @apply flex items-center gap-2 rounded-full border border-transparent px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-gray-100 transition;
+    background: transparent;
+  }
+
+  .nav__menu-trigger:hover,
+  .nav__menu-trigger[aria-expanded='true'] {
+    @apply border-yellow-200/30 text-light-100;
+    box-shadow: 0 0 12px rgba(255, 214, 128, 0.25);
+  }
+
+  .nav__menu-caret {
+    @apply h-3 w-3 text-light-200;
+  }
+
+  .nav__genres-panel {
+    @apply absolute left-1/2 top-full mt-3 w-screen max-w-3xl -translate-x-1/2 rounded-2xl border border-white/10 bg-black/95 p-4 shadow-[0_24px_60px_rgba(3,0,20,0.55)] backdrop-blur;
+    max-height: 60vh;
+    overflow: auto;
+    z-index: 60;
+  }
+
+  .nav__genres-grid {
+    @apply grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-4;
+  }
+
+  .nav__genres-item {
+    @apply rounded-lg px-3 py-2 text-left text-sm text-light-200 transition hover:text-light-100 hover:bg-white/5;
+  }
+
+  .nav__genres-status {
+    @apply text-xs uppercase tracking-[0.2em] text-light-200;
   }
 
   .nav__menu-item:hover {
@@ -173,6 +210,22 @@
 
   .nav__mobile-list {
     @apply flex flex-col gap-3;
+  }
+
+  .nav__mobile-section {
+    @apply flex flex-col gap-2;
+  }
+
+  .nav__mobile-genres {
+    @apply max-h-60 overflow-auto rounded-xl border border-white/10 bg-white/5 p-2;
+  }
+
+  .nav__mobile-genres-grid {
+    @apply grid grid-cols-2 gap-2;
+  }
+
+  .nav__mobile-genre-item {
+    @apply rounded-lg px-3 py-2 text-left text-sm text-light-200 transition hover:text-light-100 hover:bg-white/10;
   }
 
   .nav__mobile-item {
