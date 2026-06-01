@@ -12,3 +12,7 @@ spring:
 
   flyway:
     locations: classpath:database/migration
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
