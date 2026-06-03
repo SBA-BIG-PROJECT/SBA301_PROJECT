@@ -18,8 +18,3 @@ jwt:
   expiration: ${JWT_EXPIRATION}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION}
 
-app:
-  admin:
-    seed-enabled: ${ADMIN_SEED_ENABLED:false}
-    email: ${ADMIN_EMAIL:admin@example.com}
-    password: ${ADMIN_PASSWORD:}

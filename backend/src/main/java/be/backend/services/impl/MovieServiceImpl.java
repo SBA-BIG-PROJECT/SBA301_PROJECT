@@ -27,31 +27,21 @@ public class MovieServiceImpl implements MovieService {
 
     @Override
     @Transactional(readOnly = true)
+        // interface
     public PageResponse<MovieDto> getMovies(int page, int size, String search) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("addedAt").descending());
 
         Page<Movie> result = (search == null || search.isBlank())
                 ? movieRepository.findByIsActiveTrue(pageable)
-                : movieRepository.findByIsActiveTrueAndTitleContainingIgnoreCase(search, pageable);
+                : movieRepository.searchByKeyword(search.trim(), pageable);
 
-        List<MovieDto> content = result.getContent().stream()
-                .map(movieMapper::toDto)
-                .toList();
-
-        return PageResponse.<MovieDto>builder()
-                .content(content)
-                .page(result.getNumber())
-                .size(result.getSize())
-                .totalElements(result.getTotalElements())
-                .totalPages(result.getTotalPages())
-                .last(result.isLast())
-                .build();
+        return PageResponse.from(result.map(movieMapper::toDto));
     }
 
     @Override
     @Transactional(readOnly = true)
     public MovieDetailDto getMovieDetail(Integer id) {
-        Movie movie = movieRepository.findById(id)
+        Movie movie = movieRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim id=" + id));
         return movieMapper.toDetailDto(movie);
     }
