@@ -96,13 +96,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateReviewException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateReview(
             DuplicateReviewException ex, HttpServletRequest request) {
-        ErrorResponse body = ErrorResponse.builder()
-                .timestamp(Instant.now())
-                .status(HttpStatus.CONFLICT.value())
-                .error("Conflict")
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .build();
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(DuplicateWatchlistException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateWatchlist(
+            DuplicateWatchlistException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 }

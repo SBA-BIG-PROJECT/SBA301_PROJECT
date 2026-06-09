@@ -1,7 +1,6 @@
 package be.backend.services;
 
 import be.backend.model.dto.NotificationDto;
-import be.backend.model.dto.RecommendationDto;
 import be.backend.model.response.PageResponse;
 
 import java.util.List;
