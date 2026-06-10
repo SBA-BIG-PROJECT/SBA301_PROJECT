@@ -1,51 +1,134 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
+import { watchlistService, authService } from '../services'
 
 export const useWatchlist = () => {
-  const [watchlist, setWatchlist] = useState(() => {
-    try {
-      const item = window.localStorage.getItem('sba_watchlist')
-      return item ? JSON.parse(item) : []
-    } catch (error) {
-      console.warn('Error reading localStorage', error)
-      return []
-    }
-  })
+  const [watchlist, setWatchlist] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [initialized, setInitialized] = useState(false)
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('sba_watchlist', JSON.stringify(watchlist))
-    } catch (error) {
-      console.warn('Error setting localStorage', error)
+  // Fetch watchlist từ API
+  const fetchWatchlist = useCallback(async (pageNum = 0) => {
+    // Chỉ fetch nếu user đã đăng nhập
+    if (!authService.isAuthenticated()) {
+      return
     }
-  }, [watchlist])
 
-  const addToWatchlist = (movie) => {
-    setWatchlist((prev) => {
-      // Prevent duplicates
-      if (prev.find((item) => item.id === movie.id)) {
-        return prev
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await watchlistService.getMyWatchlist({
+        page: pageNum,
+        size: 20
+      })
+
+      if (pageNum === 0) {
+        setWatchlist(response.content || [])
+      } else {
+        setWatchlist((prev) => [...prev, ...(response.content || [])])
       }
-      return [movie, ...prev]
-    })
+
+      setHasMore(!response.last)
+      setPage(pageNum)
+      setInitialized(true)
+    } catch (err) {
+      console.error('Error fetching watchlist:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Initialize - call manually when component mounts
+  const initialize = useCallback(() => {
+    if (!initialized && authService.isAuthenticated()) {
+      fetchWatchlist(0)
+    }
+  }, [initialized, fetchWatchlist])
+
+  // Thêm movie vào watchlist
+  const addToWatchlist = async (movieId) => {
+    if (!authService.isAuthenticated()) {
+      throw new Error('Please login to add to watchlist')
+    }
+
+    try {
+      setError(null)
+      await watchlistService.addToWatchlist(movieId)
+      
+      // Refresh lại watchlist
+      await fetchWatchlist(0)
+      
+      return true
+    } catch (err) {
+      console.error('Error adding to watchlist:', err)
+      setError(err.response?.data?.message || err.message)
+      throw err
+    }
   }
 
-  const removeFromWatchlist = (movieId) => {
-    setWatchlist((prev) => prev.filter((item) => item.id !== movieId))
+  // Xóa movie khỏi watchlist
+  const removeFromWatchlist = async (movieId) => {
+    if (!authService.isAuthenticated()) {
+      throw new Error('Please login to remove from watchlist')
+    }
+
+    try {
+      setError(null)
+      await watchlistService.removeFromWatchlist(movieId)
+      
+      // Cập nhật local state
+      setWatchlist((prev) => prev.filter((item) => item.movieId !== movieId))
+      
+      return true
+    } catch (err) {
+      console.error('Error removing from watchlist:', err)
+      setError(err.response?.data?.message || err.message)
+      throw err
+    }
   }
 
-  const isInWatchlist = (movieId) => {
-    return watchlist.some((item) => item.id === movieId)
+  // Kiểm tra movie có trong watchlist không
+  const isInWatchlist = useCallback(async (movieId) => {
+    if (!authService.isAuthenticated()) {
+      return false
+    }
+
+    try {
+      const response = await watchlistService.checkInWatchlist(movieId)
+      return response.isInWatchlist
+    } catch (err) {
+      console.error('Error checking watchlist:', err)
+      return false
+    }
+  }, [])
+
+  // Load more items
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      fetchWatchlist(page + 1)
+    }
   }
 
-  const clearWatchlist = () => {
-    setWatchlist([])
+  // Refresh watchlist
+  const refresh = () => {
+    fetchWatchlist(0)
   }
 
   return {
     watchlist,
+    loading,
+    error,
+    hasMore,
+    initialized,
+    initialize,
     addToWatchlist,
     removeFromWatchlist,
     isInWatchlist,
-    clearWatchlist
+    loadMore,
+    refresh
   }
 }

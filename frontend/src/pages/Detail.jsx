@@ -3,30 +3,23 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import Spinner from '../components/Spinner.jsx'
 import heroImg from '../assets/hero-img.png'
 import noPoster from '../assets/No-Poster.svg'
-import {
-  BACKDROP_BASE_URL,
-  IMAGE_BASE_URL,
-  fetchMovie,
-  fetchMovieCredits,
-  fetchMovieReviews,
-  fetchRelatedMovies,
-  formatRating,
-  getYear
-} from '../lib/tmdb'
+import { movieService } from '../services'
 import { useWatchlist } from '../hooks/useWatchlist'
 import PosterCard from '../components/PosterCard.jsx'
+
+const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500'
+const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280'
 
 const Detail = () => {
   const { id } = useParams()
   const [movie, setMovie] = useState(null)
-  const [credits, setCredits] = useState(null)
-  const [reviews, setReviews] = useState([])
-  const [relatedMovies, setRelatedMovies] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [checkingWatchlist, setCheckingWatchlist] = useState(true)
+  const [inWatchlist, setInWatchlist] = useState(false)
   const navigate = useNavigate()
   
-  const { watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist } = useWatchlist()
+  const { addToWatchlist, removeFromWatchlist, isInWatchlist } = useWatchlist()
   
   useEffect(() => {
     let active = true
@@ -36,25 +29,21 @@ const Detail = () => {
       setErrorMessage('')
 
       try {
-        const [movieData, creditsData, reviewsData, relatedData] = await Promise.all([
-          fetchMovie(id),
-          fetchMovieCredits(id),
-          fetchMovieReviews(id),
-          fetchRelatedMovies(id)
-        ])
+        // Gọi Backend API
+        const movieData = await movieService.getMovieDetail(id)
 
-        if (!active) {
-          return
-        }
+        if (!active) return
 
         setMovie(movieData)
-        setCredits(creditsData)
-        setReviews(reviewsData.results || [])
-        setRelatedMovies(relatedData.results || [])
+        
+        // Check if in watchlist
+        const inList = await isInWatchlist(id)
+        setInWatchlist(inList)
+        setCheckingWatchlist(false)
       } catch (error) {
         console.error(`Error fetching details: ${error}`)
         if (active) {
-          setErrorMessage('Could not load movie details. Please try again.')
+          setErrorMessage('Could not load movie details. Please ensure backend is running.')
         }
       } finally {
         if (active) {
@@ -68,28 +57,55 @@ const Detail = () => {
     return () => {
       active = false
     }
-  }, [id])
+  }, [id, isInWatchlist])
+
+  const handleWatchlistToggle = async () => {
+    try {
+      if (inWatchlist) {
+        await removeFromWatchlist(parseInt(id))
+        setInWatchlist(false)
+      } else {
+        await addToWatchlist(parseInt(id))
+        setInWatchlist(true)
+      }
+    } catch (error) {
+      console.error('Watchlist error:', error)
+      alert('Failed to update watchlist. Please login first.')
+    }
+  }
 
   if (isLoading) {
     return <Spinner />
   }
 
   if (errorMessage) {
-    return <p className="status">{errorMessage}</p>
+    return (
+      <div className="container py-20">
+        <p className="status">{errorMessage}</p>
+        <button className="btn btn--primary mt-4" onClick={() => navigate('/')}>
+          Back to Home
+        </button>
+      </div>
+    )
   }
 
   if (!movie) {
-    return <p className="status">Movie not found.</p>
+    return (
+      <div className="container py-20">
+        <p className="status">Movie not found.</p>
+        <button className="btn btn--primary mt-4" onClick={() => navigate('/')}>
+          Back to Home
+        </button>
+      </div>
+    )
   }
 
-  const backdrop = movie.backdrop_path
-    ? `${BACKDROP_BASE_URL}${movie.backdrop_path}`
+  const backdrop = movie.posterPath
+    ? `${BACKDROP_BASE_URL}${movie.posterPath}`
     : heroImg
-  const poster = movie.poster_path
-    ? `${IMAGE_BASE_URL}${movie.poster_path}`
+  const poster = movie.posterPath
+    ? `${IMAGE_BASE_URL}${movie.posterPath}`
     : noPoster
-  const genres = movie.genres?.map((genre) => genre.name) || []
-  const cast = credits?.cast?.slice(0, 6) || []
 
   return (
     <section className="detail">
@@ -110,20 +126,30 @@ const Detail = () => {
             </div>
             <h2>{movie.title}</h2>
             <div className="detail__meta">
-              <span>{getYear(movie.release_date)}</span>
-              <span>•</span>
-              <span>{formatRating(movie.vote_average)}</span>
-              <span>•</span>
-              <span>{movie.runtime ? `${movie.runtime} min` : 'Runtime N/A'}</span>
+              <span>{movie.releaseYear || 'N/A'}</span>
+              {movie.rating && (
+                <>
+                  <span>•</span>
+                  <span>★ {movie.rating.toFixed(1)}</span>
+                </>
+              )}
+              {movie.runtime && (
+                <>
+                  <span>•</span>
+                  <span>{movie.runtime} min</span>
+                </>
+              )}
             </div>
             <p className="detail__overview">
               {movie.overview || 'Overview not available.'}
             </p>
-            <div className="detail__genres">
-              {genres.map((genre) => (
-                <span key={genre}>{genre}</span>
-              ))}
-            </div>
+            {movie.genres && movie.genres.length > 0 && (
+              <div className="detail__genres">
+                {movie.genres.map((genre) => (
+                  <span key={genre}>{genre}</span>
+                ))}
+              </div>
+            )}
             <div className="detail__actions">
               <button
                 className="btn btn--primary"
@@ -133,23 +159,15 @@ const Detail = () => {
                 Watch Trailer
               </button>
               
-              {isInWatchlist(movie.id) ? (
-                <button
-                  className="btn btn--ghost text-red-300 border-red-300/30 hover:border-red-400"
-                  type="button"
-                  onClick={() => removeFromWatchlist(movie.id)}
-                >
-                  Remove from Watchlist
-                </button>
-              ) : (
-                <button
-                  className="btn btn--ghost"
-                  type="button"
-                  onClick={() => addToWatchlist(movie)}
-                >
-                  Add to Watchlist
-                </button>
-              )}
+              <button
+                className="btn btn--ghost"
+                type="button"
+                onClick={handleWatchlistToggle}
+                disabled={checkingWatchlist}
+              >
+                {checkingWatchlist ? 'Loading...' : 
+                  inWatchlist ? '✓ In Watchlist' : '+ Add to Watchlist'}
+              </button>
               
               <button
                 className="btn btn--ghost"
@@ -163,110 +181,39 @@ const Detail = () => {
         </div>
       </div>
 
+      {/* Cast section - Backend chưa có endpoint này */}
       <div className="detail__cast">
         <div className="row__header">
           <h2>Top Cast</h2>
         </div>
         <div className="detail__cast-list">
-          {cast.length === 0 ? (
-            <p className="search-results__empty">
-              Cast list not available yet.
-            </p>
-          ) : (
-            cast.map((member) => (
-              <div className="detail__cast-card" key={member.id}>
-                <img
-                  src={
-                    member.profile_path
-                      ? `${IMAGE_BASE_URL}${member.profile_path}`
-                      : noPoster
-                  }
-                  alt={member.name}
-                />
-                <div>
-                  <p className="detail__cast-name">{member.name}</p>
-                  <p className="detail__cast-role">
-                    {member.character || 'Unknown role'}
-                  </p>
-                </div>
-              </div>
-            ))
-          )}
+          <p className="search-results__empty">
+            Cast information coming soon (Backend endpoint needed)
+          </p>
         </div>
       </div>
 
+      {/* Related movies - Backend chưa có endpoint này */}
       <div className="detail__related mt-10">
         <div className="row__header">
           <h2>Related Movies</h2>
         </div>
         <div className="row__list-wrapper pb-6">
-          <div className="row__list">
-            {relatedMovies.length === 0 ? (
-              <p className="search-results__empty">No related movies found.</p>
-            ) : (
-              relatedMovies.slice(0, 10).map((rm) => (
-                <PosterCard 
-                  key={rm.id} 
-                  movie={rm} 
-                  onSelect={() => navigate(`/movie/${rm.id}`)}
-                  onPlay={(e) => {
-                    navigate(`/watch/${rm.id}`)
-                  }}
-                />
-              ))
-            )}
-          </div>
+          <p className="search-results__empty">
+            Related movies coming soon (Backend endpoint needed)
+          </p>
         </div>
       </div>
 
+      {/* Reviews - Backend có endpoint rồi, tạm thời hiển thị message */}
       <div className="detail__reviews mt-10">
         <div className="row__header">
           <h2>Reviews</h2>
         </div>
         <div className="detail__reviews-list mt-6 grid gap-4 lg:grid-cols-2">
-          {reviews.length === 0 ? (
-            <p className="search-results__empty">No reviews yet.</p>
-          ) : (
-            reviews.slice(0, 4).map(review => {
-              let avatarUrl = review.author_details?.avatar_path;
-              if (avatarUrl) {
-                if (avatarUrl.startsWith('/https')) {
-                  avatarUrl = avatarUrl.substring(1);
-                } else {
-                  avatarUrl = `${IMAGE_BASE_URL}${avatarUrl}`;
-                }
-              }
-
-              return (
-                <div key={review.id} className="review-card">
-                  <div className="review-card__header">
-                    <div className="review-card__avatar">
-                      {avatarUrl ? (
-                        <img 
-                          src={avatarUrl} 
-                          alt={review.author} 
-                          onError={(e) => { e.target.style.display = 'none' }}
-                        />
-                      ) : (
-                        <div className="review-card__avatar-placeholder">
-                          {review.author.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <div className="review-card__meta">
-                      <h4>{review.author}</h4>
-                      {review.author_details?.rating && (
-                        <span className="review-card__rating">★ {review.author_details.rating}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="review-card__content line-clamp-4">
-                    <p>{review.content}</p>
-                  </div>
-                </div>
-              )
-            })
-          )}
+          <p className="search-results__empty">
+            Reviews feature coming soon (Use Review API)
+          </p>
         </div>
       </div>
     </section>

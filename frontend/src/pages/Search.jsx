@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Spinner from '../components/Spinner.jsx'
 import MovieCard from '../components/MovieCard.jsx'
-import { searchMovies } from '../lib/tmdb'
+import { movieService } from '../services'
 
 const SearchPage = () => {
   const [searchParams] = useSearchParams()
@@ -10,6 +10,8 @@ const SearchPage = () => {
   const [results, setResults] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -26,16 +28,18 @@ const SearchPage = () => {
       setErrorMessage('')
 
       try {
-        const data = await searchMovies(query)
-        if (!active) {
-          return
-        }
+        // Gọi Backend API search
+        const response = await movieService.searchMovies(query, 0, 20)
+        
+        if (!active) return
 
-        setResults(data.results || [])
+        setResults(response.content || [])
+        setHasMore(!response.last)
+        setPage(0)
       } catch (error) {
         console.error(`Error fetching search results: ${error}`)
         if (active) {
-          setErrorMessage('Could not load search results. Please try again.')
+          setErrorMessage('Could not load search results. Please ensure backend is running.')
         }
       } finally {
         if (active) {
@@ -51,41 +55,79 @@ const SearchPage = () => {
     }
   }, [query])
 
+  const loadMore = async () => {
+    if (isLoading || !hasMore || !query) return
+    
+    setIsLoading(true)
+    try {
+      const response = await movieService.searchMovies(query, page + 1, 20)
+      
+      setResults(prev => [...prev, ...(response.content || [])])
+      setHasMore(!response.last)
+      setPage(page + 1)
+    } catch (error) {
+      console.error('Error loading more:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <section className="search-results">
       <div className="row__header">
         <h2>Results for "{query || '...'}"</h2>
       </div>
 
-      {isLoading ? (
+      {isLoading && results.length === 0 ? (
         <Spinner />
       ) : errorMessage ? (
         <p className="status">{errorMessage}</p>
       ) : results.length === 0 ? (
         <p className="search-results__empty">
-          No results yet. Try another title.
+          {query ? 'No results found. Try another title.' : 'Enter a search query.'}
         </p>
       ) : (
-        <div className="search-results__grid">
-          {results.map((movie) => (
-            <div className="movie-card__cell" key={movie.id}>
-              <Link
-                className="movie-card__link"
-                to={`/movie/${movie.id}`}
-              >
-                <MovieCard movie={movie} />
-              </Link>
-              <div className="movie-card__actions">
-                <Link className="btn btn--ghost" to={`/movie/${movie.id}`}>
-                  Chi tiet
+        <>
+          <div className="search-results__grid">
+            {results.map((movie) => (
+              <div className="movie-card__cell" key={movie.id}>
+                <Link
+                  className="movie-card__link"
+                  to={`/movie/${movie.id}`}
+                >
+                  <MovieCard movie={{
+                    id: movie.id,
+                    title: movie.title,
+                    poster_path: movie.posterPath,
+                    vote_average: movie.rating,
+                    release_date: movie.releaseYear?.toString(),
+                    overview: movie.overview
+                  }} />
                 </Link>
-                <Link className="btn btn--primary" to={`/watch/${movie.id}`}>
-                  Trailer
-                </Link>
+                <div className="movie-card__actions">
+                  <Link className="btn btn--ghost" to={`/movie/${movie.id}`}>
+                    Chi tiết
+                  </Link>
+                  <Link className="btn btn--primary" to={`/watch/${movie.id}`}>
+                    Trailer
+                  </Link>
+                </div>
               </div>
+            ))}
+          </div>
+          
+          {hasMore && (
+            <div className="row__footer mt-8">
+              <button 
+                className="btn btn--ghost" 
+                onClick={loadMore}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Loading...' : 'Load More'}
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </section>
   )
