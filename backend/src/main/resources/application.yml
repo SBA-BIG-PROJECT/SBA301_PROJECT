@@ -18,3 +18,11 @@ jwt:
   expiration: ${JWT_EXPIRATION}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION}
 
+
+sepay:
+  account-number: ${SEPAY_ACCOUNT_NUMBER}      # bank account linked in SePay
+  account-name:   ${SEPAY_ACCOUNT_NAME}        # holder name (for display)
+  bank:           ${SEPAY_BANK}                # VietQR bank short name, e.g. "Vietcombank", "MBBank", "TPBank"
+  api-key:        ${SEPAY_API_KEY}             # webhook key; SePay sends "Authorization: Apikey <key>"
+  prefix:         MOVIE                         # transfer-content prefix => content is "MOVIE<orderCode>"
+  qr-base-url:    https://qr.sepay.vn/img

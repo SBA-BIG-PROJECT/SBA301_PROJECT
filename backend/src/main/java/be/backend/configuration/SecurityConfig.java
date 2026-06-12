@@ -37,7 +37,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout",
-                                "/swagger-ui.html")
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/api/payments/webhook"
+                                )
                         .permitAll()
                         .anyRequest().authenticated()
                 )

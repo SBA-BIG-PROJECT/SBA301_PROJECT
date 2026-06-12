@@ -81,6 +81,28 @@ public class GlobalExceptionHandler {
                 "Đã có lỗi xảy ra, vui lòng thử lại sau", request);
     }
 
+    @ExceptionHandler(DuplicateReviewException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateReview(
+            DuplicateReviewException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(DuplicateWatchlistException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateWatchlist(
+            DuplicateWatchlistException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+    @ExceptionHandler(PaymentProcessingException.class)
+    public ResponseEntity<ErrorResponse> handlePayment(PaymentProcessingException ex,
+                                                       HttpServletRequest req) {
+        return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), req);
+    }
+    @ExceptionHandler(UnauthorizedWebhookException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorized(UnauthorizedWebhookException ex,
+                                                            HttpServletRequest req) {
+        return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req);
+    }
+
     private ResponseEntity<ErrorResponse> build(
             HttpStatus status, String message, HttpServletRequest request) {
         ErrorResponse body = ErrorResponse.builder()
@@ -93,15 +115,4 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(body);
     }
 
-    @ExceptionHandler(DuplicateReviewException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateReview(
-            DuplicateReviewException ex, HttpServletRequest request) {
-        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
-    }
-
-    @ExceptionHandler(DuplicateWatchlistException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateWatchlist(
-            DuplicateWatchlistException ex, HttpServletRequest request) {
-        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
-    }
 }
