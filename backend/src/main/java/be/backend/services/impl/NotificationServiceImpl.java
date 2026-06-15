@@ -1,6 +1,7 @@
 package be.backend.services.impl;
 
 import be.backend.entity.Notification;
+import be.backend.entity.Recommendation;
 import be.backend.entity.User;
 import be.backend.exception.ResourceNotFoundException;
 import be.backend.model.dto.NotificationDto;
@@ -32,9 +33,6 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional(readOnly = true)
     public Long countUnreadNotifications() {
         User user = getCurrentUser();
-        if (user == null) {
-            return 0L;
-        }
         return notificationRepository.countByUser_IdAndIsReadFalse(user.getId());
     }
 
@@ -42,8 +40,6 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional(readOnly = true)
     public PageResponse<NotificationDto> getNotifications(int page, int size) {
         User user = getCurrentUser();
-        if (user == null) return PageResponse.<NotificationDto>builder().content(List.of()).page(0).size(0).totalElements(0).totalPages(0).last(true).build();
-
         Pageable pageable = PageRequest.of(page, size);
         var pageResult = notificationRepository.findByUser_IdOrderByCreatedAtDesc(user.getId(), pageable);
         List<NotificationDto> content = pageResult.getContent().stream().map(this::toDto).collect(Collectors.toList());
@@ -56,27 +52,38 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void markAsRead(Integer notificationId) {
         User user = getCurrentUser();
-        if (user == null) {
-            return;
-        }
-        Notification n = notificationRepository
-                .findByIdAndUser_Id(notificationId, user.getId())
-                .orElse(null);
-        if (n == null) {
-            return;
-        }
-        n.setIsRead(true);
+        Notification notification =
+                notificationRepository
+                        .findByIdAndUser_Id(
+                                notificationId,
+                                user.getId()
+                        )
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Không tìm thấy notification: "
+                                                + notificationId
+                                )
+                        );
+
+        notification.setIsRead(true);
     }
 
     @Override
     @Transactional
     public void markAllAsRead() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByEmail(email).orElse(null);
-        if (user == null) return;
-        var list = notificationRepository.findByUser_IdAndIsReadFalseOrderByCreatedAtDesc(user.getId());
-        list.forEach(n -> n.setIsRead(true));
-        notificationRepository.saveAll(list);
+
+        User user = getCurrentUser();
+
+        List<Notification> notifications =
+                notificationRepository
+                        .findByUser_IdAndIsReadFalseOrderByCreatedAtDesc(
+                                user.getId()
+                        );
+
+        notifications.forEach(
+                notification ->
+                        notification.setIsRead(true)
+        );
     }
 
     @Override
@@ -85,19 +92,37 @@ public class NotificationServiceImpl implements NotificationService {
 
         User user = getCurrentUser();
 
-        if (user == null) {
-            return;
-        }
-
-        Notification notification = notificationRepository
-                .findByIdAndUser_Id(notificationId, user.getId())
-                .orElse(null);
-
-        if (notification == null) {
-            return;
-        }
+        Notification notification =
+                notificationRepository
+                        .findByIdAndUser_Id(
+                                notificationId,
+                                user.getId()
+                        )
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Không tìm thấy notification: "
+                                                + notificationId
+                                )
+                        );
 
         notificationRepository.delete(notification);
+    }
+
+    @Override
+    public void createRecommendationNotification(User user, Recommendation recommendation) {
+        Notification notification = new Notification();
+
+        notification.setUser(user);
+        notification.setRec(recommendation);
+
+        notification.setMessage(
+                "🎬 Chúng tôi đề xuất phim: "
+                        + recommendation.getTmdb().getTitle()
+                        + " - "
+                        + recommendation.getReason()
+        );
+
+        notificationRepository.save(notification);
     }
 
     // ---- helpers ----
