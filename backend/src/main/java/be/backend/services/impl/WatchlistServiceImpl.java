@@ -79,8 +79,8 @@ public class WatchlistServiceImpl implements WatchlistService {
     @Transactional
     public void removeFromWatchlist(Integer movieId) {
         User user = getCurrentUser();
-        Watchlist watchlist = watchlistRepository.findByUser_IdAndTmdb_Id(user.getId(), movieId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim id=" + movieId + " trong Watchlist của bạn"));
+        Watchlist watchlist = watchlistRepository.findByUser_IdAndTmdb_Id(user.getId(), movieId);
+//                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim id=" + movieId + " trong Watchlist của bạn"));
         watchlistRepository.delete(watchlist);
     }
 

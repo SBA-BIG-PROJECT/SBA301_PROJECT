@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
+import java.util.List;
+
 public interface ReviewRepository extends JpaRepository<Review, Integer> {
 
     Page<Review> findByTmdb_IdOrderByCreatedAtDesc(Integer movieId, Pageable pageable);
@@ -17,4 +20,9 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
     @Query("SELECT new be.backend.model.dto.RatingSummaryDto(AVG(r.rating), COUNT(r)) " +
             "FROM Review r WHERE r.tmdb.id = :movieId")
     RatingSummaryDto getRatingSummary(@Param("movieId") Integer movieId);
+
+    List<Review> findByUser_IdAndRatingGreaterThanEqual(
+            Integer userId,
+            BigDecimal rating
+    );
 }
