@@ -2,6 +2,7 @@ package be.backend.exception;
 
 import be.backend.model.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,6 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     // Sai email/mật khẩu (từ authenticationManager.authenticate)
@@ -73,10 +75,18 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    // Chức năng chưa được implement -> 501
+    @ExceptionHandler(UnsupportedOperationException.class)
+    public ResponseEntity<ErrorResponse> handleUnsupportedOperation(
+            UnsupportedOperationException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), request);
+    }
+
     // Mọi lỗi còn lại -> 500 (không lộ stack trace)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(
             Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception occurred: ", ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR,
                 "Đã có lỗi xảy ra, vui lòng thử lại sau", request);
     }

@@ -31,6 +31,12 @@ public class User {
     @Column(name = "age")
     private Integer age;
 
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+
+    @Column(name = "avatar_public_id")
+    private String avatarPublicId;
+
     @ColumnDefault("'VIEWER'")
     @Column(name = "role", nullable = false, length = 20)
     private String role;

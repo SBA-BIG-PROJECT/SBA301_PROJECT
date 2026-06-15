@@ -18,6 +18,8 @@ public interface UserMapper {
     @Mapping(target = "isPremium", ignore = true)
     @Mapping(target = "premiumExpiresAt", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "avatarUrl", ignore = true)
+    @Mapping(target = "avatarPublicId", ignore = true)
     @Mapping(target = "chatSessions", ignore = true)
     @Mapping(target = "movies", ignore = true)
     @Mapping(target = "notifications", ignore = true)

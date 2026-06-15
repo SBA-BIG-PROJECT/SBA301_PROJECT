@@ -12,6 +12,7 @@ public class UserDto {
     private String email;
     private String fullName;
     private Integer age;
+    private String avatarUrl;
     private String role;
     private Boolean isPremium;
     private Instant premiumExpiresAt;
