@@ -27,17 +27,20 @@ public class MovieServiceImpl implements MovieService {
 
     @Override
     @Transactional(readOnly = true)
-        // interface
-    public PageResponse<MovieDto> getMovies(int page, int size, String search) {
+    public PageResponse<MovieDto> getMovies(int page, int size, String search, Integer genreId) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("addedAt").descending());
 
-        Page<Movie> result = (search == null || search.isBlank())
-                ? movieRepository.findByIsActiveTrue(pageable)
-                : movieRepository.searchByKeyword(search.trim(), pageable);
+        Page<Movie> result;
+        if (genreId != null) {
+            result = movieRepository.findActiveByGenre(genreId, pageable);
+        } else if (search != null && !search.isBlank()) {
+            result = movieRepository.searchByKeyword(search.trim(), pageable);
+        } else {
+            result = movieRepository.findByIsActiveTrue(pageable);
+        }
 
         return PageResponse.from(result.map(movieMapper::toDto));
     }
-
     @Override
     @Transactional(readOnly = true)
     public MovieDetailDto getMovieDetail(Integer id) {

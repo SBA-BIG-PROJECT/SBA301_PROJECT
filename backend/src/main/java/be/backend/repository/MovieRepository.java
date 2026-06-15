@@ -51,4 +51,11 @@ public interface MovieRepository extends JpaRepository<Movie, Integer> {
                                 @Param("actor") String actor,
                                 @Param("director") String director,
                                 Pageable pageable);
+    @Query("""
+        SELECT m FROM Movie m
+        JOIN m.movieGenres mg
+        WHERE m.isActive = true
+          AND mg.genre.id = :genreId
+        """)
+    Page<Movie> findActiveByGenre(@Param("genreId") Integer genreId, Pageable pageable);
 }
