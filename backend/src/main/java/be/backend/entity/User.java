@@ -37,7 +37,7 @@ public class User {
     @Column(name = "avatar_public_id")
     private String avatarPublicId;
 
-    @ColumnDefault("'VIEWER'")
+    @ColumnDefault("'USER'")
     @Column(name = "role", nullable = false, length = 20)
     private String role;
 
@@ -51,6 +51,22 @@ public class User {
     @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    // Admin fields from V9 migration
+    @Column(name = "admin_notes", columnDefinition = "TEXT")
+    private String adminNotes;
+
+    @Column(name = "banned_at")
+    private Instant bannedAt;
+
+    @Column(name = "banned_reason", length = 500)
+    private String bannedReason;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    @Column(name = "last_login_at")
+    private Instant lastLoginAt;
 
     @OneToMany
     @JoinColumn(name = "user_id")

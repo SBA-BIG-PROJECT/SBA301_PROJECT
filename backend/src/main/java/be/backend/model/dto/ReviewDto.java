@@ -15,4 +15,7 @@ public class ReviewDto {
     private Instant createdAt;
     private Integer userId;
     private String userName;
+    private String userAvatar;
+    private Integer movieId;
+    private String movieTitle;
 }

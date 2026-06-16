@@ -1,7 +1,7 @@
 package be.backend.repository;
 
 import be.backend.entity.Movie;
-import be.backend.entity.MovieGenre;
+import be.backend.entity.MovieCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
@@ -10,9 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Repository
-public interface MovieGenreRepository extends JpaRepository<MovieGenre, Integer> {
-    List<MovieGenre> findByTmdb_Id(Integer tmdbId);
-    List<MovieGenre> findByGenre_Id(Integer genreId);
+public interface MovieCategoryRepository extends JpaRepository<MovieCategory, Integer> {
+    List<MovieCategory> findByTmdb_Id(Integer tmdbId);
     
     @Transactional
     @Modifying

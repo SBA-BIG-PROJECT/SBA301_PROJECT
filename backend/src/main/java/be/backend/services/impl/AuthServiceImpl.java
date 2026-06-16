@@ -41,7 +41,7 @@ public class AuthServiceImpl implements AuthService {
 
         User user = userMapper.toEntity(request);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setRole("VIEWER");
+        user.setRole("USER");  // Default role is USER
         user.setIsPremium(false);
         user.setCreatedAt(Instant.now());
         userRepository.save(user);

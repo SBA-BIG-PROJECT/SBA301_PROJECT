@@ -18,8 +18,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Security Configuration
+ * Configures authentication, authorization, and security filters
+ * 
+ * Role-based access control:
+ * - USER: Regular users with access to user endpoints
+ * - ADMIN: Administrators with access to admin panel
+ */
 @Configuration
-@EnableMethodSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -32,18 +40,24 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // Public endpoints - no authentication required
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout",
-                                "/api/v1/movies/**",
+                                "/api/v1/movies/**",          // Public movie browsing
+                                "/api/v1/genres/**",          // Public genre list
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/api/payments/webhook"
-                                )
-                        .permitAll()
+                                "/api/payments/webhook"       // Payment webhook
+                        ).permitAll()
+                        
+                        // Admin endpoints - require ADMIN role
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        
+                        // All other endpoints - require authentication (USER or ADMIN)
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
