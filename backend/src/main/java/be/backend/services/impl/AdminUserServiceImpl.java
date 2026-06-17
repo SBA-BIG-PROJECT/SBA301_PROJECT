@@ -1,7 +1,6 @@
 package be.backend.services.impl;
 
 import be.backend.entity.User;
-import be.backend.enums.PremiumPlan;
 import be.backend.enums.UserRole;
 import be.backend.exception.ResourceNotFoundException;
 import be.backend.mapper.AdminUserMapper;
@@ -9,8 +8,6 @@ import be.backend.model.dto.AdminPaymentDto;
 import be.backend.model.dto.AdminUserDto;
 import be.backend.model.dto.ReviewDto;
 import be.backend.model.dto.ViewHistoryDto;
-import be.backend.model.dto.WatchlistDto;
-import be.backend.model.request.AdminGrantPremiumRequest;
 import be.backend.model.request.AdminUpdateUserRequest;
 import be.backend.model.response.AdminUserDetailResponse;
 import be.backend.model.response.PageResponse;
@@ -89,19 +86,11 @@ public class AdminUserServiceImpl implements AdminUserService {
     public AdminUserDto updateUser(Integer userId, AdminUpdateUserRequest request) {
         User user = findUserById(userId);
         
-        if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
-            if (userRepository.existsByEmail(request.getEmail())) {
-                throw new IllegalArgumentException("Email already exists");
-            }
-            user.setEmail(request.getEmail());
-        }
+        // Admin can only update fullName and adminNotes
+        // Email and age cannot be changed by admin
         
         if (request.getFullName() != null) {
             user.setFullName(request.getFullName());
-        }
-        
-        if (request.getAge() != null) {
-            user.setAge(request.getAge());
         }
         
         if (request.getAdminNotes() != null) {
@@ -112,7 +101,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUserDto dto = adminUserMapper.toAdminDto(updated);
         enrichUserStats(dto, updated);
         
-        log.info("Admin updated user: {}", userId);
+        log.info("Admin updated user: {} (fullName and/or adminNotes)", userId);
         return dto;
     }
 
@@ -144,33 +133,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
     }
 
-    @Override
-    public AdminUserDto grantPremium(Integer userId, AdminGrantPremiumRequest request) {
-        User user = findUserById(userId);
-        
-        try {
-            PremiumPlan plan = PremiumPlan.valueOf(request.getPlanType().toUpperCase());
-            
-            Instant now = Instant.now();
-            Instant baseTime = user.getIsPremium() && user.getPremiumExpiresAt() != null 
-                              && user.getPremiumExpiresAt().isAfter(now)
-                ? user.getPremiumExpiresAt() // Stack on existing
-                : now; // Start fresh
-            
-            user.setIsPremium(true);
-            user.setPremiumExpiresAt(plan.addTo(baseTime));
-            
-            User updated = userRepository.save(user);
-            AdminUserDto dto = adminUserMapper.toAdminDto(updated);
-            enrichUserStats(dto, updated);
-            
-            log.info("Admin granted {} premium to user: {}, reason: {}", 
-                    plan, userId, request.getReason());
-            return dto;
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid plan type: " + request.getPlanType());
-        }
-    }
+    // Grant Premium method removed - Admin cannot manually grant premium
+    // Premium is only granted through payment system
 
     @Override
     public AdminUserDto revokePremium(Integer userId) {

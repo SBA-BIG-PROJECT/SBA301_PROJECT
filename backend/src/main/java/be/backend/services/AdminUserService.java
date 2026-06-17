@@ -1,7 +1,6 @@
 package be.backend.services;
 
 import be.backend.model.dto.AdminUserDto;
-import be.backend.model.request.AdminGrantPremiumRequest;
 import be.backend.model.request.AdminUpdateUserRequest;
 import be.backend.model.response.AdminUserDetailResponse;
 import be.backend.model.response.PageResponse;
@@ -38,11 +37,6 @@ public interface AdminUserService {
      * Change user role
      */
     AdminUserDto changeUserRole(Integer userId, String newRole);
-    
-    /**
-     * Grant premium access to user
-     */
-    AdminUserDto grantPremium(Integer userId, AdminGrantPremiumRequest request);
     
     /**
      * Revoke premium access from user

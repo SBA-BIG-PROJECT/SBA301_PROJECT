@@ -1,7 +1,6 @@
 package be.backend.controller;
 
 import be.backend.model.dto.AdminUserDto;
-import be.backend.model.request.AdminGrantPremiumRequest;
 import be.backend.model.request.AdminUpdateUserRequest;
 import be.backend.model.response.AdminUserDetailResponse;
 import be.backend.model.response.MessageResponse;
@@ -92,18 +91,6 @@ public class AdminUserController {
         }
         
         return ResponseEntity.ok(adminUserService.changeUserRole(userId, newRole));
-    }
-
-    /**
-     * Grant premium access to user
-     * POST /api/v1/admin/users/{userId}/premium
-     */
-    @PostMapping("/{userId}/premium")
-    public ResponseEntity<AdminUserDto> grantPremium(
-            @PathVariable Integer userId,
-            @Valid @RequestBody AdminGrantPremiumRequest request) {
-        
-        return ResponseEntity.ok(adminUserService.grantPremium(userId, request));
     }
 
     /**
