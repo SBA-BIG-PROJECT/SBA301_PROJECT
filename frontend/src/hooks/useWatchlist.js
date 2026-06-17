@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { watchlistService, authService } from '../services'
 
 export const useWatchlist = () => {
@@ -25,10 +25,20 @@ export const useWatchlist = () => {
         size: 20
       })
 
+      const mappedContent = (response.content || []).map((item) => ({
+        id: item.movieId, // Map movieId to id so that Link/MovieCard references the correct ID
+        watchlistId: item.id,
+        movieId: item.movieId,
+        title: item.movieTitle,
+        poster_path: item.posterPath,
+        vote_average: item.voteAverage,
+        release_date: item.releaseDate ? item.releaseDate.toString() : ''
+      }))
+
       if (pageNum === 0) {
-        setWatchlist(response.content || [])
+        setWatchlist(mappedContent)
       } else {
-        setWatchlist((prev) => [...prev, ...(response.content || [])])
+        setWatchlist((prev) => [...prev, ...mappedContent])
       }
 
       setHasMore(!response.last)
@@ -42,12 +52,13 @@ export const useWatchlist = () => {
     }
   }, [])
 
-  // Initialize - call manually when component mounts
-  const initialize = useCallback(() => {
-    if (!initialized && authService.isAuthenticated()) {
+  // Auto-fetch khi hook được mount và user đã đăng nhập
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
       fetchWatchlist(0)
     }
-  }, [initialized, fetchWatchlist])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Thêm movie vào watchlist
   const addToWatchlist = async (movieId) => {
@@ -124,7 +135,6 @@ export const useWatchlist = () => {
     error,
     hasMore,
     initialized,
-    initialize,
     addToWatchlist,
     removeFromWatchlist,
     isInWatchlist,

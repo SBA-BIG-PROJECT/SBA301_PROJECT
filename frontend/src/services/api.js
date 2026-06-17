@@ -16,7 +16,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token')
-    if (token) {
+    if (token && token !== 'undefined') {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
@@ -50,7 +50,8 @@ apiClient.interceptors.response.use(
           { withCredentials: true }
         )
 
-        const { accessToken, refreshToken: newRefreshToken } = response.data
+        const accessToken = response.data.token || response.data.accessToken
+        const newRefreshToken = response.data.refreshToken
 
         // Lưu token mới
         localStorage.setItem('access_token', accessToken)

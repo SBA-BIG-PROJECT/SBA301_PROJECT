@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { authService } from '../services'
 
 const Login = () => {
@@ -8,6 +8,10 @@ const Login = () => {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const from = location.state?.from || '/'
+  const message = location.state?.message || ''
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -27,7 +31,7 @@ const Login = () => {
       if (isAdmin) {
         navigate('/admin/dashboard')
       } else {
-        navigate('/')
+        navigate(from, { replace: true })
       }
     } catch (err) {
       console.error('Login error:', err)
@@ -41,6 +45,7 @@ const Login = () => {
     <section className="auth">
       <div className="auth__card">
         <h2>Welcome back</h2>
+        {message && <div className="p-3 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">{message}</div>}
         {error && <p className="status" style={{ color: 'red' }}>{error}</p>}
 
         <form className="auth__form" onSubmit={handleSubmit}>

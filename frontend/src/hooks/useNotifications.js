@@ -74,7 +74,7 @@ export const useNotifications = () => {
       
       // Cập nhật local state
       setNotifications((prev) =>
-        prev.map((n) => ({ ...n, read: true }))
+        prev.map((n) => ({ ...n, isRead: true }))
       )
       setUnreadCount(0)
     } catch (err) {
@@ -95,7 +95,7 @@ export const useNotifications = () => {
       // Cập nhật local state
       setNotifications((prev) =>
         prev.map((n) =>
-          n.id === notificationId ? { ...n, read: true } : n
+          n.id === notificationId ? { ...n, isRead: true } : n
         )
       )
       setUnreadCount((prev) => Math.max(0, prev - 1))
@@ -118,7 +118,7 @@ export const useNotifications = () => {
       const notification = notifications.find((n) => n.id === notificationId)
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
       
-      if (notification && !notification.read) {
+      if (notification && !notification.isRead) {
         setUnreadCount((prev) => Math.max(0, prev - 1))
       }
     } catch (err) {

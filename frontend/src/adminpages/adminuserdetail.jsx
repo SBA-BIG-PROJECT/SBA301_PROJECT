@@ -1,10 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AdminTaskbar from './admintaskbar.jsx';
+import { adminService } from '../services';
+import Spinner from '../components/Spinner.jsx';
 
 const AdminUserDetail = () => {
     const { id } = useParams();
     const [activeTab, setActiveTab] = useState('payment');
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchUserDetail = async () => {
+            try {
+                setLoading(true);
+                const data = await adminService.getUserDetail(id);
+                setUser(data);
+            } catch (err) {
+                console.error("Error fetching user details", err);
+                setError("Could not load user details");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchUserDetail();
+    }, [id]);
+
+    const handleRoleChange = async () => {
+        if (!user) return;
+        const newRole = user.role === 'ADMIN' ? 'USER' : 'ADMIN';
+        if (window.confirm(`Are you sure you want to change role to ${newRole}?`)) {
+            try {
+                await adminService.changeUserRole(id, newRole);
+                setUser(prev => ({ ...prev, role: newRole }));
+            } catch (err) {
+                alert("Failed to change role");
+            }
+        }
+    };
+
+    const handleToggleDisable = async () => {
+        if (!user) return;
+        const action = user.isActive ? 'disable' : 'enable';
+        if (window.confirm(`Are you sure you want to ${action} this account?`)) {
+            try {
+                if (user.isActive) {
+                    await adminService.deleteUser(id);
+                } else {
+                    // Update user to active via updateUser if backend supports it, otherwise reload
+                    await adminService.updateUser(id, { isActive: true });
+                }
+                const data = await adminService.getUserDetail(id);
+                setUser(data);
+            } catch (err) {
+                alert(`Failed to ${action} account`);
+            }
+        }
+    };
+
+    if (loading) return <div className="flex justify-center p-12"><Spinner /></div>;
+    if (error) return <div className="text-red-500 p-12">{error}</div>;
+    if (!user) return <div className="text-white p-12">User not found</div>;
 
     return (
         <div className="bg-[#0F172A] text-[#f8fafc] font-['Inter'] min-h-screen flex antialiased">
@@ -55,7 +112,7 @@ const AdminUserDetail = () => {
                         <div className="flex items-center gap-[4px] text-[#94A3B8] text-[12px] uppercase font-medium">
                             <Link to="/admin/users" className="hover:text-[#E50914] transition-colors">Users</Link>
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-                            <span className="text-[#f8fafc]">USR-89241</span>
+                            <span className="text-[#f8fafc]">USR-{user.id}</span>
                         </div>
                     </div>
 
@@ -65,29 +122,37 @@ const AdminUserDetail = () => {
                         <div className="absolute -top-[64px] -left-[64px] w-64 h-64 bg-[#E50914]/5 rounded-full blur-3xl pointer-events-none"></div>
                         
                         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-[24px] relative z-10 w-full md:w-auto">
-                            <img 
-                                alt="User Profile" 
-                                className="w-[64px] h-[64px] rounded-full object-cover border-2 border-[#0F172A] bg-[#334155] shadow-[0_4px_20px_rgba(0,0,0,0.5)]" 
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzvlPI9ldWFQB6U2QHlRFmTCijNy8h8VGIr2nNHWuLhUN1bAg7eeMhKH-_CTX7kMdscOzBCJ1yEQ00t50HcM5NDPE81wyr5mqP8GD3qZ58hiPGlbheLhySMPKekRaBUMZE4FE20dFL5Z9Ill0X15ogwO9mb6shDBoagJlfppv-f29oeB_JMYI7nUR2DyFJoSLwRK3vuKUP4MDiSbnmQSrjEk6NyAKoZja483lwkeJfJrBAPtMdw8v7fr7nD4vdU1qAbad5LGBr0z-V"
-                            />
+                            {user.avatarUrl ? (
+                                <img 
+                                    alt="User Profile" 
+                                    className="w-[64px] h-[64px] rounded-full object-cover border-2 border-[#0F172A] bg-[#334155] shadow-[0_4px_20px_rgba(0,0,0,0.5)]" 
+                                    src={user.avatarUrl}
+                                />
+                            ) : (
+                                <div className="w-[64px] h-[64px] rounded-full object-cover border-2 border-[#0F172A] bg-[#334155] shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center text-xl font-bold">
+                                    {user.fullName ? user.fullName.substring(0, 2).toUpperCase() : 'U'}
+                                </div>
+                            )}
                             <div className="flex flex-col items-center sm:items-start gap-[4px] text-center sm:text-left mt-[8px] sm:mt-0">
                                 <div className="flex items-center gap-[8px]">
-                                    <h2 className="text-[24px] md:text-[32px] font-bold text-[#f8fafc] m-0">Eleanor Vance</h2>
-                                    <span className="px-[8px] py-[4px] rounded bg-[#7bd0ff]/20 border border-[#7bd0ff] text-[#7bd0ff] text-[12px] uppercase tracking-wider font-medium">Premium</span>
+                                    <h2 className="text-[24px] md:text-[32px] font-bold text-[#f8fafc] m-0">{user.fullName || 'Unknown User'}</h2>
+                                    {user.isPremium && <span className="px-[8px] py-[4px] rounded bg-[#7bd0ff]/20 border border-[#7bd0ff] text-[#7bd0ff] text-[12px] uppercase tracking-wider font-medium">Premium</span>}
+                                    {user.role === 'ADMIN' && <span className="px-[8px] py-[4px] rounded bg-[#e50914]/20 border border-[#e50914] text-[#e50914] text-[12px] uppercase tracking-wider font-medium">Admin</span>}
+                                    {!user.isActive && <span className="px-[8px] py-[4px] rounded bg-red-500/20 border border-red-500 text-red-400 text-[12px] uppercase tracking-wider font-medium">Disabled</span>}
                                 </div>
-                                <p className="text-[14px] text-[#94A3B8] mb-[4px]">eleanor.vance@example.com <span className="mx-[4px] text-[#334155]">•</span> +1 (555) 019-2834</p>
-                                <p className="text-[12px] text-[#94A3B8] uppercase opacity-70 font-medium">Member since Oct 2021</p>
+                                <p className="text-[14px] text-[#94A3B8] mb-[4px]">{user.email}</p>
+                                <p className="text-[12px] text-[#94A3B8] uppercase opacity-70 font-medium">Joined {new Date(user.createdAt).toLocaleDateString()}</p>
                             </div>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-[16px] w-full md:w-auto relative z-10 border-t border-[#334155] md:border-t-0 pt-[24px] md:pt-0">
-                            <button className="px-[24px] py-[16px] rounded-lg border border-[#334155] text-[#f8fafc] bg-transparent hover:bg-[#334155] text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px]">
+                            <button onClick={handleRoleChange} className="px-[24px] py-[16px] rounded-lg border border-[#334155] text-[#f8fafc] bg-transparent hover:bg-[#334155] text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px]">
                                 <span className="material-symbols-outlined text-[18px]">manage_accounts</span>
                                 Change Role
                             </button>
-                            <button className="px-[24px] py-[16px] rounded-lg border border-transparent bg-[#E50914] text-white hover:brightness-110 active:brightness-90 text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px] shadow-[0_4px_14px_rgba(229,9,20,0.2)]">
+                            <button onClick={handleToggleDisable} className="px-[24px] py-[16px] rounded-lg border border-transparent bg-[#E50914] text-white hover:brightness-110 active:brightness-90 text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px] shadow-[0_4px_14px_rgba(229,9,20,0.2)]">
                                 <span className="material-symbols-outlined text-[18px]">block</span>
-                                Disable Account
+                                {user.isActive ? 'Disable Account' : 'Enable Account'}
                             </button>
                         </div>
                     </section>
@@ -99,7 +164,7 @@ const AdminUserDetail = () => {
                             <span className="material-symbols-outlined text-[#94A3B8] relative z-10">account_balance_wallet</span>
                             <div className="relative z-10">
                                 <p className="text-[12px] font-medium text-[#94A3B8] uppercase mb-[4px]">Total Spent</p>
-                                <p className="text-[24px] font-semibold text-[#f8fafc]">$1,249.50</p>
+                                <p className="text-[24px] font-semibold text-[#f8fafc]">${user.totalSpent || '0.00'}</p>
                             </div>
                         </div>
                         <div className="bg-[#1E293B] p-[24px] rounded-xl border border-[#334155] flex flex-col justify-between gap-[16px] relative overflow-hidden group">
@@ -107,7 +172,7 @@ const AdminUserDetail = () => {
                             <span className="material-symbols-outlined text-[#94A3B8] relative z-10">theaters</span>
                             <div className="relative z-10">
                                 <p className="text-[12px] font-medium text-[#94A3B8] uppercase mb-[4px]">Movies Watched</p>
-                                <p className="text-[24px] font-semibold text-[#f8fafc]">342</p>
+                                <p className="text-[24px] font-semibold text-[#f8fafc]">{user.moviesWatched || 0}</p>
                             </div>
                         </div>
                         <div className="bg-[#1E293B] p-[24px] rounded-xl border border-[#334155] flex flex-col justify-between gap-[16px] relative overflow-hidden group">
@@ -115,7 +180,7 @@ const AdminUserDetail = () => {
                             <span className="material-symbols-outlined text-[#94A3B8] relative z-10">rate_review</span>
                             <div className="relative z-10">
                                 <p className="text-[12px] font-medium text-[#94A3B8] uppercase mb-[4px]">Reviews Left</p>
-                                <p className="text-[24px] font-semibold text-[#f8fafc]">28</p>
+                                <p className="text-[24px] font-semibold text-[#f8fafc]">{user.reviewsCount || 0}</p>
                             </div>
                         </div>
                         <div className="bg-[#1E293B] p-[24px] rounded-xl border border-[#334155] flex flex-col justify-between gap-[16px] relative overflow-hidden group">

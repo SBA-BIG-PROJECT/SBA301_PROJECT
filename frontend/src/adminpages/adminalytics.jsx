@@ -1,7 +1,39 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminTaskbar from './admintaskbar.jsx';
+import { adminService } from '../services';
 
 const AdminAnalytics = () => {
+  const [movieAnalytics, setMovieAnalytics] = useState(null);
+  const [revenueAnalytics, setRevenueAnalytics] = useState(null);
+  const [activeTab, setActiveTab] = useState('movie');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [movieData, revenueData] = await Promise.all([
+          adminService.getMovieAnalytics(),
+          adminService.getRevenueAnalytics()
+        ]);
+        setMovieAnalytics(movieData);
+        setRevenueAnalytics(revenueData);
+      } catch (err) {
+        console.error('Error fetching analytics:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const formatNumber = (num) => {
+    if (!num) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+  };
+
   return (
     <div className="bg-[#0F172A] text-[#f8fafc] font-['Inter'] min-h-screen flex antialiased">
       {/* SideNavBar */}
@@ -35,151 +67,91 @@ const AdminAnalytics = () => {
         <div className="p-[24px] md:p-[48px] max-w-[1440px] mx-auto w-full flex flex-col gap-[48px]">
           {/* Tab Navigation */}
           <div className="flex border-b border-[#334155] gap-[24px]">
-            <button className="text-[#E50914] font-bold border-b-2 border-[#E50914] pb-[8px] text-[18px] flex items-center gap-[8px]">
+            <button 
+              onClick={() => setActiveTab('movie')}
+              className={`${activeTab === 'movie' ? 'text-[#E50914] border-b-2 border-[#E50914] font-bold' : 'text-[#94A3B8] font-medium hover:text-[#f8fafc]'} pb-[8px] text-[18px] flex items-center gap-[8px] transition-colors`}
+            >
               <span className="material-symbols-outlined">monitoring</span> Movie Analytics
             </button>
-            <button className="text-[#94A3B8] font-medium hover:text-[#f8fafc] pb-[8px] text-[18px] flex items-center gap-[8px] transition-colors">
+            <button 
+              onClick={() => setActiveTab('revenue')}
+              className={`${activeTab === 'revenue' ? 'text-[#E50914] border-b-2 border-[#E50914] font-bold' : 'text-[#94A3B8] font-medium hover:text-[#f8fafc]'} pb-[8px] text-[18px] flex items-center gap-[8px] transition-colors`}
+            >
               <span className="material-symbols-outlined">query_stats</span> Revenue Analytics
             </button>
           </div>
 
-          {/* Bento Grid: Analytics Overview */}
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[24px]">
-            {/* Stat Card 1 */}
-            <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col justify-between hover:border-[#E50914] transition-colors cursor-pointer">
-              <div className="flex justify-between items-start mb-[16px]">
-                <div className="text-[14px] text-[#94A3B8]">Total Views (30d)</div>
-                <span className="material-symbols-outlined text-[#7bd0ff]">visibility</span>
-              </div>
-              <div>
-                <div className="text-[32px] font-bold text-[#f8fafc]">2.4M</div>
-                <div className="text-[12px] text-[#E50914] mt-[4px] flex items-center gap-[4px]">
-                  <span className="material-symbols-outlined text-[16px]">trending_up</span> +12.5% vs last month
-                </div>
-              </div>
-            </div>
+          {loading ? (
+             <div className="flex justify-center py-20 text-[#94A3B8]">Loading analytics data...</div>
+          ) : activeTab === 'movie' ? (
+             <>
+               {/* Movie Analytics Stats */}
+               <section className="grid grid-cols-1 md:grid-cols-3 gap-[24px]">
+                  <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col justify-between hover:border-[#E50914] transition-colors cursor-pointer">
+                    <div className="flex justify-between items-start mb-[16px]">
+                      <div className="text-[14px] text-[#94A3B8]">Total Views (30d)</div>
+                      <span className="material-symbols-outlined text-[#7bd0ff]">visibility</span>
+                    </div>
+                    <div>
+                      <div className="text-[32px] font-bold text-[#f8fafc]">{formatNumber(movieAnalytics?.totalViews)}</div>
+                    </div>
+                  </div>
+                  <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col justify-between hover:border-[#E50914] transition-colors cursor-pointer">
+                    <div className="flex justify-between items-start mb-[16px]">
+                      <div className="text-[14px] text-[#94A3B8]">Average Rating</div>
+                      <span className="material-symbols-outlined text-yellow-400">star</span>
+                    </div>
+                    <div>
+                      <div className="text-[32px] font-bold text-[#f8fafc]">{movieAnalytics?.averageRating?.toFixed(1) || '0.0'}</div>
+                    </div>
+                  </div>
+                  <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col justify-between hover:border-[#E50914] transition-colors cursor-pointer">
+                    <div className="flex justify-between items-start mb-[16px]">
+                      <div className="text-[14px] text-[#94A3B8]">Total Reviews</div>
+                      <span className="material-symbols-outlined text-green-400">rate_review</span>
+                    </div>
+                    <div>
+                      <div className="text-[32px] font-bold text-[#f8fafc]">{formatNumber(movieAnalytics?.totalReviews)}</div>
+                    </div>
+                  </div>
+               </section>
+             </>
+          ) : (
+             <>
+               {/* Revenue Analytics Stats */}
+               <section className="grid grid-cols-1 md:grid-cols-3 gap-[24px]">
+                  <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col justify-between hover:border-[#E50914] transition-colors cursor-pointer">
+                    <div className="flex justify-between items-start mb-[16px]">
+                      <div className="text-[14px] text-[#94A3B8]">Total Revenue</div>
+                      <span className="material-symbols-outlined text-emerald-400">payments</span>
+                    </div>
+                    <div>
+                      <div className="text-[32px] font-bold text-[#f8fafc]">${revenueAnalytics?.revenueThisMonth?.toFixed(2) || '0.00'}</div>
+                    </div>
+                  </div>
+                  <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col justify-between hover:border-[#E50914] transition-colors cursor-pointer">
+                    <div className="flex justify-between items-start mb-[16px]">
+                      <div className="text-[14px] text-[#94A3B8]">Successful Payments</div>
+                      <span className="material-symbols-outlined text-[#7bd0ff]">check_circle</span>
+                    </div>
+                    <div>
+                      <div className="text-[32px] font-bold text-[#f8fafc]">{formatNumber(revenueAnalytics?.successfulPayments)}</div>
+                    </div>
+                  </div>
+                  <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col justify-between hover:border-[#E50914] transition-colors cursor-pointer">
+                    <div className="flex justify-between items-start mb-[16px]">
+                      <div className="text-[14px] text-[#94A3B8]">New Subscriptions</div>
+                      <span className="material-symbols-outlined text-purple-400">subscriptions</span>
+                    </div>
+                    <div>
+                      <div className="text-[32px] font-bold text-[#f8fafc]">{formatNumber(revenueAnalytics?.newSubscriptions)}</div>
+                    </div>
+                  </div>
+               </section>
+             </>
+          )}
 
-            {/* Stat Card 2 */}
-            <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col justify-between hover:border-[#E50914] transition-colors cursor-pointer">
-              <div className="flex justify-between items-start mb-[16px]">
-                <div className="text-[14px] text-[#94A3B8]">Active Subscribers</div>
-                <span className="material-symbols-outlined text-[#a7c8ff]">groups</span>
-              </div>
-              <div>
-                <div className="text-[32px] font-bold text-[#f8fafc]">84.2K</div>
-                <div className="text-[12px] text-[#E50914] mt-[4px] flex items-center gap-[4px]">
-                  <span className="material-symbols-outlined text-[16px]">trending_up</span> +5.2% vs last month
-                </div>
-              </div>
-            </div>
 
-            {/* Stat Card 3 */}
-            <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col justify-between hover:border-[#E50914] transition-colors cursor-pointer lg:col-span-2 relative overflow-hidden group">
-              <div className="absolute inset-0 opacity-10 bg-gradient-to-r from-[#E50914] to-transparent group-hover:opacity-20 transition-opacity"></div>
-              <div className="relative z-10 flex justify-between h-full">
-                <div className="flex flex-col justify-between">
-                  <div className="text-[14px] text-[#94A3B8]">Top Performing Genre</div>
-                  <div>
-                    <div className="text-[32px] font-bold text-[#f8fafc]">Sci-Fi & Fantasy</div>
-                    <div className="text-[12px] text-[#7bd0ff] mt-[4px]">45% of total watch time</div>
-                  </div>
-                </div>
-                <div className="w-32 h-32 flex items-center justify-center opacity-80">
-                  <svg className="w-full h-full text-[#E50914] drop-shadow-lg" viewBox="0 0 100 100">
-                    <circle className="opacity-30" cx="50" cy="50" fill="none" r="40" stroke="currentColor" strokeDasharray="180 200" strokeLinecap="round" strokeWidth="8"></circle>
-                    <circle cx="50" cy="50" fill="none" r="40" stroke="currentColor" strokeDasharray="120 200" strokeLinecap="round" strokeWidth="8"></circle>
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Main Charts Area */}
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-[24px]">
-            {/* Line Chart: Viewership Trends */}
-            <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] lg:col-span-2 flex flex-col h-[400px]">
-              <div className="flex justify-between items-center mb-[24px]">
-                <h2 className="text-[18px] font-semibold text-[#f8fafc]">Viewership Trends</h2>
-                <select className="bg-[#0F172A] border border-[#334155] text-[#94A3B8] text-[14px] rounded-lg px-[16px] py-[8px] focus:ring-[#E50914] focus:border-[#E50914] outline-none">
-                  <option>Last 7 Days</option>
-                  <option>Last 30 Days</option>
-                  <option>This Year</option>
-                </select>
-              </div>
-              <div className="flex-1 relative w-full h-full">
-                {/* SVG Line Chart Mockup */}
-                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 300">
-                  {/* Grid */}
-                  <line stroke="#334155" strokeWidth="0.5" x1="0" x2="800" y1="50" y2="50"></line>
-                  <line stroke="#334155" strokeWidth="0.5" x1="0" x2="800" y1="100" y2="100"></line>
-                  <line stroke="#334155" strokeWidth="0.5" x1="0" x2="800" y1="150" y2="150"></line>
-                  <line stroke="#334155" strokeWidth="0.5" x1="0" x2="800" y1="200" y2="200"></line>
-                  <line stroke="#334155" strokeWidth="0.5" x1="0" x2="800" y1="250" y2="250"></line>
-                  {/* Line */}
-                  <path className="drop-shadow-[0_4px_12px_rgba(229,9,20,0.5)]" d="M 0 250 C 100 200, 200 280, 300 150 C 400 50, 500 180, 600 100 C 700 80, 800 20" fill="none" stroke="#E50914" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4"></path>
-                  {/* Area under line */}
-                  <path d="M 0 250 C 100 200, 200 280, 300 150 C 400 50, 500 180, 600 100 C 700 80, 800 20 L 800 300 L 0 300 Z" fill="url(#gradient-red)" opacity="0.2"></path>
-                  <defs>
-                    <linearGradient id="gradient-red" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#E50914"></stop>
-                      <stop offset="100%" stopColor="#0F172A" stopOpacity="0"></stop>
-                    </linearGradient>
-                  </defs>
-                </svg>
-                {/* Axis Labels */}
-                <div className="absolute bottom-0 left-0 w-full flex justify-between font-mono text-[13px] text-[#94A3B8] pt-[8px] border-t border-[#334155] mt-[8px]">
-                  <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bar Chart: Top Movies */}
-            <div className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col h-[400px]">
-              <h2 className="text-[18px] font-semibold text-[#f8fafc] mb-[24px]">Top Viewed Movies</h2>
-              <div className="flex-1 flex flex-col justify-end gap-[16px]">
-                {/* Bar Item 1 */}
-                <div className="flex items-center gap-[16px]">
-                  <div className="w-8 text-right text-[12px] font-medium text-[#94A3B8]">1.</div>
-                  <div className="flex-1 h-8 bg-[#0F172A] rounded-r-full relative overflow-hidden border border-[#334155]">
-                    <div className="absolute top-0 left-0 h-full bg-[#E50914]" style={{ width: '85%' }}></div>
-                  </div>
-                  <div className="w-16 text-right font-mono text-[13px] text-[#f8fafc]">850k</div>
-                </div>
-                {/* Bar Item 2 */}
-                <div className="flex items-center gap-[16px]">
-                  <div className="w-8 text-right text-[12px] font-medium text-[#94A3B8]">2.</div>
-                  <div className="flex-1 h-8 bg-[#0F172A] rounded-r-full relative overflow-hidden border border-[#334155]">
-                    <div className="absolute top-0 left-0 h-full bg-[#E50914]/80" style={{ width: '72%' }}></div>
-                  </div>
-                  <div className="w-16 text-right font-mono text-[13px] text-[#f8fafc]">720k</div>
-                </div>
-                {/* Bar Item 3 */}
-                <div className="flex items-center gap-[16px]">
-                  <div className="w-8 text-right text-[12px] font-medium text-[#94A3B8]">3.</div>
-                  <div className="flex-1 h-8 bg-[#0F172A] rounded-r-full relative overflow-hidden border border-[#334155]">
-                    <div className="absolute top-0 left-0 h-full bg-[#E50914]/60" style={{ width: '60%' }}></div>
-                  </div>
-                  <div className="w-16 text-right font-mono text-[13px] text-[#f8fafc]">600k</div>
-                </div>
-                {/* Bar Item 4 */}
-                <div className="flex items-center gap-[16px]">
-                  <div className="w-8 text-right text-[12px] font-medium text-[#94A3B8]">4.</div>
-                  <div className="flex-1 h-8 bg-[#0F172A] rounded-r-full relative overflow-hidden border border-[#334155]">
-                    <div className="absolute top-0 left-0 h-full bg-[#E50914]/40" style={{ width: '45%' }}></div>
-                  </div>
-                  <div className="w-16 text-right font-mono text-[13px] text-[#f8fafc]">450k</div>
-                </div>
-                {/* Bar Item 5 */}
-                <div className="flex items-center gap-[16px]">
-                  <div className="w-8 text-right text-[12px] font-medium text-[#94A3B8]">5.</div>
-                  <div className="flex-1 h-8 bg-[#0F172A] rounded-r-full relative overflow-hidden border border-[#334155]">
-                    <div className="absolute top-0 left-0 h-full bg-[#E50914]/20" style={{ width: '30%' }}></div>
-                  </div>
-                  <div className="w-16 text-right font-mono text-[13px] text-[#f8fafc]">300k</div>
-                </div>
-              </div>
-            </div>
-          </section>
         </div>
       </main>
     </div>

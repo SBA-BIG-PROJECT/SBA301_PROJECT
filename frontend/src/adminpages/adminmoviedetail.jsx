@@ -13,18 +13,7 @@ const AdminMovieDetail = () => {
     const fetchMovieDetail = async () => {
       try {
         setLoading(true);
-        // Mock data replacing API call
-        const data = {
-          tmdbId: id,
-          title: 'Mock Movie Details',
-          overview: 'This is a mocked movie overview because APIs have been removed.',
-          releaseDate: '2024-01-01',
-          runtime: 120,
-          voteAverage: 8.5,
-          isActive: true,
-          posterPath: '/placeholder.jpg',
-          backdropPath: '/placeholder_bg.jpg'
-        };
+        const data = await adminService.getMovieDetail(id);
         setMovie(data);
       } catch (error) {
         console.error('Error fetching movie detail:', error);
@@ -41,12 +30,12 @@ const AdminMovieDetail = () => {
     try {
       if (movie.isActive) {
         if (window.confirm('Are you sure you want to deactivate this movie?')) {
-          // await adminService.deleteMovie(id);
+          await adminService.deleteMovie(id);
           setMovie({ ...movie, isActive: false });
         }
       } else {
         if (window.confirm('Are you sure you want to restore this movie?')) {
-          // await adminService.restoreMovie(id);
+          await adminService.restoreMovie(id);
           setMovie({ ...movie, isActive: true });
         }
       }

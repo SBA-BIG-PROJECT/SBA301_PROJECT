@@ -19,15 +19,8 @@ const AdminPayment = () => {
     try {
       setLoading(true);
       setError(null);
-      // Mock data replacing API call
-      const data = {
-        content: [
-          { paymentId: 1, userId: 101, email: 'john.doe@example.com', planType: 'PREMIUM', amount: 12.99, status: 'SUCCESS', createdAt: '2023-10-05T14:48:00.000Z' },
-          { paymentId: 2, userId: 102, email: 'jane.smith@example.com', planType: 'STANDARD', amount: 9.99, status: 'FAILED', createdAt: '2023-10-06T10:30:00.000Z' }
-        ],
-        totalPages: 1,
-        totalElements: 2
-      };
+      const statusParam = statusFilter !== 'all' ? statusFilter.toUpperCase() : undefined;
+      const data = await adminService.getAllPayments(page, size, statusParam);
       setPayments(data?.content || []);
       setTotalPages(data?.totalPages || 0);
       setTotalElements(data?.totalElements || 0);
@@ -41,10 +34,7 @@ const AdminPayment = () => {
 
   const fetchStats = async () => {
     try {
-      // Mock data replacing API call
-      const data = {
-        totalRevenue: 45290.50
-      };
+      const data = await adminService.getRevenueAnalytics();
       setStats(data);
     } catch (err) {
       console.error('Error fetching stats:', err);

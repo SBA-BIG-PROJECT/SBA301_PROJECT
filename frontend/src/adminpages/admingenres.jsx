@@ -20,15 +20,10 @@ const AdminGenres = () => {
     try {
       setLoading(true);
       setError(null);
-      // Mock data replacing API call
-      const genresData = [
-        { id: 1, name: 'Action' },
-        { id: 2, name: 'Comedy' }
-      ];
-      const categoriesData = [
-        { id: 1, name: 'Movies' },
-        { id: 2, name: 'TV Shows' }
-      ];
+      const [genresData, categoriesData] = await Promise.all([
+        adminService.getAllGenres(),
+        adminService.getAllCategories()
+      ]);
       
       setGenres(genresData || []);
       setCategories(categoriesData || []);
@@ -48,7 +43,7 @@ const AdminGenres = () => {
     if (!newGenreName.trim()) return;
     try {
       const id = Math.floor(Date.now() / 1000);
-      // await adminService.createGenre(id, newGenreName);
+      await adminService.createGenre(id, newGenreName);
       setGenres([...genres, { id, name: newGenreName }]);
       setNewGenreName('');
       setShowGenreModal(false);
@@ -61,8 +56,8 @@ const AdminGenres = () => {
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return;
     try {
-      const id = Math.floor(Date.now() / 1000);
-      // await adminService.createCategory(id, newCategoryName);
+      const id = newCategoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      await adminService.createCategory(id, newCategoryName);
       setCategories([...categories, { id, name: newCategoryName }]);
       setNewCategoryName('');
       setShowCategoryModal(false);
@@ -75,7 +70,7 @@ const AdminGenres = () => {
   const handleDeleteGenre = async (id) => {
     if (window.confirm('Are you sure you want to delete this genre?')) {
       try {
-        // await adminService.deleteGenre(id);
+        await adminService.deleteGenre(id);
         setGenres(genres.filter(g => g.id !== id));
       } catch (err) {
         console.error('Error deleting genre:', err);
@@ -87,7 +82,7 @@ const AdminGenres = () => {
   const handleDeleteCategory = async (id) => {
     if (window.confirm('Are you sure you want to delete this category?')) {
       try {
-        // await adminService.deleteCategory(id);
+        await adminService.deleteCategory(id);
         setCategories(categories.filter(c => c.id !== id));
       } catch (err) {
         console.error('Error deleting category:', err);

@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useWatchlist } from '../hooks/useWatchlist'
 import MovieCard from '../components/MovieCard.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 const Watchlist = () => {
-  const { watchlist, removeFromWatchlist } = useWatchlist()
+  const { watchlist, loading, error, removeFromWatchlist } = useWatchlist()
 
   return (
     <section className="search-results">
@@ -11,7 +12,13 @@ const Watchlist = () => {
         <h2>My Watchlist</h2>
       </div>
 
-      {watchlist.length === 0 ? (
+      {loading ? (
+        <Spinner />
+      ) : error ? (
+        <div className="empty">
+          <p className="search-results__empty text-red-400">Không thể tải danh sách. Vui lòng thử lại.</p>
+        </div>
+      ) : watchlist.length === 0 ? (
         <div className="empty">
           <p className="search-results__empty">Your watchlist is empty.</p>
           <Link className="btn btn--primary mt-4" to="/">Explore Movies</Link>
@@ -19,7 +26,7 @@ const Watchlist = () => {
       ) : (
         <div className="search-results__grid">
           {watchlist.map((movie) => (
-            <div className="movie-card__cell" key={movie.id}>
+            <div className="movie-card__cell" key={movie.movieId ?? movie.id}>
               <Link className="movie-card__link" to={`/movie/${movie.id}`}>
                 <MovieCard movie={movie} />
               </Link>
@@ -30,7 +37,7 @@ const Watchlist = () => {
                 <button
                   type="button"
                   className="btn btn--ghost flex-1 text-red-400 hover:text-red-300 hover:border-red-400/50"
-                  onClick={() => removeFromWatchlist(movie.id)}
+                  onClick={() => removeFromWatchlist(movie.movieId ?? movie.id)}
                 >
                   Remove
                 </button>

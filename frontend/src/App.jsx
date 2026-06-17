@@ -10,6 +10,7 @@ import SearchPage from './pages/Search.jsx'
 import Watch from './pages/Watch.jsx'
 import Watchlist from './pages/Watchlist.jsx'
 import History from './pages/History.jsx'
+import Payment from './pages/payment.jsx'
 import AdminDashboard from './adminpages/admindashboard.jsx'
 import AdminUser from './adminpages/adminuser.jsx'
 import AdminUserDetail from './adminpages/adminuserdetail.jsx'
@@ -19,6 +20,7 @@ import AdminPayment from './adminpages/adminpayment.jsx'
 import AdminAnalytics from './adminpages/adminalytics.jsx'
 import AdminGenres from './adminpages/admingenres.jsx'
 import { AdminRoute } from './components/AdminRoute.jsx'
+import { ProtectedRoute } from './components/ProtectedRoute.jsx'
 
 const App = () => {
   return (
@@ -29,11 +31,12 @@ const App = () => {
           <Route path="genre/:id" element={<Genre />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="movie/:id" element={<Detail />} />
-          <Route path="watch/:id" element={<Watch />} />
-          <Route path="watchlist" element={<Watchlist />} />
-          <Route path="history" element={<History />} />
+          <Route path="watch/:id" element={<ProtectedRoute><Watch /></ProtectedRoute>} />
+          <Route path="watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
+          <Route path="history" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Route>
         

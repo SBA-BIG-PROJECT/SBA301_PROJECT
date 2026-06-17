@@ -17,9 +17,17 @@ const Detail = () => {
   const [errorMessage, setErrorMessage] = useState('')
   const [checkingWatchlist, setCheckingWatchlist] = useState(true)
   const [inWatchlist, setInWatchlist] = useState(false)
+  const [showTrailer, setShowTrailer] = useState(false)
   const navigate = useNavigate()
   
   const { addToWatchlist, removeFromWatchlist, isInWatchlist } = useWatchlist()
+
+  const extractVideoID = (url) => {
+    if (!url) return '';
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : url;
+  };
   
   useEffect(() => {
     let active = true
@@ -159,9 +167,18 @@ const Detail = () => {
             )}
             <div className="detail__actions">
               <button
-                className="btn btn--primary"
+                className="btn btn--primary flex items-center gap-2 bg-red-600 hover:bg-red-700"
                 type="button"
                 onClick={() => navigate(`/watch/${movie.id}`)}
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                Watch Now
+              </button>
+
+              <button
+                className="btn btn--secondary flex items-center gap-2 bg-gray-600 hover:bg-gray-700 bg-opacity-70"
+                type="button"
+                onClick={() => setShowTrailer(true)}
               >
                 Watch Trailer
               </button>
@@ -187,6 +204,26 @@ const Detail = () => {
           </div>
         </div>
       </div>
+
+      {showTrailer && movie?.trailerUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <div className="relative w-full max-w-5xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl">
+            <button 
+              className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/50 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
+              onClick={() => setShowTrailer(false)}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <iframe
+              className="w-full h-full"
+              src={extractVideoID(movie.trailerUrl).includes('http') ? extractVideoID(movie.trailerUrl) : `https://www.youtube.com/embed/${extractVideoID(movie.trailerUrl)}?autoplay=1`}
+              title="Trailer"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            ></iframe>
+          </div>
+        </div>
+      )}
 
       {/* Cast section - Backend chưa có endpoint này */}
       <div className="detail__cast">

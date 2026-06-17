@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import AdminTaskbar from './admintaskbar.jsx';
 import { adminService } from '../services';
 
@@ -18,15 +19,11 @@ const AdminUser = () => {
     const fetchUsers = async () => {
         try {
             setLoading(true);
-            // Mock data replacing API call
-            const data = {
-                content: [
-                    { id: 1, email: 'john.doe@example.com', fullName: 'John Doe', role: 'ADMIN', isPremium: true, createdAt: '2023-10-01' },
-                    { id: 2, email: 'jane.smith@example.com', fullName: 'Jane Smith', role: 'USER', isPremium: false, createdAt: '2023-10-02' }
-                ],
-                totalPages: 1,
-                totalElements: 2
-            };
+            const searchParam = search ? search : undefined;
+            const roleParam = role !== 'all' ? role.toUpperCase() : undefined;
+            const premiumParam = premiumStatus !== 'all' ? (premiumStatus === 'active') : undefined;
+            
+            const data = await adminService.getAllUsers(page, size, searchParam, roleParam, premiumParam);
             setUsers(data.content || []);
             setTotalPages(data.totalPages || 0);
             setTotalElements(data.totalElements || 0);
@@ -227,9 +224,9 @@ const AdminUser = () => {
                                                 </td>
                                                 <td className="p-[16px] text-right">
                                                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button className="p-1.5 text-[#e9bcb6] hover:text-white hover:bg-[#334155] rounded transition-colors" title="View Detail">
+                                                        <Link to={`/admin/users/${user.id}`} className="p-1.5 text-[#e9bcb6] hover:text-white hover:bg-[#334155] rounded transition-colors" title="View Detail">
                                                             <span className="material-symbols-outlined text-sm">visibility</span>
-                                                        </button>
+                                                        </Link>
                                                         <button className="p-1.5 text-[#e9bcb6] hover:text-white hover:bg-[#334155] rounded transition-colors" title="Edit Role">
                                                             <span className="material-symbols-outlined text-sm">edit</span>
                                                         </button>

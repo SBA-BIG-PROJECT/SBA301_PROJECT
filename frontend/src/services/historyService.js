@@ -1,20 +1,26 @@
 import apiClient from './api'
 
 const historyService = {
-  addHistory: (data) => {
-    return apiClient.post('/history', data)
+  async addHistory(data) {
+    const response = await apiClient.post('/history', data)
+    return response.data
   },
 
-  getHistory: () => {
-    return apiClient.get('/history')
+  async getHistory({ page = 0, size = 20 } = {}) {
+    const response = await apiClient.get('/history', {
+      params: { page, size }
+    })
+    return response.data
   },
 
-  clearHistory: () => {
-    return apiClient.delete('/history/clear')
+  async clearHistory() {
+    const response = await apiClient.delete('/history/clear')
+    return response.data
   },
 
-  deleteHistoryItem: (viewId) => {
-    return apiClient.delete(`/history/${viewId}`)
+  async deleteHistoryItem(viewId) {
+    const response = await apiClient.delete(`/history/${viewId}`)
+    return response.data
   }
 }
 

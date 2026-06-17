@@ -9,13 +9,7 @@ const AdminDashboard = () => {
     useEffect(() => {
         const fetchDashboardStats = async () => {
             try {
-                // Mock data replacing API call
-                const data = {
-                    totalUsers: 14523,
-                    activeUsers: 8432,
-                    totalRevenue: 45290.50,
-                    totalMovies: 342
-                };
+                const data = await adminService.getDashboardStats();
                 setStats(data);
             } catch (error) {
                 console.error('Error fetching dashboard stats', error);

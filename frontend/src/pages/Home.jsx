@@ -1,218 +1,277 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import QuickView from '../components/QuickView.jsx'
-import Spinner from '../components/Spinner.jsx'
-import PosterCard from '../components/PosterCard.jsx'
-import heroImg from '../assets/hero-img.png'
-import noPoster from '../assets/No-Poster.svg'
 import { movieService } from '../services'
+import noPoster from '../assets/No-Poster.svg'
+import heroImg from '../assets/hero-img.png'
 
-const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500'
-const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280'
+const IMG_W500 = 'https://image.tmdb.org/t/p/w500'
+const IMG_W1280 = 'https://image.tmdb.org/t/p/w1280'
 
+const getPoster = (path) =>
+  path
+    ? path.startsWith('http') ? path : `${IMG_W500}${path.startsWith('/') ? '' : '/'}${path}`
+    : noPoster
+
+const getBackdrop = (path) =>
+  path
+    ? path.startsWith('http') ? path : `${IMG_W1280}${path.startsWith('/') ? '' : '/'}${path}`
+    : heroImg
+
+const getRating = (r) => (r != null && !isNaN(Number(r)) ? Number(r).toFixed(1) : null)
+const getYear = (y) => y ? String(y).split('-')[0] : null
+
+// ── Skeleton card ──────────────────────────────────────────────────────────
+const SkeletonCard = () => (
+  <div className="hm-card hm-card--skeleton">
+    <div className="hm-card__poster hm-skeleton" />
+    <div className="hm-card__body">
+      <div className="hm-skeleton hm-skeleton--text" style={{ width: '80%' }} />
+      <div className="hm-skeleton hm-skeleton--text" style={{ width: '50%', marginTop: 6 }} />
+    </div>
+  </div>
+)
+
+// ── Movie Card ─────────────────────────────────────────────────────────────
+const MovieCard = ({ movie, onNavigate }) => {
+  const rating = getRating(movie.rating ?? movie.vote_average)
+  const year = getYear(movie.releaseYear ?? movie.release_date)
+  const poster = getPoster(movie.posterPath ?? movie.poster_path)
+
+  return (
+    <div
+      className="hm-card"
+      onClick={() => onNavigate(`/movie/${movie.id}`)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavigate(`/movie/${movie.id}`)}
+    >
+      <div className="hm-card__poster-wrap">
+        <img
+          className="hm-card__poster"
+          src={poster}
+          alt={movie.title}
+          loading="lazy"
+        />
+
+        {rating && (
+          <div className="hm-card__badge">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-yellow-400">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            {rating}
+          </div>
+        )}
+      </div>
+      <div className="hm-card__body">
+        <h3 className="hm-card__title">{movie.title}</h3>
+        <p className="hm-card__meta">{year || 'N/A'}</p>
+      </div>
+    </div>
+  )
+}
+
+// ── Main ───────────────────────────────────────────────────────────────────
 const Home = () => {
   const [movies, setMovies] = useState([])
   const [heroMovie, setHeroMovie] = useState(null)
-  const [quickMovie, setQuickMovie] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [loadMoreLoading, setLoadMoreLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [page, setPage] = useState(0)
+  const [loadMoreError, setLoadMoreError] = useState('')
   const [hasMore, setHasMore] = useState(true)
+  const [heroLoaded, setHeroLoaded] = useState(false)
+  const currentPage = useRef(0)
   const navigate = useNavigate()
 
   useEffect(() => {
     let active = true
-
-    const loadMovies = async () => {
+    const load = async () => {
       setIsLoading(true)
       setErrorMessage('')
-
       try {
-        // Gọi Backend API
-        const response = await movieService.getMovies({
-          page: 0,
-          size: 20
-        })
-
+        const response = await movieService.getMovies({ page: 0, size: 20 })
         if (!active) return
-
-        const moviesList = response.content || []
-        setMovies(moviesList)
+        const list = response.content || []
+        setMovies(list)
         setHasMore(!response.last)
-        
-        // Set hero movie (first movie)
-        if (moviesList.length > 0) {
-          setHeroMovie(moviesList[0])
-        }
-      } catch (error) {
-        console.error(`Error fetching movies: ${error}`)
-        if (active) {
-          setErrorMessage('Could not load movies. Please ensure backend is running.')
-        }
+        if (list.length > 0) setHeroMovie(list[0])
+      } catch (err) {
+        console.error(err)
+        if (active) setErrorMessage('Không thể tải phim. Hãy đảm bảo backend đang chạy.')
       } finally {
-        if (active) {
-          setIsLoading(false)
-        }
+        if (active) setIsLoading(false)
       }
     }
-
-    loadMovies()
-
-    return () => {
-      active = false
-    }
+    load()
+    return () => { active = false }
   }, [])
 
   const loadMore = async () => {
-    if (isLoading || !hasMore) return
-    
-    setIsLoading(true)
+    if (loadMoreLoading || !hasMore) return
+    const nextPage = currentPage.current + 1
+    setLoadMoreLoading(true)
+    setLoadMoreError('')
     try {
-      const response = await movieService.getMovies({
-        page: page + 1,
-        size: 20
-      })
-      
-      setMovies(prev => [...prev, ...(response.content || [])])
-      setHasMore(!response.last)
-      setPage(page + 1)
-    } catch (error) {
-      console.error('Error loading more:', error)
+      const response = await movieService.getMovies({ page: nextPage, size: 20 })
+      const newMovies = response.content || []
+      if (newMovies.length === 0) {
+        setHasMore(false)
+        setLoadMoreError('Đã hiển thị tất cả phim.')
+      } else {
+        setMovies(prev => [...prev, ...newMovies])
+        setHasMore(!response.last)
+        currentPage.current = nextPage
+      }
+    } catch (err) {
+      console.error('[LoadMore]', err)
+      setLoadMoreError('Không tải được. Vui lòng thử lại.')
     } finally {
-      setIsLoading(false)
+      setLoadMoreLoading(false)
     }
   }
 
-  const heroBackdrop = heroMovie?.posterPath
-    ? `${BACKDROP_BASE_URL}${heroMovie.posterPath}`
-    : heroImg
-  const heroPoster = heroMovie?.posterPath
-    ? `${IMAGE_BASE_URL}${heroMovie.posterPath}`
-    : noPoster
-  const heroTitle = heroMovie?.title || 'Welcome to SBA Movies'
-  const heroOverview = heroMovie?.overview || 'Browse our collection of movies from the backend.'
-
-  const handleQuickWatch = () => {
-    if (!quickMovie) return
-    navigate(`/watch/${quickMovie.id}`)
-    setQuickMovie(null)
-  }
-
-  const handleQuickDetails = () => {
-    if (!quickMovie) return
-    navigate(`/movie/${quickMovie.id}`)
-    setQuickMovie(null)
-  }
+  const heroBackdrop = getBackdrop(heroMovie?.posterPath)
+  const heroPoster = getPoster(heroMovie?.posterPath)
+  const heroTitle = heroMovie?.title || 'Chào mừng đến SBA Movies'
+  const heroOverview = heroMovie?.overview || 'Khám phá bộ sưu tập phim phong phú của chúng tôi.'
+  const heroRating = getRating(heroMovie?.rating)
+  const heroYear = getYear(heroMovie?.releaseYear)
 
   return (
-    <section className="home">
-      <section className="hero">
+    <div className="hm-page">
+
+      {/* ── HERO ──────────────────────────────────────────────────────── */}
+      <section className="hm-hero">
         <div
-          className="hero__backdrop"
+          className="hm-hero__backdrop"
           style={{ backgroundImage: `url(${heroBackdrop})` }}
         />
-        <div className="hero__overlay" />
+        <div className="hm-hero__gradient" />
 
-        <div className="hero__content">
-          <span className="hero__eyebrow">Featured</span>
-          <h1 className="hero__title">{heroTitle}</h1>
-          <p className="hero__subtitle">{heroOverview}</p>
-          <div className="hero__meta">
-            <span>{heroMovie?.releaseYear || 'N/A'}</span>
-            {heroMovie?.rating && (
+        <div className="hm-hero__content">
+          <span className="hm-hero__tag">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+            Đề xuất hôm nay
+          </span>
+
+          <h1 className="hm-hero__title">{heroTitle}</h1>
+
+          {heroOverview && (
+            <p className="hm-hero__overview">{heroOverview}</p>
+          )}
+
+          <div className="hm-hero__meta">
+            {heroYear && <span>{heroYear}</span>}
+            {heroRating && (
               <>
-                <span>•</span>
-                <span>★ {heroMovie.rating.toFixed(1)}</span>
+                <span className="hm-hero__dot" />
+                <span className="hm-hero__rating">
+                  ★ {heroRating}
+                </span>
               </>
             )}
           </div>
-          <div className="hero__actions">
+
+          <div className="hm-hero__actions">
             <button
-              className="btn btn--primary"
+              className="hm-btn hm-btn--primary"
               type="button"
               onClick={() => heroMovie && navigate(`/watch/${heroMovie.id}`)}
               disabled={!heroMovie}
             >
-              Watch Trailer
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              Xem phim
             </button>
             <button
-              className="btn btn--ghost"
+              className="hm-btn hm-btn--ghost"
               type="button"
               onClick={() => heroMovie && navigate(`/movie/${heroMovie.id}`)}
               disabled={!heroMovie}
             >
-              View Details
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              Chi tiết
             </button>
           </div>
-          {errorMessage && <p className="status">{errorMessage}</p>}
+
+          {errorMessage && (
+            <p className="hm-hero__error">{errorMessage}</p>
+          )}
         </div>
 
-        <div className="hero__poster">
-          <img src={heroPoster} alt={heroTitle} />
+        <div className="hm-hero__poster-wrap">
+          <img
+            className={`hm-hero__poster ${heroLoaded ? 'hm-hero__poster--loaded' : ''}`}
+            src={heroPoster}
+            alt={heroTitle}
+            onLoad={() => setHeroLoaded(true)}
+          />
         </div>
       </section>
 
-      <section className="rows">
+      {/* ── MOVIE GRID ────────────────────────────────────────────────── */}
+      <section className="hm-section">
+        <div className="hm-section__header">
+          <div className="hm-section__title-wrap">
+            <div className="hm-section__accent" />
+            <h2 className="hm-section__title">Tất cả phim</h2>
+          </div>
+          {movies.length > 0 && (
+            <span className="hm-section__count">{movies.length} phim</span>
+          )}
+        </div>
+
         {isLoading && movies.length === 0 ? (
-          <Spinner />
+          <div className="hm-grid">
+            {Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : movies.length === 0 && !errorMessage ? (
+          <div className="hm-empty">
+            <div className="hm-empty__icon">🎬</div>
+            <p className="hm-empty__text">Không có phim nào. Kiểm tra kết nối backend.</p>
+          </div>
         ) : (
-          <div className="row">
-            <div className="row__header">
-              <h2>All Movies</h2>
-              <span className="row__hint">Scroll</span>
-            </div>
-            <div className="row__list">
-              {movies.map((movie) => (
-                <PosterCard
-                  key={movie.id}
-                  movie={{
-                    id: movie.id,
-                    title: movie.title,
-                    poster_path: movie.posterPath,
-                    vote_average: movie.rating,
-                    release_date: movie.releaseYear?.toString()
-                  }}
-                  onSelect={(selected) => setQuickMovie(movie)}
-                  onPlay={(selected) => navigate(`/watch/${movie.id}`)}
-                />
-              ))}
-            </div>
-            
-            {hasMore && (
-              <div className="row__footer">
-                <button 
-                  className="btn btn--ghost" 
-                  onClick={loadMore}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Loading...' : 'Load More'}
-                </button>
-              </div>
-            )}
+          <div className="hm-grid">
+            {movies.map((movie) => (
+              <MovieCard key={movie.id} movie={movie} onNavigate={navigate} />
+            ))}
+            {loadMoreLoading &&
+              Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={`sk-${i}`} />)
+            }
           </div>
         )}
-        
-        {!isLoading && movies.length === 0 && !errorMessage && (
-          <div className="status">
-            <p>No movies available. Please check if backend is running.</p>
+
+        {loadMoreError && (
+          <p className="hm-load-msg">{loadMoreError}</p>
+        )}
+
+        {hasMore && !isLoading && (
+          <div className="hm-load-more">
+            <button
+              className="hm-load-more__btn"
+              onClick={loadMore}
+              disabled={loadMoreLoading}
+            >
+              {loadMoreLoading ? (
+                <span className="hm-load-more__spinner" />
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  Tải thêm phim
+                </>
+              )}
+            </button>
           </div>
         )}
       </section>
-
-      <QuickView
-        movie={quickMovie ? {
-          id: quickMovie.id,
-          title: quickMovie.title,
-          poster_path: quickMovie.posterPath,
-          vote_average: quickMovie.rating,
-          overview: quickMovie.overview,
-          release_date: quickMovie.releaseYear?.toString()
-        } : null}
-        onClose={() => setQuickMovie(null)}
-        onWatch={handleQuickWatch}
-        onDetails={handleQuickDetails}
-      />
-    </section>
+    </div>
   )
 }
 

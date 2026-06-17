@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import AdminTaskbar from './admintaskbar.jsx';
 import adminService from '../services/adminService';
 
@@ -19,15 +20,10 @@ const AdminMovies = () => {
     try {
       setLoading(true);
       setError(null);
-      // Mock data replacing API call
-      const data = {
-        content: [
-          { tmdbId: 101, title: 'Inception', isActive: true, releaseDate: '2010-07-16', voteAverage: 8.8 },
-          { tmdbId: 102, title: 'The Matrix', isActive: false, releaseDate: '1999-03-31', voteAverage: 8.7 }
-        ],
-        totalPages: 1,
-        totalElements: 2
-      };
+      const searchParam = search ? search : undefined;
+      const activeParam = isActive !== 'all' ? (isActive === 'active') : undefined;
+      
+      const data = await adminService.getAllMovies(page, size, searchParam, activeParam);
       setMovies(data?.content || []);
       setTotalPages(data?.totalPages || 0);
       setTotalElements(data?.totalElements || 0);
@@ -231,9 +227,9 @@ const AdminMovies = () => {
                             </td>
                             <td className="px-[16px] py-[16px] text-right">
                               <div className="flex items-center justify-end gap-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button className="p-1.5 text-[#94A3B8] hover:text-[#f8fafc] hover:bg-[#0F172A] rounded transition-colors" title="View Details">
+                                <Link to={`/admin/movies/${movie.tmdbId}`} className="p-1.5 text-[#94A3B8] hover:text-[#f8fafc] hover:bg-[#0F172A] rounded transition-colors" title="View Details">
                                   <span className="material-symbols-outlined text-[20px]">visibility</span>
-                                </button>
+                                </Link>
                                 <button className="p-1.5 text-[#94A3B8] hover:text-[#f8fafc] hover:bg-[#0F172A] rounded transition-colors" title="Edit">
                                   <span className="material-symbols-outlined text-[20px]">edit</span>
                                 </button>

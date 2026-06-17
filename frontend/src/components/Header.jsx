@@ -8,8 +8,10 @@ import {
 import { useDebounce } from 'react-use'
 import Search from './Search.jsx'
 import logo from '../assets/logo.svg'
-import { movieService } from '../services'
+import { movieService, authService, userService, genreService } from '../services'
 import { useNotifications } from '../hooks/useNotifications'
+import UserProfile from '../pages/userprofile.jsx'
+
 const Header = () => {
   const menuItems = [
     { id: 'genres', label: 'Genres' },
@@ -22,8 +24,13 @@ const Header = () => {
   const [mobileGenresOpen, setMobileGenresOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   
-  const { notifications, unreadCount, markAllAsRead } = useNotifications()
-  
+  const { notifications, unreadCount, markAllAsRead, markAsRead, refresh } = useNotifications()
+  const [profileOpen, setProfileOpen] = useState(false)
+  const isLoggedIn = authService.isAuthenticated()
+  const [profile, setProfile] = useState(null)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef(null)
+
   const [searchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get('query') || ''
@@ -45,14 +52,19 @@ const Header = () => {
       setGenresError('')
 
       try {
-        const data = await movieService.getGenres()
+        const response = await genreService.getAllGenres()
+        const data = response.data
         if (!active) {
           return
         }
 
-        const sorted = (data || []).slice().sort((a, b) =>
-          a.name.localeCompare(b.name)
-        )
+        const sorted = (data || [])
+          // Bỏ thể loại Chương Trình Truyền Hình
+          .filter((g) => !g.name?.toLowerCase().includes('chương trình') && !g.name?.toLowerCase().includes('truyền hình'))
+          // Bỏ chữ "Phim " ở đầu tên thể loại
+          .map((g) => ({ ...g, name: g.name?.replace(/^phim\s+/i, '').trim() }))
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
         setGenres(sorted)
       } catch (error) {
         console.error(`Error fetching genres: ${error}`)
@@ -68,6 +80,27 @@ const Header = () => {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    let active = true
+    if (isLoggedIn) {
+      userService.getCurrentUserProfile().then(data => {
+        if (active) setProfile(data)
+      }).catch(() => {})
+    }
+    return () => { active = false }
+  }, [isLoggedIn])
+
+  useEffect(() => {
+    if (!profileMenuOpen) return
+    const handleClick = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileMenuOpen(false)
+      }
+    }
+    window.addEventListener('mousedown', handleClick)
+    return () => window.removeEventListener('mousedown', handleClick)
+  }, [profileMenuOpen])
 
   useEffect(() => {
     const query = searchParams.get('query') || ''
@@ -179,6 +212,7 @@ const Header = () => {
   }
 
   return (
+    <>
     <header
       className={`site-header ${isScrolled ? 'site-header--scrolled' : ''}`.trim()}
     >
@@ -225,22 +259,55 @@ const Header = () => {
                         ref={genresPanelRef}
                         role="listbox"
                       >
+                        {/* Panel header */}
+                        <div className="genres-panel__head">
+                          <div className="genres-panel__head-left">
+                            <span className="genres-panel__icon">🎬</span>
+                            <div>
+                              <p className="genres-panel__heading">Thể loại phim</p>
+                              <p className="genres-panel__sub">
+                                {genres.length > 0 ? `${genres.length} thể loại` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            className="genres-panel__close"
+                            type="button"
+                            onClick={() => setGenresOpen(false)}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+
                         {genres.length === 0 ? (
-                          <p className="nav__genres-status">
-                            {genresError || 'Loading genres...'}
-                          </p>
+                          <div className="genres-panel__empty">
+                            <div className="genres-panel__spinner" />
+                            <p>{genresError || 'Đang tải thể loại...'}</p>
+                          </div>
                         ) : (
-                          <div className="nav__genres-grid">
-                            {genres.map((genre) => (
-                              <button
-                                className="nav__genres-item"
-                                key={genre.id}
-                                type="button"
-                                onClick={() => handleGenreSelect(genre.id)}
-                              >
-                                {genre.name}
-                              </button>
-                            ))}
+                          <div className="genres-panel__grid">
+                            {genres.map((genre, index) => {
+                              const colors = [
+                                'genre-pill--blue','genre-pill--purple','genre-pill--pink',
+                                'genre-pill--green','genre-pill--orange','genre-pill--teal',
+                                'genre-pill--red','genre-pill--indigo','genre-pill--yellow',
+                                'genre-pill--cyan'
+                              ]
+                              const color = colors[index % colors.length]
+                              return (
+                                <button
+                                  className={`genre-pill ${color}`}
+                                  key={genre.id}
+                                  type="button"
+                                  onClick={() => handleGenreSelect(genre.id)}
+                                >
+                                  <span className="genre-pill__name">{genre.name}</span>
+                                </button>
+                              )
+                            })}
                           </div>
                         )}
                       </div>
@@ -273,28 +340,16 @@ const Header = () => {
 
         <div className="nav__right">
           <div className="nav__action-island hidden sm:flex">
-            {/* History Icon */}
-            <Link className="nav__action-btn" to="/history" aria-label="History" title="History">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-            </Link>
-
-            {/* Watchlist Icon */}
-            <Link className="nav__action-btn" to="/watchlist" aria-label="Watchlist" title="Watchlist">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-              </svg>
-            </Link>
-
             {/* Notifications Dropdown */}
             <div className="relative flex">
               <button 
                 className="nav__action-btn"
                 aria-label="Notifications"
                 title="Notifications"
-                onClick={() => setNotificationsOpen(v => !v)}
+                onClick={() => {
+                  setNotificationsOpen(v => !v);
+                  if (!notificationsOpen) refresh();
+                }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -318,7 +373,13 @@ const Header = () => {
                       <p className="nav__notifications-empty">No notifications yet.</p>
                     ) : (
                       notifications.map(note => (
-                        <div key={note.id} className={`nav__notification-item ${!note.isRead ? 'nav__notification-item--unread' : ''}`}>
+                        <div 
+                          key={note.id} 
+                          className={`nav__notification-item ${!note.isRead ? 'nav__notification-item--unread cursor-pointer hover:bg-[#1E293B]' : ''}`}
+                          onClick={() => {
+                            if (!note.isRead) markAsRead(note.id);
+                          }}
+                        >
                           <div className="nav__notification-icon">
                              {note.type === 'episode' ? (
                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -356,11 +417,103 @@ const Header = () => {
             </svg>
           </button> */}
 
-          <Link className="nav__avatar" to="/login" title="Member Profile">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Zm0 2c-3.866 0-7 3.134-7 7h2c0-2.757 2.243-5 5-5s5 2.243 5 5h2c0-3.866-3.134-7-7-7Z" />
-            </svg>
-          </Link>
+          {isLoggedIn ? (
+            <div className="relative flex" ref={profileMenuRef}>
+              <button 
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity border border-gray-600 rounded-full p-1 pr-2 ml-2 bg-[#1E293B]"
+                onClick={() => setProfileMenuOpen(v => !v)}
+                type="button"
+              >
+                {profile?.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center font-bold text-white text-sm">
+                    {profile?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                )}
+                <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {profileMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-[#1a1c22] rounded-xl border border-gray-800 shadow-2xl overflow-hidden z-50 flex flex-col font-['Inter']">
+                  <div className="p-5 border-b border-gray-800">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="font-bold text-gray-200 text-lg">{profile?.fullName || 'Người dùng'}</span>
+                      <svg className="w-6 h-6 text-yellow-500 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4Z"/>
+                      </svg>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Nâng cấp tài khoản <strong className="text-white">RoX</strong> để có trải nghiệm đẳng cấp hơn.
+                    </p>
+                    <Link 
+                      to="/payment" 
+                      onClick={() => setProfileMenuOpen(false)}
+                      className="block w-full bg-[#fbd065] hover:bg-[#facc15] text-black text-center py-2.5 rounded-md font-bold text-sm transition-colors"
+                    >
+                      Nâng cấp ngay <span className="ml-1">^</span>
+                    </Link>
+                  </div>
+
+                  <div className="px-5 py-4 flex items-center justify-between border-b border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                      <span className="text-gray-300 font-medium text-sm">Số dư</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-yellow-500">0 <span className="w-5 h-5 inline-flex items-center justify-center bg-[#2a2d36] rounded-full text-[10px] ml-1">R</span></span>
+                      <button className="bg-white text-black px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-gray-200 transition-colors">
+                        <span>+</span> Nạp
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col py-2">
+                    <Link to="/watchlist" className="px-5 py-3 flex items-center gap-4 hover:bg-gray-800 transition-colors text-gray-300 hover:text-white" onClick={() => setProfileMenuOpen(false)}>
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                      <span className="text-sm font-medium">Yêu thích</span>
+                    </Link>
+                    <Link to="/history" className="px-5 py-3 flex items-center gap-4 hover:bg-gray-800 transition-colors text-gray-300 hover:text-white" onClick={() => setProfileMenuOpen(false)}>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                      <span className="text-sm font-medium">Xem tiếp</span>
+                    </Link>
+                    <button onClick={() => { setProfileMenuOpen(false); setProfileOpen(true); }} className="px-5 py-3 flex items-center gap-4 hover:bg-gray-800 transition-colors text-gray-300 hover:text-white w-full text-left">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                      <span className="text-sm font-medium">Tài khoản</span>
+                    </button>
+                  </div>
+                  
+                  <div className="border-t border-gray-800 py-2">
+                    <button 
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        const refreshToken = localStorage.getItem('refresh_token')
+                        if (refreshToken) authService.logout(refreshToken)
+                        localStorage.removeItem('access_token')
+                        localStorage.removeItem('refresh_token')
+                        localStorage.removeItem('user')
+                        navigate('/')
+                        window.location.reload()
+                      }}
+                      className="px-5 py-3 flex items-center gap-4 hover:bg-gray-800 transition-colors text-gray-300 hover:text-white w-full text-left"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                      <span className="text-sm font-medium">Thoát</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link to="/login" className="flex items-center gap-2 bg-[#E2E4E9] hover:bg-[#d1d5db] text-[#1E293B] px-4 py-2 rounded-full font-medium transition-colors ml-2 text-sm h-10">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Zm0 2c-3.866 0-7 3.134-7 7h2c0-2.757 2.243-5 5-5s5 2.243 5 5h2c0-3.866-3.134-7-7-7Z" />
+              </svg>
+              <span>Thành viên</span>
+            </Link>
+          )}
         </div>
       </nav>
 
@@ -433,6 +586,12 @@ const Header = () => {
         </div>
       )}
     </header>
+
+    {/* User Profile Modal */}
+    {profileOpen && (
+      <UserProfile onClose={() => setProfileOpen(false)} />
+    )}
+  </>
   )
 }
 

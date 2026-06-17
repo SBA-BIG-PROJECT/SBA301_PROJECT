@@ -49,17 +49,9 @@ const adminService = {
     return response.data;
   },
   
-  // API doc: PATCH /admin/users/{userId}/role?newRole=ADMIN
-  changeUserRole: async (userId, newRole) => {
-    const response = await api.patch(`/admin/users/${userId}/role`, null, { 
-      params: { newRole } 
-    });
-    return response.data;
-  },
-  
-  // API doc: POST /admin/users/{userId}/premium
-  grantPremium: async (userId, planType, reason) => {
-    const response = await api.post(`/admin/users/${userId}/premium`, { planType, reason });
+  // API doc: PUT /api/v1/admin/users/{userId}/role
+  changeUserRole: async (userId, role) => {
+    const response = await api.put(`/admin/users/${userId}/role`, { role });
     return response.data;
   },
 
@@ -130,11 +122,9 @@ const adminService = {
     return response.data;
   },
   
-  // API doc: PATCH /admin/payments/{paymentId}/status?newStatus=SUCCESS
-  updatePaymentStatus: async (paymentId, newStatus) => {
-    const response = await api.patch(`/admin/payments/${paymentId}/status`, null, {
-      params: { newStatus }
-    });
+  // API doc: PUT /api/v1/admin/payments/{paymentId}/status
+  updatePaymentStatus: async (paymentId, status) => {
+    const response = await api.put(`/admin/payments/${paymentId}/status`, { status });
     return response.data;
   },
 

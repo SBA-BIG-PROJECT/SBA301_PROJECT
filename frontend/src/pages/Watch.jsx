@@ -17,7 +17,7 @@ const Watch = () => {
   const [newComment, setNewComment] = useState('')
   const [newRating, setNewRating] = useState(10.0)
   const [submitting, setSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState('comment')
+  const [hoverRating, setHoverRating] = useState(0)
   
   // Related movies
   const [relatedMovies, setRelatedMovies] = useState([])
@@ -114,7 +114,7 @@ const Watch = () => {
   return (
     <section className="watch">
       <div className="row__header">
-        <h2>{movie?.title || 'Watch Trailer'}</h2>
+        <h2>{movie?.title || 'Watch Movie'}</h2>
         <Link className="nav__link" to={`/movie/${id}`}>
           Back to details
         </Link>
@@ -129,14 +129,14 @@ const Watch = () => {
           <iframe
             className="watch__frame"
             src={embedUrl}
-            title={movie?.title || 'Trailer'}
+            title={movie?.title || 'Movie'}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
         </div>
       ) : (
         <p className="search-results__empty">
-          Trailer not available for this title.
+          Movie not available for this title.
         </p>
       )}
 
@@ -149,21 +149,7 @@ const Watch = () => {
                 <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 11H7V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z" />
                 </svg>
-                <h3 className="text-xl font-bold">Bình luận ({reviews.length})</h3>
-                <div className="flex bg-[#1a1c22] rounded-md overflow-hidden ml-6 text-sm font-medium">
-                  <button 
-                    onClick={() => setActiveTab('comment')}
-                    className={`px-5 py-2 transition-colors ${activeTab === 'comment' ? 'bg-[#2a2d36] text-white' : 'text-gray-400 hover:text-white'}`}
-                  >
-                    Bình luận
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab('review')}
-                    className={`px-5 py-2 transition-colors ${activeTab === 'review' ? 'bg-[#2a2d36] text-white' : 'text-gray-400 hover:text-white'}`}
-                  >
-                    Đánh giá
-                  </button>
-                </div>
+                <h3 className="text-xl font-bold">Bình luận & Đánh giá ({reviews.length})</h3>
               </div>
               <button className="text-gray-400 hover:text-white transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -183,24 +169,35 @@ const Watch = () => {
                 <div className="absolute left-0 top-0 w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center font-bold text-gray-300 text-lg">
                   {user?.username?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
-                {activeTab === 'review' && (
-                  <div className="mb-4 flex items-center gap-4 bg-[#242730] p-4 rounded-lg">
+                  <div className="mb-4 flex flex-col gap-2 bg-[#242730] p-4 rounded-lg">
                     <p className="text-sm font-medium text-gray-300">Điểm đánh giá của bạn:</p>
-                    <div className="flex items-center gap-4 flex-1">
-                      <input 
-                        type="range" 
-                        min="1" max="10" step="0.5" 
-                        value={newRating} 
-                        onChange={(e) => setNewRating(parseFloat(e.target.value))}
-                        className="w-full max-w-xs accent-red-500 cursor-pointer"
-                      />
-                      <div className="flex items-center justify-center bg-red-500/10 px-3 py-1 rounded-lg border border-red-500/20">
-                        <span className="font-bold text-red-500">{newRating.toFixed(1)}</span>
-                        <span className="text-red-500/50 text-xs ml-1">/ 10</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setNewRating(star)}
+                            onMouseEnter={() => setHoverRating(star)}
+                            onMouseLeave={() => setHoverRating(0)}
+                            className="focus:outline-none transition-transform hover:scale-110"
+                          >
+                            <svg 
+                              className={`w-6 h-6 ${star <= (hoverRating || newRating) ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]' : 'text-gray-600'} transition-all`} 
+                              fill="currentColor" 
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-center bg-yellow-500/10 px-3 py-1 rounded-lg border border-yellow-500/20 ml-4">
+                        <span className="font-bold text-yellow-500">{newRating}</span>
+                        <span className="text-yellow-500/50 text-xs ml-1">/ 10</span>
                       </div>
                     </div>
                   </div>
-                )}
                 
                 <form 
                   className="bg-[#242730] rounded-lg overflow-hidden border border-[#2a2d36]"
@@ -209,7 +206,7 @@ const Watch = () => {
                   <div className="relative">
                     <textarea 
                       className="w-full bg-transparent p-4 text-gray-200 placeholder-gray-500 focus:outline-none resize-none min-h-[100px] text-sm"
-                      placeholder={activeTab === 'comment' ? "Viết bình luận..." : "Viết đánh giá của bạn..."}
+                      placeholder="Viết bình luận & đánh giá của bạn..."
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       maxLength={1000}
@@ -263,7 +260,7 @@ const Watch = () => {
                           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
                           </svg>
-                          <span>{review.rating.toFixed(1)} Điểm</span>
+                          <span>{Number(review.rating).toFixed(1)} Điểm</span>
                         </div>
                       )}
                       
