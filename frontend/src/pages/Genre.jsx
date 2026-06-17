@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import MovieCard from '../components/MovieCard.jsx'
 import Spinner from '../components/Spinner.jsx'
-import { fetchByGenre, fetchGenres } from '../lib/tmdb'
+import { movieService } from '../services'
 
 const Genre = () => {
   const { id } = useParams()
@@ -30,20 +30,22 @@ const Genre = () => {
 
       try {
         const [genresData, moviesData] = await Promise.all([
-          fetchGenres(),
-          fetchByGenre(genreId)
+          movieService.getGenres(),
+          movieService.getByGenre(genreId)
         ])
 
         if (!active) {
           return
         }
 
-        const match = (genresData?.genres || []).find(
-          (genre) => genre.id === genreId
-        )
+        // Lấy danh sách genres từ backend (fallback là mảng rỗng nếu chưa có api)
+        const allGenres = genresData || []
+        const match = allGenres.find((genre) => genre.id === genreId)
 
         setGenreName(match?.name || 'Genre')
-        setMovies(moviesData?.results || [])
+        
+        // Backend trả về PageResponse<MovieDto> có thuộc tính content
+        setMovies(moviesData?.content || [])
       } catch (error) {
         console.error(`Error fetching genre: ${error}`)
         if (active) {
@@ -85,7 +87,13 @@ const Genre = () => {
           {movies.map((movie) => (
             <div className="movie-card__cell" key={movie.id}>
               <Link className="movie-card__link" to={`/movie/${movie.id}`}>
-                <MovieCard movie={movie} />
+                <MovieCard movie={{
+                  id: movie.id,
+                  title: movie.title,
+                  poster_path: movie.posterPath,
+                  vote_average: movie.rating,
+                  release_date: movie.releaseYear?.toString()
+                }} />
               </Link>
               <div className="movie-card__actions">
                 <Link className="btn btn--ghost" to={`/movie/${movie.id}`}>

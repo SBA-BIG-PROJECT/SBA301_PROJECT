@@ -8,7 +8,7 @@ import {
 import { useDebounce } from 'react-use'
 import Search from './Search.jsx'
 import logo from '../assets/logo.svg'
-import { fetchGenres } from '../lib/tmdb'
+import { movieService } from '../services'
 import { useNotifications } from '../hooks/useNotifications'
 const Header = () => {
   const menuItems = [
@@ -45,12 +45,12 @@ const Header = () => {
       setGenresError('')
 
       try {
-        const data = await fetchGenres()
+        const data = await movieService.getGenres()
         if (!active) {
           return
         }
 
-        const sorted = (data?.genres || []).slice().sort((a, b) =>
+        const sorted = (data || []).slice().sort((a, b) =>
           a.name.localeCompare(b.name)
         )
         setGenres(sorted)
