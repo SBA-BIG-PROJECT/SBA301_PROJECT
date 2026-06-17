@@ -36,9 +36,14 @@ const Detail = () => {
 
         setMovie(movieData)
         
-        // Check if in watchlist
-        const inList = await isInWatchlist(id)
-        setInWatchlist(inList)
+        // Check if in watchlist separately so it doesn't break movie loading if 403
+        try {
+          const inList = await isInWatchlist(id)
+          setInWatchlist(inList)
+        } catch (watchlistError) {
+          console.warn('Watchlist check failed, possibly not logged in:', watchlistError)
+          setInWatchlist(false)
+        }
         setCheckingWatchlist(false)
       } catch (error) {
         console.error(`Error fetching details: ${error}`)
@@ -145,9 +150,11 @@ const Detail = () => {
             </p>
             {movie.genres && movie.genres.length > 0 && (
               <div className="detail__genres">
-                {movie.genres.map((genre) => (
-                  <span key={genre}>{genre}</span>
-                ))}
+                {movie.genres.map((genre) => {
+                  const genreId = typeof genre === 'object' ? genre.id || genre.name : genre;
+                  const genreName = typeof genre === 'object' ? genre.name : genre;
+                  return <span key={genreId}>{genreName}</span>;
+                })}
               </div>
             )}
             <div className="detail__actions">
