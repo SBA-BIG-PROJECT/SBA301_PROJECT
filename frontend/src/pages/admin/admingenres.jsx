@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AdminTaskbar from './admintaskbar.jsx';
-import { adminService } from '../services';
+import { adminService } from '../../services';
 
 const AdminGenres = () => {
   const [genres, setGenres] = useState([]);

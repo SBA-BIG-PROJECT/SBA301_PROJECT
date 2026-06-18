@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AdminTaskbar from './admintaskbar.jsx';
-import { adminService } from '../services';
-import Spinner from '../components/Spinner.jsx';
+import { adminService } from '../../services';
+import Spinner from '../../components/Spinner.jsx';
 
 const AdminUserDetail = () => {
     const { id } = useParams();
@@ -10,20 +10,44 @@ const AdminUserDetail = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [paymentHistory, setPaymentHistory] = useState([]);
+    const [recentReviews, setRecentReviews] = useState([]);
+    const [recentWatchlist, setRecentWatchlist] = useState([]);
+    const [recentViews, setRecentViews] = useState([]);
+    const [editFullName, setEditFullName] = useState('');
+    const [editAdminNotes, setEditAdminNotes] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const fetchUserDetail = async () => {
+        try {
+            setLoading(true);
+            const data = await adminService.getUserDetail(id);
+            if (data && data.user) {
+                const enrichedUser = {
+                    ...data.user,
+                    totalSpent: data.user.totalSpent || '0.00',
+                    moviesWatched: data.user.totalViews || 0,
+                    reviewsCount: data.user.totalReviews || 0
+                };
+                setUser(enrichedUser);
+                setEditFullName(data.user.fullName || '');
+                setEditAdminNotes(data.user.adminNotes || '');
+                setPaymentHistory(data.paymentHistory || []);
+                setRecentReviews(data.recentReviews || []);
+                setRecentWatchlist(data.recentWatchlist || []);
+                setRecentViews(data.recentViews || []);
+            } else {
+                setUser(null);
+            }
+        } catch (err) {
+            console.error("Error fetching user details", err);
+            setError("Could not load user details");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchUserDetail = async () => {
-            try {
-                setLoading(true);
-                const data = await adminService.getUserDetail(id);
-                setUser(data);
-            } catch (err) {
-                console.error("Error fetching user details", err);
-                setError("Could not load user details");
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchUserDetail();
     }, [id]);
 
@@ -51,11 +75,31 @@ const AdminUserDetail = () => {
                     // Update user to active via updateUser if backend supports it, otherwise reload
                     await adminService.updateUser(id, { isActive: true });
                 }
-                const data = await adminService.getUserDetail(id);
-                setUser(data);
+                await fetchUserDetail();
             } catch (err) {
                 alert(`Failed to ${action} account`);
             }
+        }
+    };
+
+    const handleSaveChanges = async () => {
+        try {
+            setSaving(true);
+            const updated = await adminService.updateUser(id, {
+                fullName: editFullName,
+                adminNotes: editAdminNotes
+            });
+            alert('User profile updated successfully!');
+            setUser(prev => ({
+                ...prev,
+                fullName: updated.fullName,
+                adminNotes: updated.adminNotes
+            }));
+        } catch (err) {
+            console.error("Failed to update user profile", err);
+            alert('Failed to update user profile');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -193,6 +237,43 @@ const AdminUserDetail = () => {
                         </div>
                     </section>
 
+                    {/* Admin Edit Section */}
+                    <section className="bg-[#1E293B] rounded-xl border border-[#334155] p-[24px] flex flex-col gap-[24px]">
+                        <h3 className="text-[18px] font-bold text-[#f8fafc]">Admin Management Notes & Profile</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
+                            <div className="flex flex-col gap-[8px]">
+                                <label className="text-[12px] text-[#94A3B8] uppercase tracking-wider font-medium">User Full Name</label>
+                                <input 
+                                    type="text"
+                                    value={editFullName}
+                                    onChange={(e) => setEditFullName(e.target.value)}
+                                    className="bg-[#0F172A] border border-[#334155] rounded-lg py-[10px] px-[16px] text-[#f8fafc] focus:outline-none focus:border-[#E50914] transition-colors"
+                                    placeholder="Enter full name"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-[8px]">
+                                <label className="text-[12px] text-[#94A3B8] uppercase tracking-wider font-medium">Admin Notes</label>
+                                <textarea 
+                                    rows="3"
+                                    value={editAdminNotes}
+                                    onChange={(e) => setEditAdminNotes(e.target.value)}
+                                    className="bg-[#0F172A] border border-[#334155] rounded-lg py-[10px] px-[16px] text-[#f8fafc] focus:outline-none focus:border-[#E50914] transition-colors resize-none"
+                                    placeholder="Write notes about this user (e.g., reason for disable, customer segment, behavior history...)"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end">
+                            <button 
+                                onClick={handleSaveChanges}
+                                disabled={saving}
+                                className="px-[24px] py-[12px] rounded-lg bg-[#E50914] text-white hover:brightness-110 active:brightness-90 font-medium transition-all shadow-[0_4px_14px_rgba(229,9,20,0.2)] disabled:opacity-50 flex items-center gap-[8px]"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">save</span>
+                                {saving ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </section>
+
                     {/* Tabbed Interface */}
                     <section className="flex flex-col gap-[24px] flex-1">
                         {/* Tab Navigation */}
@@ -242,48 +323,43 @@ const AdminUserDetail = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="text-[14px]">
-                                            <tr className="border-b border-[#334155] hover:bg-[#334155]/50 transition-colors cursor-pointer group">
-                                                <td className="p-[16px] text-[#94A3B8] group-hover:text-[#f8fafc] transition-colors">Oct 12, 2023</td>
-                                                <td className="p-[16px] text-[#f8fafc] font-mono text-[13px]">#TXN-9823741A</td>
-                                                <td className="p-[16px] text-[#f8fafc]">Premium Annual</td>
-                                                <td className="p-[16px] text-[#f8fafc] font-semibold">$119.99</td>
-                                                <td className="p-[16px] text-right">
-                                                    <span className="inline-flex items-center justify-center px-[8px] py-[2px] rounded bg-[#7bd0ff]/20 border border-[#7bd0ff] text-[#7bd0ff] text-[12px] font-medium uppercase">Success</span>
-                                                </td>
-                                            </tr>
-                                            <tr className="border-b border-[#334155] hover:bg-[#334155]/50 transition-colors cursor-pointer group">
-                                                <td className="p-[16px] text-[#94A3B8] group-hover:text-[#f8fafc] transition-colors">Oct 12, 2022</td>
-                                                <td className="p-[16px] text-[#f8fafc] font-mono text-[13px]">#TXN-8723619B</td>
-                                                <td className="p-[16px] text-[#f8fafc]">Premium Annual</td>
-                                                <td className="p-[16px] text-[#f8fafc] font-semibold">$119.99</td>
-                                                <td className="p-[16px] text-right">
-                                                    <span className="inline-flex items-center justify-center px-[8px] py-[2px] rounded bg-[#7bd0ff]/20 border border-[#7bd0ff] text-[#7bd0ff] text-[12px] font-medium uppercase">Success</span>
-                                                </td>
-                                            </tr>
-                                            <tr className="border-b border-[#334155] hover:bg-[#334155]/50 transition-colors cursor-pointer group">
-                                                <td className="p-[16px] text-[#94A3B8] group-hover:text-[#f8fafc] transition-colors">Oct 12, 2021</td>
-                                                <td className="p-[16px] text-[#f8fafc] font-mono text-[13px]">#TXN-7612508C</td>
-                                                <td className="p-[16px] text-[#f8fafc]">Standard Annual</td>
-                                                <td className="p-[16px] text-[#f8fafc] font-semibold">$89.99</td>
-                                                <td className="p-[16px] text-right">
-                                                    <span className="inline-flex items-center justify-center px-[8px] py-[2px] rounded bg-[#7bd0ff]/20 border border-[#7bd0ff] text-[#7bd0ff] text-[12px] font-medium uppercase">Success</span>
-                                                </td>
-                                            </tr>
-                                            <tr className="hover:bg-[#334155]/50 transition-colors cursor-pointer group">
-                                                <td className="p-[16px] text-[#94A3B8] group-hover:text-[#f8fafc] transition-colors">Oct 12, 2021</td>
-                                                <td className="p-[16px] text-[#f8fafc] font-mono text-[13px]">#TXN-7612508X</td>
-                                                <td className="p-[16px] text-[#f8fafc]">Standard Annual</td>
-                                                <td className="p-[16px] text-[#f8fafc] font-semibold">$89.99</td>
-                                                <td className="p-[16px] text-right">
-                                                    <span className="inline-flex items-center justify-center px-[8px] py-[2px] rounded bg-red-500/20 border border-red-500 text-[#ffb4ab] text-[12px] font-medium uppercase">Failed</span>
-                                                </td>
-                                            </tr>
+                                            {paymentHistory && paymentHistory.length > 0 ? (
+                                                paymentHistory.map((payment) => (
+                                                    <tr key={payment.paymentId} className="border-b border-[#334155] hover:bg-[#334155]/50 transition-colors cursor-pointer group">
+                                                        <td className="p-[16px] text-[#94A3B8] group-hover:text-[#f8fafc] transition-colors">
+                                                            {new Date(payment.createdAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="p-[16px] text-[#f8fafc] font-mono text-[13px]">
+                                                            #{payment.transactionId || `TXN-${payment.orderCode}`}
+                                                        </td>
+                                                        <td className="p-[16px] text-[#f8fafc]">{payment.planType}</td>
+                                                        <td className="p-[16px] text-[#f8fafc] font-semibold">${payment.amount}</td>
+                                                        <td className="p-[16px] text-right">
+                                                            <span className={`inline-flex items-center justify-center px-[8px] py-[2px] rounded text-[12px] font-medium uppercase ${
+                                                                payment.status === 'SUCCESS' 
+                                                                    ? 'bg-[#7bd0ff]/20 border border-[#7bd0ff] text-[#7bd0ff]' 
+                                                                    : 'bg-red-500/20 border border-red-500 text-[#ffb4ab]'
+                                                            }`}>
+                                                                {payment.status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="5" className="p-[16px] text-center text-[#94A3B8]">
+                                                        No payment history found.
+                                                    </td>
+                                                </tr>
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
                                 {/* Pagination Footer */}
                                 <div className="bg-[#0F172A] border-t border-[#334155] p-[16px] flex justify-between items-center">
-                                    <span className="text-[14px] text-[#94A3B8]">Showing 1 to 4 of 4 entries</span>
+                                    <span className="text-[14px] text-[#94A3B8]">
+                                        Showing 1 to {paymentHistory.length} of {paymentHistory.length} entries
+                                    </span>
                                     <div className="flex gap-[4px]">
                                         <button className="p-[4px] rounded text-[#94A3B8] hover:bg-[#334155] hover:text-[#f8fafc] disabled:opacity-50 transition-colors" disabled>
                                             <span className="material-symbols-outlined text-[20px]">chevron_left</span>
@@ -296,9 +372,107 @@ const AdminUserDetail = () => {
                             </div>
                         )}
 
-                        {activeTab !== 'payment' && (
-                            <div className="bg-[#1E293B] rounded-xl border border-[#334155] p-12 flex items-center justify-center text-[#94A3B8]">
-                                <p>Content for {activeTab} will go here.</p>
+                        {/* Tab Content: Reviews Data Table */}
+                        {activeTab === 'reviews' && (
+                            <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse min-w-[600px]">
+                                        <thead className="bg-[#0F172A] border-b border-[#334155]">
+                                            <tr>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8] w-[120px]">Date</th>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8]">Movie</th>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8]">Rating</th>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8]">Comment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-[14px]">
+                                            {recentReviews && recentReviews.length > 0 ? (
+                                                recentReviews.map((review) => (
+                                                    <tr key={review.id} className="border-b border-[#334155] hover:bg-[#334155]/50 transition-colors">
+                                                        <td className="p-[16px] text-[#94A3B8]">{new Date(review.createdAt).toLocaleDateString()}</td>
+                                                        <td className="p-[16px] text-[#f8fafc] font-medium">{review.movieTitle}</td>
+                                                        <td className="p-[16px] text-[#7bd0ff] font-semibold">{review.rating} / 5.0</td>
+                                                        <td className="p-[16px] text-[#94A3B8]">{review.comment}</td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="4" className="p-[16px] text-center text-[#94A3B8]">
+                                                        No reviews left.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tab Content: Watchlist Data Table */}
+                        {activeTab === 'watchlist' && (
+                            <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse min-w-[600px]">
+                                        <thead className="bg-[#0F172A] border-b border-[#334155]">
+                                            <tr>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8] w-[120px]">Added Date</th>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8]">Movie</th>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8]">Rating</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-[14px]">
+                                            {recentWatchlist && recentWatchlist.length > 0 ? (
+                                                recentWatchlist.map((item) => (
+                                                    <tr key={item.id} className="border-b border-[#334155] hover:bg-[#334155]/50 transition-colors">
+                                                        <td className="p-[16px] text-[#94A3B8]">{new Date(item.addedAt).toLocaleDateString()}</td>
+                                                        <td className="p-[16px] text-[#f8fafc] font-medium">{item.movieTitle}</td>
+                                                        <td className="p-[16px] text-[#94A3B8]">{item.voteAverage} (Based on {item.voteCount} votes)</td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="3" className="p-[16px] text-center text-[#94A3B8]">
+                                                        Watchlist is empty.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tab Content: Viewing History Data Table */}
+                        {activeTab === 'history' && (
+                            <div className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden flex flex-col">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse min-w-[600px]">
+                                        <thead className="bg-[#0F172A] border-b border-[#334155]">
+                                            <tr>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8] w-[120px]">Watched Date</th>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8]">Movie</th>
+                                                <th className="p-[16px] text-[12px] font-medium uppercase text-[#94A3B8]">Duration (s)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-[14px]">
+                                            {recentViews && recentViews.length > 0 ? (
+                                                recentViews.map((item) => (
+                                                    <tr key={item.id} className="border-b border-[#334155] hover:bg-[#334155]/50 transition-colors">
+                                                        <td className="p-[16px] text-[#94A3B8]">{new Date(item.watchedAt).toLocaleDateString()}</td>
+                                                        <td className="p-[16px] text-[#f8fafc] font-medium">{item.movieTitle}</td>
+                                                        <td className="p-[16px] text-[#94A3B8]">{item.watchDuration} seconds</td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="3" className="p-[16px] text-center text-[#94A3B8]">
+                                                        No viewing history.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
                     </section>

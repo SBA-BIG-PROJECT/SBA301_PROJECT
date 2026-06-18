@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AdminTaskbar from './admintaskbar.jsx';
-import { adminService } from '../services';
+import { adminService } from '../../services';
 
 const AdminUser = () => {
     const [users, setUsers] = useState([]);
@@ -15,6 +15,57 @@ const AdminUser = () => {
     const [search, setSearch] = useState('');
     const [role, setRole] = useState('all');
     const [premiumStatus, setPremiumStatus] = useState('all');
+
+    // Edit User Modal States
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editUserForm, setEditUserForm] = useState({
+        id: '',
+        fullName: '',
+        role: '',
+        isActive: true,
+        adminNotes: '',
+        originalRole: ''
+    });
+    const [saving, setSaving] = useState(false);
+
+    const getPageNumbers = () => {
+        const pageNumbers = [];
+        const maxPageButtons = 5;
+
+        if (totalPages <= maxPageButtons) {
+            for (let i = 0; i < totalPages; i++) {
+                pageNumbers.push(i);
+            }
+        } else {
+            let start = Math.max(0, page - 1);
+            let end = Math.min(totalPages - 1, page + 1);
+
+            if (page <= 1) {
+                end = 3;
+            } else if (page >= totalPages - 2) {
+                start = totalPages - 4;
+            }
+
+            for (let i = start; i <= end; i++) {
+                pageNumbers.push(i);
+            }
+
+            if (start > 0) {
+                if (start > 1) {
+                    pageNumbers.unshift('...');
+                }
+                pageNumbers.unshift(0);
+            }
+
+            if (end < totalPages - 1) {
+                if (end < totalPages - 2) {
+                    pageNumbers.push('...');
+                }
+                pageNumbers.push(totalPages - 1);
+            }
+        }
+        return pageNumbers;
+    };
 
     const fetchUsers = async () => {
         try {
@@ -43,15 +94,71 @@ const AdminUser = () => {
         fetchUsers();
     };
 
-    const handleToggleBlock = async (userId) => {
-        if (window.confirm('Are you sure you want to disable/delete this user?')) {
+    const handleToggleBlock = async (userId, isActive) => {
+        const action = isActive ? 'disable' : 'enable';
+        if (window.confirm(`Are you sure you want to ${action} this user?`)) {
             try {
-                await adminService.deleteUser(userId);
+                if (isActive) {
+                    await adminService.deleteUser(userId);
+                } else {
+                    await adminService.updateUser(userId, { isActive: true });
+                }
                 fetchUsers();
             } catch (err) {
-                console.error('Error disabling user', err);
-                alert('Failed to disable user');
+                console.error(`Error ${action}ing user`, err);
+                alert(`Failed to ${action} user`);
             }
+        }
+    };
+
+    const handleChangeRole = async (userId, currentRole) => {
+        const newRole = currentRole === 'ADMIN' ? 'USER' : 'ADMIN';
+        if (window.confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
+            try {
+                await adminService.changeUserRole(userId, newRole);
+                fetchUsers();
+            } catch (err) {
+                console.error('Error changing user role', err);
+                alert('Failed to change role');
+            }
+        }
+    };
+
+    const handleOpenEditModal = (user) => {
+        setEditUserForm({
+            id: user.id,
+            fullName: user.fullName || '',
+            role: user.role || 'USER',
+            isActive: user.isActive !== false,
+            adminNotes: user.adminNotes || '',
+            originalRole: user.role || 'USER'
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleSaveUser = async (e) => {
+        e.preventDefault();
+        try {
+            setSaving(true);
+            // Update user details
+            await adminService.updateUser(editUserForm.id, {
+                fullName: editUserForm.fullName,
+                adminNotes: editUserForm.adminNotes,
+                isActive: editUserForm.isActive
+            });
+
+            // Update role if changed
+            if (editUserForm.role !== editUserForm.originalRole) {
+                await adminService.changeUserRole(editUserForm.id, editUserForm.role);
+            }
+
+            setIsEditModalOpen(false);
+            fetchUsers();
+        } catch (err) {
+            console.error("Failed to update user:", err);
+            alert("Failed to update user");
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -227,14 +334,22 @@ const AdminUser = () => {
                                                         <Link to={`/admin/users/${user.id}`} className="p-1.5 text-[#e9bcb6] hover:text-white hover:bg-[#334155] rounded transition-colors" title="View Detail">
                                                             <span className="material-symbols-outlined text-sm">visibility</span>
                                                         </Link>
-                                                        <button className="p-1.5 text-[#e9bcb6] hover:text-white hover:bg-[#334155] rounded transition-colors" title="Edit Role">
+                                                        <button onClick={() => handleOpenEditModal(user)} className="p-1.5 text-[#e9bcb6] hover:text-white hover:bg-[#334155] rounded transition-colors" title="Edit User">
                                                             <span className="material-symbols-outlined text-sm">edit</span>
                                                         </button>
-                                                        {user.isActive && (
-                                                            <button onClick={() => handleToggleBlock(user.id)} className="p-1.5 text-[#ffb4ab] hover:text-white hover:bg-[#ffb4ab]/20 rounded transition-colors" title="Disable">
-                                                                <span className="material-symbols-outlined text-sm">block</span>
-                                                            </button>
-                                                        )}
+                                                        <button 
+                                                            onClick={() => handleToggleBlock(user.id, user.isActive)} 
+                                                            className={`p-1.5 rounded transition-colors ${
+                                                                user.isActive 
+                                                                    ? 'text-[#ffb4ab] hover:text-white hover:bg-[#ffb4ab]/20' 
+                                                                    : 'text-green-400 hover:text-white hover:bg-green-400/20'
+                                                            }`}
+                                                            title={user.isActive ? "Disable" : "Enable"}
+                                                        >
+                                                            <span className="material-symbols-outlined text-sm">
+                                                                {user.isActive ? 'block' : 'check_circle'}
+                                                            </span>
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -247,29 +362,152 @@ const AdminUser = () => {
                         {/* Pagination */}
                         <div className="bg-[#0F172A] border-t border-[#334155] p-[16px] flex items-center justify-between">
                             <div className="text-[12px] leading-[16px] tracking-[0.05em] font-medium text-[#e9bcb6]">
-                                Showing <span className="font-bold text-[#ffdad5]">{(page * size) + 1}</span> to <span className="font-bold text-[#ffdad5]">{(page * size) + users.length}</span> of <span className="font-bold text-[#ffdad5]">{totalElements}</span> results
+                                Showing <span className="font-bold text-[#ffdad5]">{totalElements > 0 ? (page * size) + 1 : 0}</span> to <span className="font-bold text-[#ffdad5]">{(page * size) + users.length}</span> of <span className="font-bold text-[#ffdad5]">{totalElements}</span> results
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={() => setPage(Math.max(0, page - 1))}
                                     disabled={page === 0}
-                                    className="p-2 rounded border border-[#334155] text-[#e9bcb6] hover:bg-[#1E293B] hover:text-white disabled:opacity-50 transition-colors"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#334155] text-[#e9bcb6] hover:bg-[#1E293B] hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-all"
                                 >
-                                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                                    <span className="material-symbols-outlined text-xs">chevron_left</span>
                                 </button>
-                                <button className="w-8 h-8 rounded bg-[#e50914] text-white text-[14px] leading-[20px] font-medium flex items-center justify-center">{page + 1}</button>
+                                
+                                {getPageNumbers().map((pageNum, idx) => {
+                                    if (pageNum === '...') {
+                                        return (
+                                            <span key={`dots-${idx}`} className="w-7 h-7 flex items-center justify-center text-[#94a3b8] text-xs">
+                                                ...
+                                            </span>
+                                        );
+                                    }
+                                    const isCurrent = pageNum === page;
+                                    return (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setPage(pageNum)}
+                                            className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-all ${
+                                                isCurrent 
+                                                    ? 'bg-[#E50914] text-white shadow-md shadow-[#E50914]/25' 
+                                                    : 'border border-[#334155] text-[#e9bcb6] hover:bg-[#1E293B] hover:text-white'
+                                            }`}
+                                        >
+                                            {pageNum + 1}
+                                        </button>
+                                    );
+                                })}
+
                                 <button
                                     onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
                                     disabled={page >= totalPages - 1}
-                                    className="p-2 rounded border border-[#334155] text-[#e9bcb6] hover:bg-[#1E293B] hover:text-white transition-colors disabled:opacity-50"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#334155] text-[#e9bcb6] hover:bg-[#1E293B] hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-all"
                                 >
-                                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                                    <span className="material-symbols-outlined text-xs">chevron_right</span>
                                 </button>
                             </div>
                         </div>
                     </section>
                 </main>
             </div>
+
+            {/* Edit User Modal */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-[#1E293B] border border-[#334155] rounded-xl w-full max-w-lg shadow-[0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden">
+                        {/* Header */}
+                        <div className="flex justify-between items-center px-6 py-4 border-b border-[#334155]">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2 font-['Inter']">
+                                <span className="material-symbols-outlined text-[#E50914]">manage_accounts</span>
+                                Edit User Profile
+                            </h3>
+                            <button 
+                                onClick={() => setIsEditModalOpen(false)} 
+                                className="text-[#94A3B8] hover:text-white transition-colors"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        {/* Form */}
+                        <form onSubmit={handleSaveUser} className="p-6 space-y-4 font-['Inter']">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">User ID</label>
+                                <input 
+                                    type="text" 
+                                    value={`USR-${editUserForm.id}`} 
+                                    disabled 
+                                    className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-[#94A3B8] cursor-not-allowed text-sm focus:outline-none"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">Full Name</label>
+                                <input 
+                                    type="text" 
+                                    value={editUserForm.fullName} 
+                                    onChange={(e) => setEditUserForm(prev => ({ ...prev, fullName: e.target.value }))}
+                                    required
+                                    className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-white focus:outline-none focus:border-[#E50914] transition-colors text-sm"
+                                    placeholder="Enter user full name"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">Role</label>
+                                    <select 
+                                        value={editUserForm.role} 
+                                        onChange={(e) => setEditUserForm(prev => ({ ...prev, role: e.target.value }))}
+                                        className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-white focus:outline-none focus:border-[#E50914] transition-colors text-sm text-[#ffdad5]"
+                                    >
+                                        <option value="USER" className="bg-[#1E293B] text-white">Subscriber</option>
+                                        <option value="ADMIN" className="bg-[#1E293B] text-white">Admin</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">Status</label>
+                                    <select 
+                                        value={editUserForm.isActive ? 'active' : 'disabled'} 
+                                        onChange={(e) => setEditUserForm(prev => ({ ...prev, isActive: e.target.value === 'active' }))}
+                                        className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-white focus:outline-none focus:border-[#E50914] transition-colors text-sm text-[#ffdad5]"
+                                    >
+                                        <option value="active" className="bg-[#1E293B] text-white">Active</option>
+                                        <option value="disabled" className="bg-[#1E293B] text-white">Disabled</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">Admin Notes</label>
+                                <textarea 
+                                    rows="3" 
+                                    value={editUserForm.adminNotes} 
+                                    onChange={(e) => setEditUserForm(prev => ({ ...prev, adminNotes: e.target.value }))}
+                                    className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-white focus:outline-none focus:border-[#E50914] transition-colors resize-none text-sm"
+                                    placeholder="Enter administrative notes for this user"
+                                />
+                            </div>
+
+                            {/* Footer Actions */}
+                            <div className="flex justify-end gap-3 pt-4 border-t border-[#334155]">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setIsEditModalOpen(false)}
+                                    className="px-4 py-2 rounded-lg border border-[#334155] text-[#94A3B8] hover:text-white hover:bg-[#334155] transition-all text-sm font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    disabled={saving}
+                                    className="px-5 py-2 rounded-lg bg-[#E50914] text-white hover:brightness-110 active:brightness-90 transition-all font-medium text-sm flex items-center gap-1 shadow-lg shadow-[#E50914]/20 disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

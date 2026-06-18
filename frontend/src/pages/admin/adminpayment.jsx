@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AdminTaskbar from './admintaskbar.jsx';
-import adminService from '../services/adminService';
+import adminService from '../../services/adminService';
 
 const AdminPayment = () => {
   const [payments, setPayments] = useState([]);
@@ -14,6 +14,45 @@ const AdminPayment = () => {
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('all');
+
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxPageButtons = 5;
+
+    if (totalPages <= maxPageButtons) {
+      for (let i = 0; i < totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      let start = Math.max(0, page - 1);
+      let end = Math.min(totalPages - 1, page + 1);
+
+      if (page <= 1) {
+        end = 3;
+      } else if (page >= totalPages - 2) {
+        start = totalPages - 4;
+      }
+
+      for (let i = start; i <= end; i++) {
+        pageNumbers.push(i);
+      }
+
+      if (start > 0) {
+        if (start > 1) {
+          pageNumbers.unshift('...');
+        }
+        pageNumbers.unshift(0);
+      }
+
+      if (end < totalPages - 1) {
+        if (end < totalPages - 2) {
+          pageNumbers.push('...');
+        }
+        pageNumbers.push(totalPages - 1);
+      }
+    }
+    return pageNumbers;
+  };
   
   const fetchPayments = async () => {
     try {
@@ -252,23 +291,47 @@ const AdminPayment = () => {
               </div>
 
               {/* Pagination */}
-              <div className="p-[16px] border-t border-[#334155] flex items-center justify-between text-[#94A3B8] text-[14px]">
+              <div className="p-[16px] border-t border-[#334155] flex items-center justify-between text-[#94A3B8] text-xs font-['Inter']">
                 <div>{payments.length > 0 ? `Showing ${(page * size) + 1} to ${(page * size) + payments.length} of ${totalElements} entries` : 'No results'}</div>
-                <div className="flex gap-[4px]">
+                <div className="flex items-center gap-1.5">
                   <button 
                     onClick={() => setPage(Math.max(0, page - 1))}
                     disabled={page === 0}
-                    className="w-8 h-8 flex items-center justify-center rounded border border-[#334155] hover:bg-[#334155] transition-colors disabled:opacity-50"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#334155] hover:bg-[#1E293B] hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
                   >
-                    <span className="material-symbols-outlined text-[14px]">chevron_left</span>
+                    <span className="material-symbols-outlined text-xs">chevron_left</span>
                   </button>
-                  <button className="w-8 h-8 flex items-center justify-center rounded bg-[#E50914] text-white font-medium">{page + 1}</button>
+                  
+                  {getPageNumbers().map((pageNum, idx) => {
+                    if (pageNum === '...') {
+                      return (
+                        <span key={`dots-${idx}`} className="w-7 h-7 flex items-center justify-center text-[#94a3b8] text-xs">
+                          ...
+                        </span>
+                      );
+                    }
+                    const isCurrent = pageNum === page;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setPage(pageNum)}
+                        className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-all ${
+                          isCurrent 
+                            ? 'bg-[#E50914] text-white shadow-md shadow-[#E50914]/25' 
+                            : 'border border-[#334155] text-[#94A3B8] hover:bg-[#1E293B] hover:text-white'
+                        }`}
+                      >
+                        {pageNum + 1}
+                      </button>
+                    );
+                  })}
+
                   <button 
                     onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
                     disabled={page >= totalPages - 1}
-                    className="w-8 h-8 flex items-center justify-center rounded border border-[#334155] hover:bg-[#334155] transition-colors disabled:opacity-50"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#334155] hover:bg-[#1E293B] hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
                   >
-                    <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                    <span className="material-symbols-outlined text-xs">chevron_right</span>
                   </button>
                 </div>
               </div>
