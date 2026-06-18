@@ -1,37 +1,21 @@
-import axios from 'axios'
 import apiClient from './api'
 
-// Since Payment API seems to be on /api/payments instead of /api/v1/payments
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'
-const PAYMENT_API_URL = API_BASE_URL.replace('/v1', '') + '/payments'
-
-// For authenticated payment requests, we still need the token
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('access_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
 const paymentService = {
-  createPremiumPayment: (data) => {
-    return axios.post(`${PAYMENT_API_URL}/premium`, data, {
-      headers: getAuthHeaders()
-    })
+  // POST /api/v1/payments/premium
+  // Backend uses @AuthenticationPrincipal to get userId from JWT token
+  // Body: { plan: 'MONTHLY' | 'YEARLY' }
+  createPremiumPayment: (plan) => {
+    return apiClient.post('/payments/premium', { plan })
   },
 
-  handleWebhook: (data) => {
-    return axios.post(`${PAYMENT_API_URL}/webhook`, data)
-  },
-
+  // GET /api/v1/payments/users/{userId}
   getPaymentByUser: (userId) => {
-    return axios.get(`${PAYMENT_API_URL}/users/${userId}`, {
-      headers: getAuthHeaders()
-    })
+    return apiClient.get(`/payments/users/${userId}`)
   },
 
+  // GET /api/v1/payments/{orderCode}/status
   getPaymentStatus: (orderCode) => {
-    return axios.get(`${PAYMENT_API_URL}/${orderCode}/status`, {
-      headers: getAuthHeaders()
-    })
+    return apiClient.get(`/payments/${orderCode}/status`)
   }
 }
 

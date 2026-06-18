@@ -50,10 +50,7 @@ const Payment = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await paymentService.createPremiumPayment({
-        userId: user.id,
-        plan: selectedPlan
-      });
+      const res = await paymentService.createPremiumPayment(selectedPlan);
       setPaymentInfo(res.data);
       setPaymentStatus('PENDING');
     } catch (err) {
