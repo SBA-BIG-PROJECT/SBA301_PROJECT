@@ -54,20 +54,20 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
         stats.setBannedUsers(userRepository.countByBannedAtIsNotNull());
         
         // Content statistics
-        stats.setTotalMovies((long) movieRepository.findAll().size());
-        stats.setActiveMovies((long) movieRepository.findByIsActiveTrue(org.springframework.data.domain.PageRequest.of(0, Integer.MAX_VALUE)).getTotalElements());
-        stats.setTotalReviews((long) reviewRepository.findAll().size());
-        stats.setTotalGenres((long) genreRepository.findAll().size());
+        stats.setTotalMovies(movieRepository.count());
+        stats.setActiveMovies(movieRepository.countByIsActiveTrue());
+        stats.setTotalReviews(reviewRepository.count());
+        stats.setTotalGenres(genreRepository.count());
         
         // Activity statistics  
-        stats.setTotalViews((long) viewLogRepository.findAll().size());
-        stats.setTotalWatchlistItems((long) watchlistRepository.findAll().size());
+        stats.setTotalViews(viewLogRepository.count());
+        stats.setTotalWatchlistItems(watchlistRepository.count());
         // Views today/month would need additional repository methods
         stats.setViewsToday(0L);
         stats.setViewsThisMonth(0L);
         
         // Revenue statistics
-        stats.setTotalPayments((long) paymentRepository.findAll().size());
+        stats.setTotalPayments(paymentRepository.count());
         stats.setSuccessfulPayments(paymentRepository.countByStatus("SUCCESS"));
         stats.setPendingPayments(paymentRepository.countByStatus("PENDING"));
         
@@ -107,21 +107,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
         
         try {
             // Highest rated movies - get top 10 movies by average rating with at least 5 reviews
-            List<Object[]> highestRated = movieRepository.findAll().stream()
-                .filter(m -> !m.getReviews().isEmpty() && m.getReviews().size() >= 5)
-                .map(m -> new Object[]{
-                    m.getId(),
-                    m.getTitle(),
-                    m.getPosterPath(),
-                    (long) m.getReviews().size(),
-                    m.getReviews().stream()
-                        .mapToDouble(r -> r.getRating().doubleValue())
-                        .average()
-                        .orElse(0.0)
-                })
-                .sorted((a, b) -> Double.compare(((Number) b[4]).doubleValue(), ((Number) a[4]).doubleValue()))
-                .limit(10)
-                .collect(java.util.stream.Collectors.toList());
+            List<Object[]> highestRated = reviewRepository.findHighestRatedMovies(PageRequest.of(0, 10));
                 
             analytics.setHighestRatedMovies(highestRated.stream()
                 .map(row -> new MovieAnalyticsDto.TopMovieDto(
@@ -139,17 +125,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
         
         try {
             // Most watchlisted movies
-            List<Object[]> mostWatchlisted = movieRepository.findAll().stream()
-                .filter(m -> !m.getWatchlists().isEmpty())
-                .map(m -> new Object[]{
-                    m.getId(),
-                    m.getTitle(),
-                    m.getPosterPath(),
-                    (long) m.getWatchlists().size()
-                })
-                .sorted((a, b) -> Long.compare(((Number) b[3]).longValue(), ((Number) a[3]).longValue()))
-                .limit(10)
-                .collect(java.util.stream.Collectors.toList());
+            List<Object[]> mostWatchlisted = watchlistRepository.findMostWatchlistedMovies(PageRequest.of(0, 10));
                 
             analytics.setMostWatchlistedMovies(mostWatchlisted.stream()
                 .map(row -> new MovieAnalyticsDto.TopMovieDto(
@@ -167,16 +143,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
         
         try {
             // Popular genres
-            List<Object[]> popularGenres = genreRepository.findAll().stream()
-                .map(g -> new Object[]{
-                    g.getId(),
-                    g.getName(),
-                    (long) g.getMovieGenres().size()
-                })
-                .filter(row -> ((Number) row[2]).longValue() > 0)
-                .sorted((a, b) -> Long.compare(((Number) b[2]).longValue(), ((Number) a[2]).longValue()))
-                .limit(10)
-                .collect(java.util.stream.Collectors.toList());
+            List<Object[]> popularGenres = genreRepository.findPopularGenres(PageRequest.of(0, 10));
                 
             analytics.setPopularGenres(popularGenres.stream()
                 .map(row -> new MovieAnalyticsDto.GenrePopularityDto(

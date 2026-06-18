@@ -20,6 +20,8 @@ public interface ViewLogRepository extends JpaRepository<ViewLog, Integer> {
     Optional<ViewLog> findTopByUser_IdOrderByWatchedAtDesc(Integer userId);
 
     List<ViewLog> findByUser_Id(Integer userId);
+    long countByUser_Id(Integer userId);
+    long countByTmdb_Id(Integer tmdbId);
 
     List<ViewLog> findTop20ByUser_IdOrderByWatchedAtDesc(Integer userId);
 

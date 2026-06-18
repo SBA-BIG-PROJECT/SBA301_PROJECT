@@ -63,9 +63,32 @@ public class AdminUserServiceImpl implements AdminUserService {
         
         Page<User> userPage = userRepository.findByFilters(search, role, isPremium, pageable);
         
+        List<Integer> userIds = userPage.getContent().stream().map(User::getId).toList();
+        java.util.Map<Integer, Object[]> statsMap = new java.util.HashMap<>();
+        if (!userIds.isEmpty()) {
+            List<Object[]> batchStats = userRepository.findUserStatsBatch(userIds);
+            for (Object[] row : batchStats) {
+                statsMap.put((Integer) row[0], row);
+            }
+        }
+        
         Page<AdminUserDto> dtoPage = userPage.map(user -> {
             AdminUserDto dto = adminUserMapper.toAdminDto(user);
-            enrichUserStats(dto, user);
+            Object[] stats = statsMap.get(user.getId());
+            if (stats != null) {
+                dto.setTotalReviews(((Number) stats[1]).longValue());
+                dto.setTotalWatchlist(((Number) stats[2]).longValue());
+                dto.setTotalViews(((Number) stats[3]).longValue());
+                dto.setTotalPayments(((Number) stats[4]).longValue());
+                dto.setTotalSpent(stats[5] != null ? (BigDecimal) stats[5] : BigDecimal.ZERO);
+            } else {
+                dto.setTotalReviews(0L);
+                dto.setTotalWatchlist(0L);
+                dto.setTotalViews(0L);
+                dto.setTotalPayments(0L);
+                dto.setTotalSpent(BigDecimal.ZERO);
+            }
+            dto.setIsActive(user.getDeletedAt() == null && user.getBannedAt() == null);
             return dto;
         });
         
@@ -203,16 +226,21 @@ public class AdminUserServiceImpl implements AdminUserService {
      * Enrich user DTO with aggregated statistics
      */
     private void enrichUserStats(AdminUserDto dto, User user) {
-        dto.setTotalReviews((long) user.getReviews().size());
-        dto.setTotalWatchlist((long) user.getWatchlists().size());
-        dto.setTotalViews((long) user.getViewLogs().size());
-        dto.setTotalPayments((long) user.getPayments().size());
-        
-        BigDecimal totalSpent = user.getPayments().stream()
-            .filter(p -> "SUCCESS".equals(p.getStatus()))
-            .map(Payment::getAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        dto.setTotalSpent(totalSpent);
+        List<Object[]> batchStats = userRepository.findUserStatsBatch(List.of(user.getId()));
+        if (!batchStats.isEmpty()) {
+            Object[] stats = batchStats.get(0);
+            dto.setTotalReviews(((Number) stats[1]).longValue());
+            dto.setTotalWatchlist(((Number) stats[2]).longValue());
+            dto.setTotalViews(((Number) stats[3]).longValue());
+            dto.setTotalPayments(((Number) stats[4]).longValue());
+            dto.setTotalSpent(stats[5] != null ? (BigDecimal) stats[5] : BigDecimal.ZERO);
+        } else {
+            dto.setTotalReviews(0L);
+            dto.setTotalWatchlist(0L);
+            dto.setTotalViews(0L);
+            dto.setTotalPayments(0L);
+            dto.setTotalSpent(BigDecimal.ZERO);
+        }
         
         dto.setIsActive(user.getDeletedAt() == null && user.getBannedAt() == null);
     }

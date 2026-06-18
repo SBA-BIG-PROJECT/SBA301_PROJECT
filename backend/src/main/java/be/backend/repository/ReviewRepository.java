@@ -27,4 +27,16 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
     );
 
     List<Review> findTop10ByUser_IdOrderByCreatedAtDesc(Integer userId);
+
+    long countByUser_Id(Integer userId);
+    long countByTmdb_Id(Integer tmdbId);
+
+    @Query("""
+        SELECT r.tmdb.id, r.tmdb.title, r.tmdb.posterPath, COUNT(r.id) as reviewCount, AVG(r.rating) as avgRating
+        FROM Review r
+        GROUP BY r.tmdb.id, r.tmdb.title, r.tmdb.posterPath
+        HAVING COUNT(r.id) >= 5
+        ORDER BY avgRating DESC
+    """)
+    List<Object[]> findHighestRatedMovies(Pageable pageable);
 }

@@ -75,7 +75,16 @@ public class AdminMovieServiceImpl implements AdminMovieService {
             moviePage = movieRepository.findAll(pageable);
         }
         
-        Page<AdminMovieDto> dtoPage = moviePage.map(this::toAdminMovieDto);
+        List<Integer> movieIds = moviePage.getContent().stream().map(Movie::getId).toList();
+        java.util.Map<Integer, Object[]> statsMap = new java.util.HashMap<>();
+        if (!movieIds.isEmpty()) {
+            List<Object[]> batchStats = movieRepository.findMovieStatsBatch(movieIds);
+            for (Object[] row : batchStats) {
+                statsMap.put((Integer) row[0], row);
+            }
+        }
+        
+        Page<AdminMovieDto> dtoPage = moviePage.map(movie -> toAdminMovieDto(movie, statsMap.get(movie.getId())));
         return PageResponse.from(dtoPage);
     }
 
@@ -83,7 +92,8 @@ public class AdminMovieServiceImpl implements AdminMovieService {
     @Transactional(readOnly = true)
     public AdminMovieDto getMovieDetail(Integer tmdbId) {
         Movie movie = findMovieById(tmdbId);
-        return toAdminMovieDto(movie);
+        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(tmdbId));
+        return toAdminMovieDto(movie, stats.isEmpty() ? null : stats.get(0));
     }
 
     @Override
@@ -123,7 +133,8 @@ public class AdminMovieServiceImpl implements AdminMovieService {
         Movie savedMovie = movieRepository.save(movie);
         
         log.info("Admin created movie: {} ({})", savedMovie.getTitle(), savedMovie.getId());
-        return toAdminMovieDto(savedMovie);
+        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(savedMovie.getId()));
+        return toAdminMovieDto(savedMovie, stats.isEmpty() ? null : stats.get(0));
     }
 
     @Override
@@ -177,7 +188,8 @@ public class AdminMovieServiceImpl implements AdminMovieService {
         Movie updatedMovie = movieRepository.saveAndFlush(movie);
         
         log.info("Admin updated movie: {} ({})", updatedMovie.getTitle(), updatedMovie.getId());
-        return toAdminMovieDto(updatedMovie);
+        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(updatedMovie.getId()));
+        return toAdminMovieDto(updatedMovie, stats.isEmpty() ? null : stats.get(0));
     }
 
     @Override
@@ -196,13 +208,14 @@ public class AdminMovieServiceImpl implements AdminMovieService {
         Movie restored = movieRepository.save(movie);
         
         log.info("Admin restored movie: {} ({})", movie.getTitle(), movie.getId());
-        return toAdminMovieDto(restored);
+        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(restored.getId()));
+        return toAdminMovieDto(restored, stats.isEmpty() ? null : stats.get(0));
     }
 
     /**
      * Convert Movie entity to AdminMovieDto
      */
-    private AdminMovieDto toAdminMovieDto(Movie movie) {
+    private AdminMovieDto toAdminMovieDto(Movie movie, Object[] stats) {
         AdminMovieDto dto = new AdminMovieDto();
         dto.setTmdbId(movie.getId());
         dto.setTitle(movie.getTitle());
@@ -234,17 +247,22 @@ public class AdminMovieServiceImpl implements AdminMovieService {
         dto.setCategories(categories);
         
         // Statistics
-        dto.setTotalViews((long) movie.getViewLogs().size());
-        dto.setTotalReviews((long) movie.getReviews().size());
-        dto.setTotalWatchlist((long) movie.getWatchlists().size());
-        
-        // Average rating from our system
-        if (!movie.getReviews().isEmpty()) {
-            double avgRating = movie.getReviews().stream()
-                .mapToDouble(r -> r.getRating().doubleValue())
-                .average()
-                .orElse(0.0);
-            dto.setAverageRating(Math.round(avgRating * 10.0) / 10.0);
+        if (stats != null) {
+            dto.setTotalViews(((Number) stats[1]).longValue());
+            dto.setTotalReviews(((Number) stats[2]).longValue());
+            dto.setTotalWatchlist(((Number) stats[3]).longValue());
+            
+            if (stats[4] != null) {
+                double avgRating = ((Number) stats[4]).doubleValue();
+                dto.setAverageRating(Math.round(avgRating * 10.0) / 10.0);
+            } else {
+                dto.setAverageRating(0.0);
+            }
+        } else {
+            dto.setTotalViews(0L);
+            dto.setTotalReviews(0L);
+            dto.setTotalWatchlist(0L);
+            dto.setAverageRating(0.0);
         }
         
         return dto;
@@ -310,7 +328,8 @@ public class AdminMovieServiceImpl implements AdminMovieService {
         
         Movie updated = movieRepository.saveAndFlush(movie);
         log.info("Admin updated genres for movie: {}", tmdbId);
-        return toAdminMovieDto(updated);
+        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(updated.getId()));
+        return toAdminMovieDto(updated, stats.isEmpty() ? null : stats.get(0));
     }
 
     @Override
@@ -323,6 +342,7 @@ public class AdminMovieServiceImpl implements AdminMovieService {
         
         Movie updated = movieRepository.saveAndFlush(movie);
         log.info("Admin updated categories for movie: {}", tmdbId);
-        return toAdminMovieDto(updated);
+        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(updated.getId()));
+        return toAdminMovieDto(updated, stats.isEmpty() ? null : stats.get(0));
     }
 }

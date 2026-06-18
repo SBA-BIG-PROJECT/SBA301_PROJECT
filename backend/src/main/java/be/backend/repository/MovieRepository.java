@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface MovieRepository extends JpaRepository<Movie, Integer> {
 
     Page<Movie> findByIsActiveTrue(Pageable pageable);
+    long countByIsActiveTrue();
 
     @EntityGraph(attributePaths = {
             "movieGenres", "movieGenres.genre",
@@ -58,4 +59,14 @@ public interface MovieRepository extends JpaRepository<Movie, Integer> {
           AND mg.genre.id = :genreId
         """)
     Page<Movie> findActiveByGenre(@Param("genreId") Integer genreId, Pageable pageable);
+
+    @Query("""
+        SELECT m.id, 
+               (SELECT COUNT(v) FROM ViewLog v WHERE v.tmdb.id = m.id),
+               (SELECT COUNT(r) FROM Review r WHERE r.tmdb.id = m.id),
+               (SELECT COUNT(w) FROM Watchlist w WHERE w.tmdb.id = m.id),
+               (SELECT AVG(r2.rating) FROM Review r2 WHERE r2.tmdb.id = m.id)
+        FROM Movie m WHERE m.id IN :movieIds
+    """)
+    java.util.List<Object[]> findMovieStatsBatch(@Param("movieIds") java.util.List<Integer> movieIds);
 }

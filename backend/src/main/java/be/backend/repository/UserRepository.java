@@ -34,4 +34,15 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     long countByDeletedAtIsNullAndIsPremiumTrue();
     long countByDeletedAtIsNullAndCreatedAtAfter(Instant after);
     long countByBannedAtIsNotNull();
+
+    @Query("""
+        SELECT u.id, COUNT(DISTINCT r.id), COUNT(DISTINCT w.id), COUNT(DISTINCT v.id), COUNT(DISTINCT p.id), COALESCE(SUM(CASE WHEN p.status = 'SUCCESS' THEN p.amount ELSE 0 END), 0)
+        FROM User u
+        LEFT JOIN Review r ON r.user.id = u.id
+        LEFT JOIN Watchlist w ON w.user.id = u.id
+        LEFT JOIN ViewLog v ON v.user.id = u.id
+        LEFT JOIN Payment p ON p.user.id = u.id
+        WHERE u.id IN :userIds GROUP BY u.id
+        """)
+    java.util.List<Object[]> findUserStatsBatch(@Param("userIds") java.util.List<Integer> userIds);
 }

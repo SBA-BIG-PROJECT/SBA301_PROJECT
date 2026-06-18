@@ -21,6 +21,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
     boolean existsByTransactionId(String transactionId);
 
     List<Payment> findByUser_IdOrderByCreatedAtDesc(Integer userId);
+    long countByUser_Id(Integer userId);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = :status AND p.user.id = :userId")
+    BigDecimal sumAmountByStatusAndUser_Id(@Param("status") String status, @Param("userId") Integer userId);
     
     // Admin queries
     Page<Payment> findAllByOrderByCreatedAtDesc(Pageable pageable);
