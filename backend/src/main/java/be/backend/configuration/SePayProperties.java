@@ -30,5 +30,5 @@ public class SePayProperties {
     private String prefix = "MOVIE";
 
     /** VietQR image endpoint. */
-    private String qrBaseUrl = "https://qr.sepay.vn/img?bank=VietinBank&acc=105879782972&template=compact&des=SEVQR&showinfo=true&holder=BUI%20NGUYEN%20KHAI%20VINH";
+    private String qrBaseUrl = "https://qr.sepay.vn/img";
 }

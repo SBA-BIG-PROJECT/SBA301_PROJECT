@@ -10,7 +10,7 @@ import java.time.ZoneId;
  */
 public enum PremiumPlan {
 
-    MONTHLY(100_000, "Goi Premium 1 thang") {
+    MONTHLY(2000, "Goi Premium 1 thang") {
         @Override
         public Instant addTo(Instant base) {
             return base.atZone(ZONE).plusMonths(1).toInstant();
