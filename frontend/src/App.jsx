@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout.jsx'
 import Detail from './pages/Detail.jsx'
 import Genre from './pages/Genre.jsx'
+import Category from './pages/Category.jsx'
 import Home from './pages/Home.jsx'
 import Login from './pages/Login.jsx'
 import NotFound from './pages/NotFound.jsx'
@@ -29,6 +30,7 @@ const App = () => {
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="genre/:id" element={<Genre />} />
+          <Route path="category/:id" element={<Category />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="movie/:id" element={<Detail />} />
           <Route path="watch/:id" element={<ProtectedRoute><Watch /></ProtectedRoute>} />

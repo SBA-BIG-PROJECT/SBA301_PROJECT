@@ -6,6 +6,7 @@ import noPoster from '../assets/No-Poster.svg'
 import { movieService } from '../services'
 import { useWatchlist } from '../hooks/useWatchlist'
 import PosterCard from '../components/PosterCard.jsx'
+import { useToast, ToastContainer } from '../components/Toast.jsx'
 
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500'
 const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280'
@@ -18,7 +19,10 @@ const Detail = () => {
   const [checkingWatchlist, setCheckingWatchlist] = useState(true)
   const [inWatchlist, setInWatchlist] = useState(false)
   const [showTrailer, setShowTrailer] = useState(false)
+  const [relatedMovies, setRelatedMovies] = useState([])
+  const [reviews, setReviews] = useState([])
   const navigate = useNavigate()
+  const { toasts, showToast, closeToast } = useToast()
   
   const { addToWatchlist, removeFromWatchlist, isInWatchlist } = useWatchlist()
 
@@ -52,7 +56,25 @@ const Detail = () => {
           console.warn('Watchlist check failed, possibly not logged in:', watchlistError)
           setInWatchlist(false)
         }
-        setCheckingWatchlist(false)
+        if (active) setCheckingWatchlist(false)
+
+        if (movieData.genres && movieData.genres.length > 0) {
+          try {
+            const genreId = typeof movieData.genres[0] === 'object' ? movieData.genres[0].id : movieData.genres[0];
+            const related = await movieService.getByGenre(genreId, { page: 0, size: 8 });
+            if (active) setRelatedMovies((related.content || []).filter(m => m.id !== parseInt(id)));
+          } catch (e) {
+            console.error('Failed to load related movies', e);
+          }
+        }
+        
+        try {
+          const revs = await movieService.getReviews(id, { page: 0, size: 10 });
+          if (active) setReviews(revs.content || []);
+        } catch (e) {
+          console.error('Failed to load reviews', e);
+        }
+
       } catch (error) {
         console.error(`Error fetching details: ${error}`)
         if (active) {
@@ -77,13 +99,15 @@ const Detail = () => {
       if (inWatchlist) {
         await removeFromWatchlist(parseInt(id))
         setInWatchlist(false)
+        showToast('Removed from watchlist', 'success')
       } else {
         await addToWatchlist(parseInt(id))
         setInWatchlist(true)
+        showToast('Added to watchlist', 'success')
       }
     } catch (error) {
       console.error('Watchlist error:', error)
-      alert('Failed to update watchlist. Please login first.')
+      showToast('Failed to update watchlist. Please login first.', 'error')
     }
   }
 
@@ -225,41 +249,99 @@ const Detail = () => {
         </div>
       )}
 
-      {/* Cast section - Backend doesn't have this endpoint yet */}
+      {/* Cast section */}
       <div className="detail__cast">
         <div className="row__header">
           <h2>Top Cast</h2>
         </div>
-        <div className="detail__cast-list">
-          <p className="search-results__empty">
-            Cast information coming soon (Backend endpoint needed)
-          </p>
-        </div>
+        {movie.cast && movie.cast.length > 0 ? (
+          <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar snap-x w-full mt-6">
+            {movie.cast.slice(0, 12).map(actor => (
+              <div key={actor.personId || actor.id} className="detail__cast-card snap-start shrink-0 w-[220px]">
+                {actor.profilePath ? (
+                  <img src={actor.profilePath.startsWith('http') ? actor.profilePath : `${IMAGE_BASE_URL}${actor.profilePath}`} alt={actor.name} />
+                ) : (
+                  <div className="h-14 w-14 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-gray-400">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                  </div>
+                )}
+                <div>
+                  <p className="detail__cast-name line-clamp-1">{actor.name}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="search-results__empty">No cast information available.</p>
+        )}
       </div>
 
-      {/* Related movies - Backend doesn't have this endpoint yet */}
+      {/* Related movies */}
       <div className="detail__related mt-10">
         <div className="row__header">
           <h2>Related Movies</h2>
         </div>
-        <div className="row__list-wrapper pb-6">
-          <p className="search-results__empty">
-            Related movies coming soon (Backend endpoint needed)
-          </p>
-        </div>
+        {relatedMovies.length > 0 ? (
+          <div className="flex gap-4 overflow-x-auto pb-6 hide-scrollbar snap-x w-full">
+            {relatedMovies.map(relMovie => (
+              <div 
+                key={relMovie.id} 
+                className="snap-start shrink-0 w-[160px] sm:w-[180px] hm-card cursor-pointer"
+                onClick={() => navigate(`/movie/${relMovie.id}`)}
+              >
+                <div className="hm-card__poster-wrap">
+                  <img 
+                    className="hm-card__poster" 
+                    src={relMovie.posterPath ? (relMovie.posterPath.startsWith('http') ? relMovie.posterPath : `${IMAGE_BASE_URL}${relMovie.posterPath}`) : noPoster} 
+                    alt={relMovie.title} 
+                  />
+                  <div className="hm-card__overlay">
+                    <button className="hm-card__info-btn">Details</button>
+                  </div>
+                </div>
+                <div className="hm-card__body">
+                  <h3 className="hm-card__title text-sm">{relMovie.title}</h3>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="search-results__empty">No related movies found.</p>
+        )}
       </div>
 
-      {/* Reviews - Backend has endpoint, temporarily show message */}
+      {/* Reviews */}
       <div className="detail__reviews mt-10">
         <div className="row__header">
           <h2>Reviews</h2>
         </div>
-        <div className="detail__reviews-list mt-6 grid gap-4 lg:grid-cols-2">
-          <p className="search-results__empty">
-            Reviews feature coming soon (Use Review API)
-          </p>
-        </div>
+        {reviews.length > 0 ? (
+          <div className="detail__reviews-list mt-6 grid gap-4 lg:grid-cols-2">
+            {reviews.map(review => (
+              <div key={review.id} className="review-card">
+                <div className="review-card__header">
+                  <div className="review-card__avatar">
+                    <div className="review-card__avatar-placeholder">
+                      {review.userName ? review.userName.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  </div>
+                  <div className="review-card__meta">
+                    <h4>{review.userName || 'Anonymous'}</h4>
+                    <div className="review-card__rating">
+                      ★ {review.rating} / 10
+                    </div>
+                  </div>
+                </div>
+                <p className="review-card__content">{review.comment}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="search-results__empty">No reviews yet. Be the first to review!</p>
+        )}
       </div>
+
+      <ToastContainer toasts={toasts} onClose={closeToast} />
     </section>
   )
 }

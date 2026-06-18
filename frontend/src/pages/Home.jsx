@@ -73,7 +73,10 @@ const MovieCard = ({ movie, onNavigate }) => {
 // ── Main ───────────────────────────────────────────────────────────────────
 const Home = () => {
   const [movies, setMovies] = useState([])
-  const [heroMovie, setHeroMovie] = useState(null)
+  const [genres, setGenres] = useState([])
+  const [genreMovies, setGenreMovies] = useState({})
+  const [heroMovies, setHeroMovies] = useState([])
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [loadMoreLoading, setLoadMoreLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -94,7 +97,23 @@ const Home = () => {
         const list = response.content || []
         setMovies(list)
         setHasMore(!response.last)
-        if (list.length > 0) setHeroMovie(list[0])
+        if (list.length > 0) setHeroMovies(list.slice(0, 5))
+
+        const genresList = await movieService.getGenres()
+        const topGenres = genresList.slice(0, 5)
+        if (active) setGenres(topGenres)
+
+        const gMovies = {}
+        await Promise.all(topGenres.map(async (g) => {
+          try {
+            const res = await movieService.getByGenre(g.id, { page: 0, size: 10 })
+            gMovies[g.id] = res.content || []
+          } catch (e) {
+            console.error('Failed to load genre', g.name, e)
+          }
+        }))
+        if (active) setGenreMovies(gMovies)
+
       } catch (err) {
         console.error(err)
         if (active) setErrorMessage('Cannot load movies. Please ensure backend is running.')
@@ -105,6 +124,14 @@ const Home = () => {
     load()
     return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    if (heroMovies.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveHeroIndex((prev) => (prev + 1) % heroMovies.length);
+    }, 6000); // Auto slide every 6 seconds
+    return () => clearInterval(timer);
+  }, [heroMovies.length]);
 
   const loadMore = async () => {
     if (loadMoreLoading || !hasMore) return
@@ -130,6 +157,7 @@ const Home = () => {
     }
   }
 
+  const heroMovie = heroMovies[activeHeroIndex] || null;
   const heroBackdrop = getBackdrop(heroMovie?.posterPath)
   const heroPoster = getPoster(heroMovie?.posterPath)
   const heroTitle = heroMovie?.title || 'Welcome to SBA Movies'
@@ -141,10 +169,12 @@ const Home = () => {
     <div className="hm-page">
 
       {/* ── HERO ──────────────────────────────────────────────────────── */}
-      <section className="hm-hero">
+      <section className="hm-hero relative">
+        {/* We use key to force re-render/animation when backdrop changes */}
         <div
+          key={heroBackdrop}
           className="hm-hero__backdrop"
-          style={{ backgroundImage: `url(${heroBackdrop})` }}
+          style={{ backgroundImage: `url(${heroBackdrop})`, transition: 'background-image 1s ease-in-out' }}
         />
         <div className="hm-hero__gradient" />
 
@@ -206,13 +236,53 @@ const Home = () => {
 
         <div className="hm-hero__poster-wrap">
           <img
+            key={heroPoster}
             className={`hm-hero__poster ${heroLoaded ? 'hm-hero__poster--loaded' : ''}`}
             src={heroPoster}
             alt={heroTitle}
             onLoad={() => setHeroLoaded(true)}
+            style={{ animation: 'zoomIn 0.5s ease-out' }}
           />
         </div>
+        
+        {/* Navigation Dots */}
+        {heroMovies.length > 1 && (
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-20">
+            {heroMovies.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveHeroIndex(idx)}
+                className={`h-2 rounded-full transition-all duration-300 ${idx === activeHeroIndex ? 'w-8 bg-red-500' : 'w-2 bg-white/50 hover:bg-white/80'}`}
+                aria-label={`Go to slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </section>
+
+      {/* ── GENRE ROWS ────────────────────────────────────────────────── */}
+      {genres.map(genre => {
+        const rowMovies = genreMovies[genre.id] || []
+        if (rowMovies.length === 0) return null
+        return (
+          <section key={genre.id} className="hm-section" style={{ paddingBottom: '0' }}>
+            <div className="hm-section__header">
+              <div className="hm-section__title-wrap">
+                <div className="hm-section__accent" />
+                <h2 className="hm-section__title">{genre.name}</h2>
+              </div>
+            </div>
+            
+            <div className="flex gap-4 overflow-x-auto pb-6 hide-scrollbar snap-x w-full" style={{ scrollBehavior: 'smooth' }}>
+              {rowMovies.map((movie) => (
+                <div key={movie.id} className="snap-start shrink-0 w-[180px] sm:w-[220px]">
+                  <MovieCard movie={movie} onNavigate={navigate} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      })}
 
       {/* ── MOVIE GRID ────────────────────────────────────────────────── */}
       <section className="hm-section">

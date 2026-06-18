@@ -118,7 +118,7 @@ const movieService = {
   async getByGenre(genreId, { page = 0, size = 20 } = {}) {
     // TODO: Backend needs GET /movies/genre/{genreId} endpoint
     const response = await apiClient.get('/movies', { 
-      params: { page, size, genre: genreId } 
+      params: { page, size, genreId } 
     })
     return response.data
   },
@@ -136,6 +136,25 @@ const movieService = {
     } catch (error) {
       console.warn('Genres endpoint not available, returning empty array')
       return []
+    }
+  },
+
+  /**
+   * Get reviews for a movie
+   * GET /movies/{movieId}/reviews
+   * @param {number} movieId
+   * @param {number} page
+   * @param {number} size
+   */
+  async getReviews(movieId, { page = 0, size = 10 } = {}) {
+    try {
+      const response = await apiClient.get(`/movies/${movieId}/reviews`, {
+        params: { page, size }
+      })
+      return response.data
+    } catch (error) {
+      console.warn('Failed to load reviews')
+      return { content: [] }
     }
   }
 }

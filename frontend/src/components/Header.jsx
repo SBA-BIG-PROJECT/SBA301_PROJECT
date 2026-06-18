@@ -15,13 +15,20 @@ import UserProfile from '../pages/userprofile.jsx'
 const Header = () => {
   const menuItems = [
     { id: 'genres', label: 'Genres' },
-    { id: 'movies', label: 'Movies' },
-    { id: 'series', label: 'Series' }
+    { id: 'categories', label: 'Categories' }
+  ]
+  const categoriesList = [
+    { id: 'trending', name: 'Trending 🔥' },
+    { id: 'top-rated', name: 'Top Rated 🌟' },
+    { id: 'now-playing', name: 'Now Playing 🎬' },
+    { id: 'upcoming', name: 'Upcoming 🚀' }
   ]
   const [genres, setGenres] = useState([])
   const [genresError, setGenresError] = useState('')
   const [genresOpen, setGenresOpen] = useState(false)
   const [mobileGenresOpen, setMobileGenresOpen] = useState(false)
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   
   const { notifications, unreadCount, markAllAsRead, markAsRead, refresh } = useNotifications()
@@ -42,6 +49,8 @@ const Header = () => {
   const panelRef = useRef(null)
   const genresButtonRef = useRef(null)
   const genresPanelRef = useRef(null)
+  const categoriesButtonRef = useRef(null)
+  const categoriesPanelRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -191,8 +200,40 @@ const Header = () => {
   }, [genresOpen])
 
   useEffect(() => {
+    if (!categoriesOpen) {
+      return
+    }
+
+    const handleClick = (event) => {
+      const target = event.target
+      if (
+        categoriesPanelRef.current?.contains(target) ||
+        categoriesButtonRef.current?.contains(target)
+      ) {
+        return
+      }
+
+      setCategoriesOpen(false)
+    }
+
+    const handleKey = (event) => {
+      if (event.key === 'Escape') {
+        setCategoriesOpen(false)
+      }
+    }
+
+    window.addEventListener('mousedown', handleClick)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [categoriesOpen])
+
+  useEffect(() => {
     if (mobileOpen) {
       setGenresOpen(false)
+      setCategoriesOpen(false)
     }
   }, [mobileOpen])
 
@@ -201,6 +242,8 @@ const Header = () => {
     setMobileOpen(false)
     setGenresOpen(false)
     setMobileGenresOpen(false)
+    setCategoriesOpen(false)
+    setMobileCategoriesOpen(false)
     setNotificationsOpen(false)
   }, [location.pathname])
 
@@ -209,6 +252,13 @@ const Header = () => {
     setMobileOpen(false)
     setMobileGenresOpen(false)
     navigate(`/genre/${genreId}`)
+  }
+
+  const handleCategorySelect = (categoryId) => {
+    setCategoriesOpen(false)
+    setMobileOpen(false)
+    setMobileCategoriesOpen(false)
+    navigate(`/category/${categoryId}`)
   }
 
   return (
@@ -310,6 +360,89 @@ const Header = () => {
                             })}
                           </div>
                         )}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+
+              if (item.id === 'categories') {
+                return (
+                  <div className="nav__menu-item--dropdown" key={item.id}>
+                    <button
+                      className="nav__menu-trigger"
+                      type="button"
+                      aria-expanded={categoriesOpen}
+                      aria-controls="categories-panel"
+                      onClick={() => setCategoriesOpen((value) => !value)}
+                      ref={categoriesButtonRef}
+                    >
+                      {item.label}
+                      <svg
+                        viewBox="0 0 20 20"
+                        className="nav__menu-caret"
+                        aria-hidden
+                      >
+                        <path
+                          d="M5.5 7.5 10 12l4.5-4.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                    {categoriesOpen && (
+                      <div
+                        className="nav__genres-panel"
+                        id="categories-panel"
+                        ref={categoriesPanelRef}
+                        role="listbox"
+                      >
+                        {/* Panel header */}
+                        <div className="genres-panel__head">
+                          <div className="genres-panel__head-left">
+                            <span className="genres-panel__icon">🔥</span>
+                            <div>
+                              <p className="genres-panel__heading">Movie Categories</p>
+                              <p className="genres-panel__sub">
+                                {categoriesList.length > 0 ? `${categoriesList.length} categories` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            className="genres-panel__close"
+                            type="button"
+                            onClick={() => setCategoriesOpen(false)}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        <div className="genres-panel__grid">
+                          {categoriesList.map((category, index) => {
+                            const colors = [
+                              'genre-pill--blue','genre-pill--purple','genre-pill--pink',
+                              'genre-pill--green','genre-pill--orange','genre-pill--teal',
+                              'genre-pill--red','genre-pill--indigo'
+                            ]
+                            const color = colors[index % colors.length]
+                            return (
+                              <button
+                                className={`genre-pill ${color}`}
+                                key={category.id}
+                                type="button"
+                                onClick={() => handleCategorySelect(category.id)}
+                              >
+                                <span className="genre-pill__name">{category.name}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -556,6 +689,39 @@ const Header = () => {
                               ))}
                             </div>
                           )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+
+                if (item.id === 'categories') {
+                  return (
+                    <div className="nav__mobile-section" key={item.id}>
+                      <button
+                        className="nav__mobile-item"
+                        type="button"
+                        aria-expanded={mobileCategoriesOpen}
+                        onClick={() =>
+                          setMobileCategoriesOpen((value) => !value)
+                        }
+                      >
+                        {item.label}
+                      </button>
+                      {mobileCategoriesOpen && (
+                        <div className="nav__mobile-genres">
+                          <div className="nav__mobile-genres-grid">
+                            {categoriesList.map((category) => (
+                              <button
+                                className="nav__mobile-genre-item"
+                                key={category.id}
+                                type="button"
+                                onClick={() => handleCategorySelect(category.id)}
+                              >
+                                {category.name}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>

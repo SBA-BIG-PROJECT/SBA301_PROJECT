@@ -49,7 +49,7 @@
   }
 
   .wrapper {
-    @apply px-5 pb-12 pt-32 xs:px-10 xs:pt-36 max-w-7xl mx-auto flex flex-col gap-12 relative z-10;
+    @apply px-5 pb-12 pt-32 xs:px-10 xs:pt-36 w-full max-w-[1800px] mx-auto flex flex-col gap-12 relative z-10;
   }
 
   .site-header {
@@ -623,7 +623,7 @@
   }
 
   .detail__hero {
-    @apply relative overflow-hidden rounded-3xl border border-white/5 bg-dark-100/70;
+    @apply relative overflow-hidden rounded-3xl border border-white/5 bg-dark-100/70 bg-cover bg-center;
   }
 
   .detail__overlay {
@@ -636,6 +636,8 @@
 
   .detail__poster img {
     @apply w-full rounded-2xl border border-white/10;
+    height: auto;
+    object-fit: contain;
   }
 
   .detail__info {
@@ -1222,39 +1224,39 @@
 /* Hero */
 .hm-hero {
   @apply relative grid overflow-hidden;
-  min-height: 520px;
+  min-height: 550px;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 2rem;
-  padding: 5rem 2rem 3rem;
-  border-radius: 1.5rem;
-  border: 1px solid rgba(255,255,255,0.06);
-  background: #0d0b1f;
-  margin-bottom: 2.5rem;
+  gap: 4rem;
+  padding: 5rem 5rem 4rem;
+  border-radius: 2rem;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: #030014;
+  margin-bottom: 3.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
 }
 
 @media (max-width: 768px) {
   .hm-hero {
     grid-template-columns: 1fr;
-    padding: 4rem 1.5rem 2rem;
-    min-height: auto;
+    padding: 4rem 1.5rem 3rem;
+    min-height: 480px;
   }
   .hm-hero__poster-wrap { display: none; }
 }
 
 .hm-hero__backdrop {
   @apply absolute inset-0 bg-cover bg-center;
-  opacity: 0.18;
-  filter: blur(2px);
+  opacity: 0.35;
 }
 
 .hm-hero__gradient {
   @apply absolute inset-0;
   background: linear-gradient(
     90deg,
-    #0d0b1f 40%,
-    rgba(13,11,31,0.6) 70%,
-    rgba(13,11,31,0.2) 100%
+    #030014 5%,
+    rgba(3,0,20,0.8) 40%,
+    transparent 100%
   );
 }
 
@@ -1314,16 +1316,24 @@
 
 .hm-hero__poster-wrap {
   @apply relative z-10 shrink-0;
+  perspective: 1200px;
   animation: rise 0.7s 0.1s ease-out both;
 }
 
 .hm-hero__poster {
-  @apply rounded-2xl object-cover shadow-2xl;
-  width: 200px;
-  height: 300px;
-  border: 1px solid rgba(255,255,255,0.1);
+  @apply rounded-2xl object-cover;
+  width: 260px;
+  height: 390px;
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 30px 60px -15px rgba(0,0,0,0.9), 0 0 40px rgba(225, 29, 72, 0.15);
+  transform: rotateY(-12deg) rotateX(4deg);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.5s ease, opacity 0.5s ease;
   opacity: 0;
-  transition: opacity 0.5s ease;
+}
+
+.hm-hero__poster:hover {
+  transform: rotateY(0deg) rotateX(0deg) scale(1.05);
+  box-shadow: 0 40px 70px -20px rgba(0,0,0,1), 0 0 50px rgba(225, 29, 72, 0.3);
 }
 
 .hm-hero__poster--loaded {
@@ -1572,4 +1582,52 @@
   @apply text-center text-sm text-gray-500;
   margin: 0;
   padding: 0.5rem 0;
+}
+
+/* ─────────────────────────────────────────────
+   Detail Page Extras (Cast & Reviews)
+───────────────────────────────────────────── */
+.detail__cast-list {
+  @apply mt-6 grid gap-4;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.detail__cast-card {
+  @apply flex items-center gap-4 rounded-xl border border-white/5 bg-white/5 p-3 hover:bg-white/10 transition-colors;
+}
+
+.detail__cast-card img {
+  @apply h-14 w-14 rounded-full object-cover shadow-sm;
+}
+
+.detail__cast-name {
+  @apply text-sm font-semibold text-white;
+}
+
+.review-card {
+  @apply flex flex-col gap-4 rounded-xl border border-white/5 bg-white/5 p-5 shadow-sm hover:border-white/10 transition-colors;
+}
+
+.review-card__header {
+  @apply flex items-center gap-3;
+}
+
+.review-card__avatar {
+  @apply h-10 w-10 shrink-0 overflow-hidden rounded-full;
+}
+
+.review-card__avatar-placeholder {
+  @apply flex h-full w-full items-center justify-center bg-gradient-to-br from-red-500 to-orange-600 font-bold text-white text-lg;
+}
+
+.review-card__meta h4 {
+  @apply text-base font-semibold text-white m-0;
+}
+
+.review-card__rating {
+  @apply mt-1 inline-flex items-center gap-1 rounded bg-yellow-500/10 px-2 py-0.5 text-xs font-bold text-yellow-500;
+}
+
+.review-card__content {
+  @apply text-sm leading-relaxed text-gray-300;
 }

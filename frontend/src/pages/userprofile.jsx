@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { userService, authService } from '../services'
+import { useToast, ToastContainer } from '../components/Toast.jsx'
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
 const AVATAR_PLACEHOLDER = null
@@ -44,6 +45,7 @@ const InputField = ({ label, id, type = 'text', value, onChange, placeholder, er
 const UserProfile = ({ onClose }) => {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
+  const { toasts, showToast, closeToast } = useToast()
 
   // Data states
   const [profile, setProfile] = useState(null)
@@ -121,8 +123,9 @@ const UserProfile = ({ onClose }) => {
     try {
       const updated = await userService.uploadAvatar(file)
       setProfile(updated)
+      showToast('Avatar updated successfully!', 'success')
     } catch (err) {
-      alert('Avatar upload failed. Please try again.')
+      showToast('Avatar upload failed. Please try again.', 'error')
     } finally {
       setAvatarUploading(false)
       e.target.value = ''
@@ -134,8 +137,9 @@ const UserProfile = ({ onClose }) => {
     try {
       const updated = await userService.deleteAvatar()
       setProfile(updated)
+      showToast('Avatar deleted successfully.', 'success')
     } catch {
-      alert('Avatar deletion failed.')
+      showToast('Avatar deletion failed.', 'error')
     } finally {
       setAvatarUploading(false)
     }
@@ -519,6 +523,7 @@ const UserProfile = ({ onClose }) => {
           </div>
         )}
       </div>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
     </div>
   )
 }

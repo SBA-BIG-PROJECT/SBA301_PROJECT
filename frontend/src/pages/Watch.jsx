@@ -4,8 +4,10 @@ import Spinner from '../components/Spinner.jsx'
 import { movieService, reviewService } from '../services'
 import { useHistory } from '../hooks/useHistory'
 import { useAuth } from '../hooks/useAuth'
+import { useToast, ToastContainer } from '../components/Toast.jsx'
 
 const Watch = () => {
+  const { toasts, showToast, closeToast } = useToast()
   const { id } = useParams()
   const [movie, setMovie] = useState(null)
   const [trailerKey, setTrailerKey] = useState('')
@@ -98,9 +100,10 @@ const Watch = () => {
       setReviews(prev => [review, ...prev])
       setNewComment('')
       setNewRating(10.0)
+      showToast('Comment posted successfully!', 'success')
     } catch (error) {
       console.error('Failed to create review', error)
-      alert(error.response?.data?.message || 'Failed to post comment. Please try again.')
+      showToast(error.response?.data?.message || 'Failed to post comment. Please try again.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -360,6 +363,8 @@ const Watch = () => {
           </div>
         </div>
       )}
+      
+      <ToastContainer toasts={toasts} onClose={closeToast} />
     </section>
   )
 }
