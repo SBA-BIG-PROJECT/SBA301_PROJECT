@@ -59,12 +59,10 @@ public class Movie {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = false;
 
-    @OneToMany
-    @JoinColumn(name = "tmdb_id")
+    @OneToMany(mappedBy = "tmdb", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<MovieCategory> movieCategories = new LinkedHashSet<>();
 
-    @OneToMany
-    @JoinColumn(name = "tmdb_id")
+    @OneToMany(mappedBy = "tmdb", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<MovieGenre> movieGenres = new LinkedHashSet<>();
 
     @OneToMany

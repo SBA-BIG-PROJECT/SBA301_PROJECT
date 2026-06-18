@@ -31,7 +31,7 @@ public class AdminMovieDto {
     
     // Genres and categories
     private List<GenreDto> genres;
-    private List<String> categories;
+    private List<CategoryDto> categories;
     
     // Statistics
     private Long totalViews;

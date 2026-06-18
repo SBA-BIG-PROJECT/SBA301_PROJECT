@@ -8,6 +8,7 @@ import be.backend.entity.MovieGenre;
 import be.backend.entity.User;
 import be.backend.exception.ResourceNotFoundException;
 import be.backend.model.dto.AdminMovieDto;
+import be.backend.model.dto.CategoryDto;
 import be.backend.model.dto.GenreDto;
 import be.backend.model.request.AdminCreateMovieRequest;
 import be.backend.model.request.AdminUpdateMovieRequest;
@@ -109,17 +110,17 @@ public class AdminMovieServiceImpl implements AdminMovieService {
         User currentAdmin = getCurrentAdmin();
         movie.setAddedBy(currentAdmin);
         
-        Movie savedMovie = movieRepository.save(movie);
-        
-        // Add genres
+        // Add genres before saving
         if (request.getGenreIds() != null && !request.getGenreIds().isEmpty()) {
-            addGenresToMovie(savedMovie, request.getGenreIds());
+            addGenresToMovie(movie, request.getGenreIds());
         }
         
-        // Add categories
+        // Add categories before saving
         if (request.getCategoryIds() != null && !request.getCategoryIds().isEmpty()) {
-            addCategoriesToMovie(savedMovie, request.getCategoryIds());
+            addCategoriesToMovie(movie, request.getCategoryIds());
         }
+        
+        Movie savedMovie = movieRepository.save(movie);
         
         log.info("Admin created movie: {} ({})", savedMovie.getTitle(), savedMovie.getId());
         return toAdminMovieDto(savedMovie);
@@ -157,19 +158,23 @@ public class AdminMovieServiceImpl implements AdminMovieService {
             movie.setIsActive(request.getIsActive());
         }
         
-        Movie updatedMovie = movieRepository.save(movie);
-        
         // Update genres if provided
         if (request.getGenreIds() != null) {
-            movieGenreRepository.deleteByTmdb(movie);
+            movie.getMovieGenres().clear();
+            // Flush the DELETE to DB before inserting new records to avoid Duplicate entry
+            movieRepository.saveAndFlush(movie);
             addGenresToMovie(movie, request.getGenreIds());
         }
         
         // Update categories if provided
         if (request.getCategoryIds() != null) {
-            movieCategoryRepository.deleteByTmdb(movie);
+            movie.getMovieCategories().clear();
+            // Flush the DELETE to DB before inserting new records to avoid Duplicate entry
+            movieRepository.saveAndFlush(movie);
             addCategoriesToMovie(movie, request.getCategoryIds());
         }
+        
+        Movie updatedMovie = movieRepository.saveAndFlush(movie);
         
         log.info("Admin updated movie: {} ({})", updatedMovie.getTitle(), updatedMovie.getId());
         return toAdminMovieDto(updatedMovie);
@@ -223,8 +228,8 @@ public class AdminMovieServiceImpl implements AdminMovieService {
         dto.setGenres(genres);
         
         // Get categories
-        List<String> categories = movie.getMovieCategories().stream()
-            .map(mc -> mc.getCategory().getName())
+        List<CategoryDto> categories = movie.getMovieCategories().stream()
+            .map(mc -> new CategoryDto(mc.getCategory().getCategoryId(), mc.getCategory().getName()))
             .collect(Collectors.toList());
         dto.setCategories(categories);
         
@@ -256,7 +261,7 @@ public class AdminMovieServiceImpl implements AdminMovieService {
             MovieGenre movieGenre = new MovieGenre();
             movieGenre.setTmdb(movie);
             movieGenre.setGenre(genre);
-            movieGenreRepository.save(movieGenre);
+            movie.getMovieGenres().add(movieGenre);
         }
     }
 
@@ -271,7 +276,7 @@ public class AdminMovieServiceImpl implements AdminMovieService {
             MovieCategory movieCategory = new MovieCategory();
             movieCategory.setTmdb(movie);
             movieCategory.setCategory(category);
-            movieCategoryRepository.save(movieCategory);
+            movie.getMovieCategories().add(movieCategory);
         }
     }
 
@@ -299,43 +304,25 @@ public class AdminMovieServiceImpl implements AdminMovieService {
     public AdminMovieDto updateMovieGenres(Integer tmdbId, List<Integer> genreIds) {
         Movie movie = findMovieById(tmdbId);
         
-        // Remove existing genres
-        movieGenreRepository.deleteByTmdb(movie);
-        movieGenreRepository.flush(); // Force delete to execute immediately
-        
-        // Clear the collection to avoid stale references
         movie.getMovieGenres().clear();
-        
-        // Add new genres
+        movieRepository.saveAndFlush(movie);
         addGenresToMovie(movie, genreIds);
         
-        // Refresh movie to get updated genre list
-        movie = movieRepository.findById(tmdbId)
-            .orElseThrow(() -> new ResourceNotFoundException("Movie not found: " + tmdbId));
-        
+        Movie updated = movieRepository.saveAndFlush(movie);
         log.info("Admin updated genres for movie: {}", tmdbId);
-        return toAdminMovieDto(movie);
+        return toAdminMovieDto(updated);
     }
 
     @Override
     public AdminMovieDto updateMovieCategories(Integer tmdbId, List<String> categoryIds) {
         Movie movie = findMovieById(tmdbId);
         
-        // Remove existing categories
-        movieCategoryRepository.deleteByTmdb(movie);
-        movieCategoryRepository.flush(); // Force delete to execute immediately
-        
-        // Clear the collection to avoid stale references
         movie.getMovieCategories().clear();
-        
-        // Add new categories
+        movieRepository.saveAndFlush(movie);
         addCategoriesToMovie(movie, categoryIds);
         
-        // Refresh movie to get updated category list
-        movie = movieRepository.findById(tmdbId)
-            .orElseThrow(() -> new ResourceNotFoundException("Movie not found: " + tmdbId));
-        
+        Movie updated = movieRepository.saveAndFlush(movie);
         log.info("Admin updated categories for movie: {}", tmdbId);
-        return toAdminMovieDto(movie);
+        return toAdminMovieDto(updated);
     }
 }
