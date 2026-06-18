@@ -13,12 +13,4 @@ import java.util.List;
 public interface MovieGenreRepository extends JpaRepository<MovieGenre, Integer> {
     List<MovieGenre> findByTmdb_Id(Integer tmdbId);
     List<MovieGenre> findByGenre_Id(Integer genreId);
-    
-    @Transactional
-    @Modifying
-    void deleteByTmdb_Id(Integer tmdbId);
-    
-    @Transactional
-    @Modifying
-    void deleteByTmdb(Movie movie);
 }

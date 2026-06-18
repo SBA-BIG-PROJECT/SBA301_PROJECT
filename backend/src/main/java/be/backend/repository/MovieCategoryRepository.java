@@ -12,12 +12,4 @@ import java.util.List;
 @Repository
 public interface MovieCategoryRepository extends JpaRepository<MovieCategory, Integer> {
     List<MovieCategory> findByTmdb_Id(Integer tmdbId);
-    
-    @Transactional
-    @Modifying
-    void deleteByTmdb_Id(Integer tmdbId);
-    
-    @Transactional
-    @Modifying
-    void deleteByTmdb(Movie movie);
 }
