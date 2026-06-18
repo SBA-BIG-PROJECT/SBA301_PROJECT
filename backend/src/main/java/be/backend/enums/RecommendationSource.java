@@ -1,4 +1,4 @@
-package be.backend.entity;
+package be.backend.enums;
 
 public enum RecommendationSource {
     CONTENT_BASED,

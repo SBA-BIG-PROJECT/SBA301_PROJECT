@@ -1,6 +1,7 @@
 package be.backend.services.impl;
 
 import be.backend.entity.*;
+import be.backend.enums.RecommendationSource;
 import be.backend.exception.ResourceNotFoundException;
 import be.backend.model.dto.RecommendationContext;
 import be.backend.model.dto.RecommendationDto;

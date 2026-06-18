@@ -9,9 +9,6 @@ import lombok.Setter;
 @Setter
 public class CreatePaymentRequest {
 
-    @NotNull(message = "userId is required")
-    private Integer userId;          // in production, take this from the authenticated principal
-
     @NotNull(message = "plan is required")
     private PremiumPlan plan = PremiumPlan.MONTHLY;
 }

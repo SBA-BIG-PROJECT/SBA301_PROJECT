@@ -1,5 +1,6 @@
 package be.backend.services;
 
+import be.backend.enums.PremiumPlan;
 import be.backend.model.dto.PaymentDto;
 import be.backend.model.request.CreatePaymentRequest;
 import be.backend.model.request.SePayWebhookRequest;
@@ -11,7 +12,7 @@ import java.util.List;
 public interface PaymentService {
 
     /** Creates a PENDING payment and returns VietQR + transfer details. */
-    CreatePaymentResponse createPremiumPayment(CreatePaymentRequest request);
+    CreatePaymentResponse createPremiumPayment(Integer userId, PremiumPlan plan);
 
     /** Processes a SePay transfer notification; grants premium on a valid match. */
     void handleSePayWebhook(SePayWebhookRequest payload);

@@ -1,5 +1,6 @@
 package be.backend.controller;
 
+import be.backend.configuration.CustomUserDetails;
 import be.backend.exception.UnauthorizedWebhookException;
 import be.backend.model.dto.PaymentDto;
 import be.backend.model.request.CreatePaymentRequest;
@@ -10,13 +11,15 @@ import be.backend.services.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/payments")
+@RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
 public class PaymentController {
 
@@ -25,10 +28,16 @@ public class PaymentController {
 
     @PostMapping("/premium")
     public ResponseEntity<CreatePaymentResponse> createPremium(
-            @Valid @RequestBody CreatePaymentRequest request) {
-        return ResponseEntity.ok(paymentService.createPremiumPayment(request));
-    }
+            @Valid @RequestBody CreatePaymentRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal) {
 
+        return ResponseEntity.ok(
+                paymentService.createPremiumPayment(
+                        principal.getUserId(),
+                        request.getPlan()
+                )
+        );
+    }
     @PostMapping("/webhook")
     public ResponseEntity<Map<String, Object>> webhook(
             @RequestHeader(value = "Authorization", required = false) String authorization,

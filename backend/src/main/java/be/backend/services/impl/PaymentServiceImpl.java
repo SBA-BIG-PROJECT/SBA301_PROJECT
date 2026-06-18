@@ -46,12 +46,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public CreatePaymentResponse createPremiumPayment(CreatePaymentRequest request) {
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found: " + request.getUserId()));
-
-        PremiumPlan plan = request.getPlan();
+    public CreatePaymentResponse createPremiumPayment(Integer userId, PremiumPlan plan) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         int orderCode = generateUniqueOrderCode();
         String transferContent = props.getPrefix() + orderCode;     // e.g. "MOVIE172839456"
 
