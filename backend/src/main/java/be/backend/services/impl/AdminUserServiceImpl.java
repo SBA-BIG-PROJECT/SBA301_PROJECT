@@ -1,13 +1,20 @@
 package be.backend.services.impl;
 
+import be.backend.entity.Movie;
+import be.backend.entity.Payment;
+import be.backend.entity.Review;
 import be.backend.entity.User;
+import be.backend.entity.ViewLog;
+import be.backend.entity.Watchlist;
 import be.backend.enums.UserRole;
 import be.backend.exception.ResourceNotFoundException;
 import be.backend.mapper.AdminUserMapper;
+import be.backend.mapper.ReviewMapper;
 import be.backend.model.dto.AdminPaymentDto;
 import be.backend.model.dto.AdminUserDto;
 import be.backend.model.dto.ReviewDto;
 import be.backend.model.dto.ViewHistoryDto;
+import be.backend.model.dto.WatchlistDto;
 import be.backend.model.request.AdminUpdateUserRequest;
 import be.backend.model.response.AdminUserDetailResponse;
 import be.backend.model.response.PageResponse;
@@ -26,8 +33,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * Admin User Service Implementation
@@ -45,6 +54,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final WatchlistRepository watchlistRepository;
     private final ViewLogRepository viewLogRepository;
     private final AdminUserMapper adminUserMapper;
+    private final ReviewMapper reviewMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -70,15 +80,35 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUserDto userDto = adminUserMapper.toAdminDto(user);
         enrichUserStats(userDto, user);
         
-        // Get recent activities (limit to 10 each)
-        // Note: You'll need to implement these methods in respective repositories
+        List<ReviewDto> recentReviews = reviewRepository.findTop10ByUser_IdOrderByCreatedAtDesc(userId)
+            .stream()
+            .map(reviewMapper::toDto)
+            .toList();
+
+        List<WatchlistDto> recentWatchlist = watchlistRepository.findByUser_IdOrderByAddedAtDesc(userId, PageRequest.of(0, 10))
+            .getContent()
+            .stream()
+            .map(this::toWatchlistDto)
+            .toList();
+
+        List<ViewHistoryDto> recentViews = viewLogRepository.findTop20ByUser_IdOrderByWatchedAtDesc(userId)
+            .stream()
+            .limit(10)
+            .map(this::toViewHistoryDto)
+            .toList();
+
+        List<AdminPaymentDto> paymentHistory = paymentRepository.findByUser_IdOrderByCreatedAtDesc(userId)
+            .stream()
+            .limit(10)
+            .map(this::toAdminPaymentDto)
+            .toList();
         
         return new AdminUserDetailResponse(
             userDto,
-            Collections.emptyList(), // recentReviews - implement if needed
-            Collections.emptyList(), // recentWatchlist - implement if needed
-            Collections.emptyList(), // recentViews - implement if needed
-            Collections.emptyList()  // paymentHistory - implement if needed
+            recentReviews,
+            recentWatchlist,
+            recentViews,
+            paymentHistory
         );
     }
 
@@ -96,12 +126,22 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (request.getAdminNotes() != null) {
             user.setAdminNotes(request.getAdminNotes());
         }
+
+        if (request.getIsActive() != null) {
+            if (request.getIsActive()) {
+                user.setDeletedAt(null);
+                user.setBannedAt(null);
+                user.setBannedReason(null);
+            } else {
+                user.setDeletedAt(Instant.now());
+            }
+        }
         
         User updated = userRepository.save(user);
         AdminUserDto dto = adminUserMapper.toAdminDto(updated);
         enrichUserStats(dto, updated);
         
-        log.info("Admin updated user: {} (fullName and/or adminNotes)", userId);
+        log.info("Admin updated user: {} (fullName, adminNotes and/or isActive)", userId);
         return dto;
     }
 
@@ -167,6 +207,71 @@ public class AdminUserServiceImpl implements AdminUserService {
         dto.setTotalWatchlist((long) user.getWatchlists().size());
         dto.setTotalViews((long) user.getViewLogs().size());
         dto.setTotalPayments((long) user.getPayments().size());
+        
+        BigDecimal totalSpent = user.getPayments().stream()
+            .filter(p -> "SUCCESS".equals(p.getStatus()))
+            .map(Payment::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        dto.setTotalSpent(totalSpent);
+        
         dto.setIsActive(user.getDeletedAt() == null && user.getBannedAt() == null);
+    }
+
+    private ViewHistoryDto toViewHistoryDto(ViewLog v) {
+        ViewHistoryDto dto = new ViewHistoryDto();
+        dto.setId(v.getId());
+        dto.setWatchedAt(v.getWatchedAt());
+        dto.setWatchDuration(v.getWatchDuration());
+
+        Movie movie = v.getTmdb();
+        if (movie != null) {
+            dto.setMovieId(movie.getId());
+            dto.setMovieTitle(movie.getTitle());
+            dto.setPosterPath(movie.getPosterPath());
+            dto.setOverview(movie.getOverview());
+            dto.setReleaseDate(movie.getReleaseDate());
+            dto.setVoteAverage(movie.getVoteAverage());
+            dto.setVoteCount(movie.getVoteCount());
+        }
+
+        return dto;
+    }
+
+    private WatchlistDto toWatchlistDto(Watchlist w) {
+        WatchlistDto dto = new WatchlistDto();
+        dto.setId(w.getId());
+        dto.setAddedAt(w.getAddedAt());
+        
+        Movie movie = w.getTmdb();
+        if (movie != null) {
+            dto.setMovieId(movie.getId());
+            dto.setMovieTitle(movie.getTitle());
+            dto.setPosterPath(movie.getPosterPath());
+            dto.setReleaseDate(movie.getReleaseDate());
+            dto.setVoteAverage(movie.getVoteAverage());
+            dto.setVoteCount(movie.getVoteCount());
+        }
+        return dto;
+    }
+
+    private AdminPaymentDto toAdminPaymentDto(Payment payment) {
+        AdminPaymentDto dto = new AdminPaymentDto();
+        dto.setPaymentId(payment.getId());
+        if (payment.getUser() != null) {
+            dto.setUserId(payment.getUser().getId());
+            dto.setUserEmail(payment.getUser().getEmail());
+            dto.setUserFullName(payment.getUser().getFullName());
+        }
+        dto.setPlanType(payment.getPlanType());
+        dto.setAmount(payment.getAmount());
+        dto.setStatus(payment.getStatus());
+        dto.setOrderCode(payment.getOrderCode());
+        dto.setPaymentLinkId(payment.getPaymentLinkId());
+        dto.setTransactionId(payment.getTransactionId());
+        dto.setPaidAt(payment.getPaidAt());
+        dto.setStartsAt(payment.getStartsAt());
+        dto.setExpiresAt(payment.getExpiresAt());
+        dto.setCreatedAt(payment.getCreatedAt());
+        return dto;
     }
 }

@@ -25,4 +25,6 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
             Integer userId,
             BigDecimal rating
     );
+
+    List<Review> findTop10ByUser_IdOrderByCreatedAtDesc(Integer userId);
 }

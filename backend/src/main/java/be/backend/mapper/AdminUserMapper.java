@@ -12,6 +12,7 @@ public interface AdminUserMapper {
     @Mapping(target = "totalWatchlist", ignore = true)
     @Mapping(target = "totalViews", ignore = true)
     @Mapping(target = "totalPayments", ignore = true)
+    @Mapping(target = "totalSpent", ignore = true)
     @Mapping(target = "lastLoginAt", source = "lastLoginAt")
     @Mapping(target = "isActive", ignore = true)
     @Mapping(target = "deletedAt", source = "deletedAt")

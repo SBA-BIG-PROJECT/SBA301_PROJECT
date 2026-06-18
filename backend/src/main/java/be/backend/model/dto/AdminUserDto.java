@@ -34,4 +34,5 @@ public class AdminUserDto {
     private Long totalWatchlist;
     private Long totalViews;
     private Long totalPayments;
+    private java.math.BigDecimal totalSpent;
 }

@@ -17,4 +17,6 @@ public class AdminUpdateUserRequest {
     private String fullName;
     
     private String adminNotes;
+
+    private Boolean isActive;
 }
