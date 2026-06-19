@@ -22,7 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.*;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -35,24 +37,21 @@ public class PaymentServiceImpl implements PaymentService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter SEPAY_DATE =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String API_KEY_PREFIX = "Apikey ";
 
     private final SePayProperties props;
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final PaymentMapper paymentMapper;
 
-    // =====================================================
-    // CREATE PAYMENT
-    // =====================================================
     @Override
     @Transactional
     public CreatePaymentResponse createPremiumPayment(Integer userId, PremiumPlan plan) {
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         int orderCode = generateUniqueOrderCode();
-        String transferContent = props.getPrefix() + orderCode; // MOVIE123456
+        String transferContent = "SEVQR " + props.getPrefix() + orderCode;   // e.g. "MOVIE172839456"
 
         Payment payment = new Payment();
         payment.setUser(user);
@@ -62,7 +61,6 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setOrderCode(orderCode);
         payment.setPaymentLinkId(transferContent);
         payment.setCreatedAt(Instant.now());
-
         paymentRepository.save(payment);
 
         String qrImageUrl = props.getQrBaseUrl()
@@ -70,9 +68,7 @@ public class PaymentServiceImpl implements PaymentService {
                 + "&bank=" + enc(props.getBank())
                 + "&amount=" + plan.getPrice()
                 + "&des=" + enc(transferContent)
-                + "&template=compact"
-                + "&showinfo=true"
-                + "&holder=" + enc(props.getAccountName());
+                + "&template=compact";
 
         return CreatePaymentResponse.builder()
                 .qrImageUrl(qrImageUrl)
@@ -85,87 +81,66 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
-    // =====================================================
-    // WEBHOOK HANDLER (IMPORTANT PART)
-    // =====================================================
     @Override
     @Transactional
     public void handleSePayWebhook(SePayWebhookRequest tx) {
-        System.out.println("=== SEPAY WEBHOOK ===");
-        System.out.println("CONTENT: " + tx.getContent());
-        System.out.println("CODE: " + tx.getCode());
-        System.out.println("AMOUNT: " + tx.getTransferAmount());
-        // 1. only incoming money
-        if (tx.getTransferType() == null ||
-                !tx.getTransferType().equalsIgnoreCase("in")) {
+        // Chi tinh tien VAO.
+        if (tx.getTransferType() == null || !tx.getTransferType().equalsIgnoreCase("in")) {
+            return;
+        }
+        // Bo qua bank reference da credit (SePay co the gui lai).
+        if (tx.getReferenceCode() != null
+                && paymentRepository.existsByTransactionId(tx.getReferenceCode())) {
             return;
         }
 
-        // 2. prevent duplicate webhook
-        if (tx.getReferenceCode() != null &&
-                paymentRepository.existsByTransactionId(tx.getReferenceCode())) {
-            return;
-        }
-
-        // 3. extract orderCode
         Integer orderCode = extractOrderCode(tx);
         if (orderCode == null) return;
 
-        Payment payment = paymentRepository.findByOrderCode(orderCode)
-                .orElse(null);
-
+        Payment payment = paymentRepository.findByOrderCode(orderCode).orElse(null);
         if (payment == null) return;
-        if (PaymentStatus.SUCCESS.name().equals(payment.getStatus())) return;
+        if (PaymentStatus.SUCCESS.name().equals(payment.getStatus())) return;   // idempotent
 
-        // 4. check amount
-        if (tx.getTransferAmount() == null ||
-                BigDecimal.valueOf(tx.getTransferAmount())
-                        .compareTo(payment.getAmount()) < 0) {
+        // Tu choi neu chuyen thieu.
+        if (tx.getTransferAmount() == null
+                || BigDecimal.valueOf(tx.getTransferAmount()).compareTo(payment.getAmount()) < 0) {
             return;
         }
 
         Instant paidAt = parseDate(tx.getTransactionDate());
         User user = payment.getUser();
 
-        // 5. premium extension logic
-        Instant base = (user.getPremiumExpiresAt() != null &&
-                user.getPremiumExpiresAt().isAfter(paidAt))
+        // Cong don han: con premium thi noi tu ngay het han cu, khong thi tu bay gio.
+        Instant base = (user.getPremiumExpiresAt() != null
+                && user.getPremiumExpiresAt().isAfter(paidAt))
                 ? user.getPremiumExpiresAt()
                 : paidAt;
+        Instant expiresAt = PremiumPlan.valueOf(payment.getPlanType()).addTo(base);
 
-        Instant expiresAt = PremiumPlan.valueOf(payment.getPlanType())
-                .addTo(base);
-
-        // 6. update payment
         payment.setStatus(PaymentStatus.SUCCESS.name());
         payment.setTransactionId(tx.getReferenceCode());
         payment.setPaidAt(paidAt);
         payment.setStartsAt(paidAt);
         payment.setExpiresAt(expiresAt);
-
         paymentRepository.save(payment);
 
-        // 7. update user
         user.setIsPremium(true);
         user.setPremiumExpiresAt(expiresAt);
-
         userRepository.save(user);
     }
 
-    // =====================================================
-    // AUTH HEADER CHECK
-    // =====================================================
     @Override
     public boolean isValidApiKey(String authorizationHeader) {
         if (authorizationHeader == null || props.getApiKey() == null) return false;
-
-        return authorizationHeader.trim()
-                .equalsIgnoreCase("Apikey " + props.getApiKey());
+        String value = authorizationHeader.trim();
+        // Prefix "Apikey " khong phan biet hoa thuong; phan key thi so chinh xac.
+        if (value.length() <= API_KEY_PREFIX.length()
+                || !value.regionMatches(true, 0, API_KEY_PREFIX, 0, API_KEY_PREFIX.length())) {
+            return false;
+        }
+        return value.substring(API_KEY_PREFIX.length()).equals(props.getApiKey());
     }
 
-    // =====================================================
-    // QUERY METHODS
-    // =====================================================
     @Override
     @Transactional(readOnly = true)
     public List<PaymentDto> getUserPayments(Integer userId) {
@@ -176,10 +151,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional(readOnly = true)
     public PaymentStatusResponse getPaymentStatus(Integer orderCode) {
-
         Payment payment = paymentRepository.findByOrderCode(orderCode)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Payment not found: " + orderCode));
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + orderCode));
 
         return PaymentStatusResponse.builder()
                 .orderCode(payment.getOrderCode())
@@ -191,46 +164,36 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
-    // =====================================================
-    // HELPERS
-    // =====================================================
-    private Integer extractOrderCode(SePayWebhookRequest tx) {
+    // ---------------------------------------------------------------- helpers
 
-        // 1. try code field
+    /** Uu tien field code cua SePay; neu khong co thi rut "<PREFIX><digits>" tu noi dung. */
+    private Integer extractOrderCode(SePayWebhookRequest tx) {
         if (tx.getCode() != null) {
             Integer fromCode = digitsToInt(tx.getCode().replaceAll("\\D", ""));
             if (fromCode != null) return fromCode;
         }
-
-        // 2. try content field (MAIN SOURCE)
         if (tx.getContent() != null) {
-            Matcher m = Pattern.compile(
-                    Pattern.quote(props.getPrefix()) + "(\\d+)",
-                    Pattern.CASE_INSENSITIVE
-            ).matcher(tx.getContent());
-
+            Matcher m = Pattern.compile(Pattern.quote(props.getPrefix()) + "(\\d+)",
+                    Pattern.CASE_INSENSITIVE).matcher(tx.getContent());
             if (m.find()) return digitsToInt(m.group(1));
         }
-
         return null;
     }
 
     private Integer digitsToInt(String digits) {
         if (digits == null || digits.isEmpty()) return null;
-
         try {
             long v = Long.parseLong(digits);
             return (v > 0 && v <= Integer.MAX_VALUE) ? (int) v : null;
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             return null;
         }
     }
 
+    /** SePay gui "yyyy-MM-dd HH:mm:ss" khong co zone -> hieu la gio Viet Nam. */
     private Instant parseDate(String s) {
         try {
-            return LocalDateTime.parse(s, SEPAY_DATE)
-                    .atZone(ZONE)
-                    .toInstant();
+            return LocalDateTime.parse(s, SEPAY_DATE).atZone(ZONE).toInstant();
         } catch (Exception e) {
             return Instant.now();
         }
@@ -240,15 +203,15 @@ public class PaymentServiceImpl implements PaymentService {
         return URLEncoder.encode(s == null ? "" : s, StandardCharsets.UTF_8);
     }
 
+    /** order_code la INT nen giu duoi 2,147,483,647; retry neu trung. */
     private int generateUniqueOrderCode() {
         for (int i = 0; i < 8; i++) {
             int code = (int) (System.currentTimeMillis() % 1_000_000_000L)
                     + (int) (Math.random() * 1000);
-
-            if (!paymentRepository.existsByOrderCode(code)) {
+            if (code > 0 && !paymentRepository.existsByOrderCode(code)) {
                 return code;
             }
         }
-        throw new PaymentProcessingException("Cannot generate order code");
+        throw new PaymentProcessingException("Cannot generate a unique order code");
     }
 }

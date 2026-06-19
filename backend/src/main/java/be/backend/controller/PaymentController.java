@@ -12,7 +12,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,19 +29,15 @@ public class PaymentController {
     public ResponseEntity<CreatePaymentResponse> createPremium(
             @Valid @RequestBody CreatePaymentRequest request,
             @AuthenticationPrincipal CustomUserDetails principal) {
-
         return ResponseEntity.ok(
-                paymentService.createPremiumPayment(
-                        principal.getUserId(),
-                        request.getPlan()
-                )
-        );
+                paymentService.createPremiumPayment(principal.getUserId(), request.getPlan()));
     }
+
+
     @PostMapping("/webhook")
     public ResponseEntity<Map<String, Object>> webhook(
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestBody SePayWebhookRequest payload) {
-
         if (!paymentService.isValidApiKey(authorization)) {
             throw new UnauthorizedWebhookException("Invalid SePay API key");
         }
@@ -51,13 +46,15 @@ public class PaymentController {
     }
 
 
-    @GetMapping("/users/{userId}")
-    public ResponseEntity<List<PaymentDto>> getUserPayments(@PathVariable Integer userId) {
-        return ResponseEntity.ok(paymentService.getUserPayments(userId));
+    @GetMapping("/me")
+    public ResponseEntity<List<PaymentDto>> getMyPayments(
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        return ResponseEntity.ok(paymentService.getUserPayments(principal.getUserId()));
     }
+
+
     @GetMapping("/{orderCode}/status")
     public ResponseEntity<PaymentStatusResponse> getStatus(@PathVariable Integer orderCode) {
         return ResponseEntity.ok(paymentService.getPaymentStatus(orderCode));
     }
-
 }
