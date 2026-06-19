@@ -32,6 +32,24 @@ import java.util.Map;
 public class AdminMovieController {
 
     private final AdminMovieService adminMovieService;
+    private final be.backend.services.CloudinaryService cloudinaryService;
+
+    /**
+     * Upload image to Cloudinary
+     * POST /api/v1/admin/movies/upload-image
+     */
+    @PostMapping("/upload-image")
+    public ResponseEntity<Map<String, String>> uploadImage(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        try {
+            if (!cloudinaryService.isValidImage(file)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid image file"));
+            }
+            Map<String, String> result = cloudinaryService.uploadImage(file, "movies");
+            return ResponseEntity.ok(Map.of("url", result.get("url")));
+        } catch (java.io.IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to upload image"));
+        }
+    }
 
     /**
      * Get all movies (including inactive) with filters

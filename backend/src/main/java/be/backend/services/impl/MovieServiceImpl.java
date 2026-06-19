@@ -16,6 +16,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -46,6 +47,18 @@ public class MovieServiceImpl implements MovieService {
     public MovieDetailDto getMovieDetail(Integer id) {
         Movie movie = movieRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim id=" + id));
-        return movieMapper.toDetailDto(movie);
+        MovieDetailDto dto = movieMapper.toDetailDto(movie);
+        
+        boolean isUpcoming = movie.getMovieCategories().stream()
+                .anyMatch(mc -> "upcoming".equals(mc.getCategory().getCategoryId()));
+                
+        boolean locked = isUpcoming && movie.getReleaseDate() != null && movie.getReleaseDate().isAfter(LocalDateTime.now());
+        dto.setIsLocked(locked);
+        
+        if (locked) {
+            dto.setTrailerUrl(null);
+        }
+        
+        return dto;
     }
 }

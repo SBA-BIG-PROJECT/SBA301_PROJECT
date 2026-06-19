@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -14,7 +14,7 @@ public class WatchlistDto {
     private Integer movieId;
     private String movieTitle;
     private String posterPath;
-    private LocalDate releaseDate;
+    private LocalDateTime releaseDate;
     private Double voteAverage;
     private Integer voteCount;
 }
