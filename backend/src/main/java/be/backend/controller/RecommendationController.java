@@ -14,6 +14,7 @@ public class RecommendationController {
 
     private final RecommendationService recommendationService;
 
+//API này dùng để tạo recommendation thủ công phục vụ kiểm thử. Ngoài ra hệ thống còn tự động tạo recommendation hằng ngày bằng Scheduler. (làm mới mỗi 2AM hàng ngày)
     @PostMapping("/generate")
     public ResponseEntity<Void> generate() {
         recommendationService.generateRecommendations();
@@ -24,7 +25,7 @@ public class RecommendationController {
     public ResponseEntity<PageResponse<RecommendationDto>>
     getRecommendations(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "20") int size) {
 
         return ResponseEntity.ok(recommendationService.getRecommendations(page, size)
         );

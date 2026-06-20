@@ -1,7 +1,6 @@
 package be.backend.services.impl;
 
 import be.backend.entity.Notification;
-import be.backend.entity.Recommendation;
 import be.backend.entity.User;
 import be.backend.exception.ResourceNotFoundException;
 import be.backend.model.dto.NotificationDto;
@@ -109,17 +108,23 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public void createRecommendationNotification(User user, Recommendation recommendation) {
-        Notification notification = new Notification();
+    public void createRecommendationSummaryNotification(
+            User user,
+            int totalRecommendations) {
+
+        if (totalRecommendations == 0) {
+            return;
+        }
+
+        Notification notification =
+                new Notification();
 
         notification.setUser(user);
-        notification.setRec(recommendation);
 
         notification.setMessage(
-                "🎬 Chúng tôi đề xuất phim: "
-                        + recommendation.getTmdb().getTitle()
-                        + " - "
-                        + recommendation.getReason()
+                " Có "
+                        + totalRecommendations
+                        + " phim đề xuất mới dành cho bạn"
         );
 
         notificationRepository.save(notification);

@@ -5,5 +5,6 @@ public enum RecommendationSource {
     VIEW_HISTORY,
     WATCHLIST,
     HIGH_RATING,
-    TRENDING
+    ACTOR_DIRECTOR,
+    ASSOCIATION_RULE
 }

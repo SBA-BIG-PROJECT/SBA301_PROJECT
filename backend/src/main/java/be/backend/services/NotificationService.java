@@ -1,11 +1,11 @@
 package be.backend.services;
 
-import be.backend.entity.Recommendation;
+
 import be.backend.entity.User;
 import be.backend.model.dto.NotificationDto;
 import be.backend.model.response.PageResponse;
 
-import java.util.List;
+
 
 public interface NotificationService {
     //--- by users ---
@@ -16,6 +16,6 @@ public interface NotificationService {
     void deleteNotification(Integer notificationId);
 
     //--- by system ---
-    void createRecommendationNotification(User user, Recommendation recommendation);
+    void createRecommendationSummaryNotification(User user, int totalRecommendations);
 }
 

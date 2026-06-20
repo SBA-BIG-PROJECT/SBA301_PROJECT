@@ -2,6 +2,7 @@ package be.backend.controller;
 
 import be.backend.model.dto.MovieDetailDto;
 import be.backend.model.dto.MovieDto;
+import be.backend.model.dto.TrendingMovieDto;
 import be.backend.model.response.PageResponse;
 import be.backend.services.MovieService;
 import lombok.RequiredArgsConstructor;
@@ -27,5 +28,12 @@ public class MovieController {
     @GetMapping("/{id}")
     public ResponseEntity<MovieDetailDto> getMovieDetail(@PathVariable Integer id) {
         return ResponseEntity.ok(movieService.getMovieDetail(id));
+    }
+
+    @GetMapping("/trending")
+    public ResponseEntity<PageResponse<TrendingMovieDto>> getTrendingMovies(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(movieService.getTrendingMovies(page, size));
     }
 }
