@@ -58,4 +58,18 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
         GROUP BY p.planType
         """)
     List<Object[]> countAndSumByPlanType();
+
+    @Query(value = "SELECT DATE(paid_at) as date, SUM(amount) as revenue, COUNT(*) as orderCount " +
+           "FROM payment " +
+           "WHERE status = 'SUCCESS' AND paid_at >= :startDate AND paid_at <= :endDate " +
+           "GROUP BY DATE(paid_at) " +
+           "ORDER BY DATE(paid_at) ASC", nativeQuery = true)
+    List<Object[]> getDailyRevenue(@Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query(value = "SELECT YEAR(paid_at) as year, MONTH(paid_at) as month, SUM(amount) as revenue, COUNT(*) as orderCount " +
+           "FROM payment " +
+           "WHERE status = 'SUCCESS' AND paid_at >= :startDate AND paid_at <= :endDate " +
+           "GROUP BY YEAR(paid_at), MONTH(paid_at) " +
+           "ORDER BY YEAR(paid_at) ASC, MONTH(paid_at) ASC", nativeQuery = true)
+    List<Object[]> getMonthlyRevenue(@Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 }

@@ -7,7 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -33,7 +33,7 @@ public class AdminCreateMovieRequest {
     @Size(max = 500, message = "Backdrop path must not exceed 500 characters")
     private String backdropPath;
     
-    private LocalDate releaseDate;
+    private LocalDateTime releaseDate;
     
     private Double voteAverage;
     

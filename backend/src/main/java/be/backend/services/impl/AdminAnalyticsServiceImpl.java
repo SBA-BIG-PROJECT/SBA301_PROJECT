@@ -167,6 +167,9 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
     public RevenueAnalyticsDto getRevenueAnalytics(LocalDate startDate, LocalDate endDate) {
         RevenueAnalyticsDto analytics = new RevenueAnalyticsDto();
         
+        Instant startInstant = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant endInstant = endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+
         // Total revenue
         BigDecimal totalRevenue = paymentRepository.sumTotalRevenue();
         analytics.setTotalRevenue(totalRevenue);
@@ -177,7 +180,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
         analytics.setSuccessfulOrders(totalOrders);
         
         // Average order value
-        if (totalOrders > 0) {
+        if (totalOrders > 0 && totalRevenue != null) {
             BigDecimal avgValue = totalRevenue.divide(BigDecimal.valueOf(totalOrders), 2, BigDecimal.ROUND_HALF_UP);
             analytics.setAverageOrderValue(avgValue);
         } else {
@@ -200,9 +203,39 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
             }
         }
         
-        // Daily and monthly revenue - would need more complex queries
-        analytics.setDailyRevenue(Collections.emptyList());
-        analytics.setMonthlyRevenue(Collections.emptyList());
+        // Daily and monthly revenue
+        try {
+            List<Object[]> dailyData = paymentRepository.getDailyRevenue(startInstant, endInstant);
+            List<RevenueAnalyticsDto.DailyRevenueDto> dailyList = dailyData.stream().map(row -> {
+                LocalDate date;
+                if (row[0] instanceof java.sql.Date) {
+                    date = ((java.sql.Date) row[0]).toLocalDate();
+                } else if (row[0] instanceof String) {
+                    date = LocalDate.parse((String) row[0]);
+                } else {
+                    date = LocalDate.parse(row[0].toString());
+                }
+                return new RevenueAnalyticsDto.DailyRevenueDto(
+                        date,
+                        (BigDecimal) row[1],
+                        ((Number) row[2]).longValue()
+                );
+            }).collect(java.util.stream.Collectors.toList());
+            analytics.setDailyRevenue(dailyList);
+            
+            List<Object[]> monthlyData = paymentRepository.getMonthlyRevenue(startInstant, endInstant);
+            List<RevenueAnalyticsDto.MonthlyRevenueDto> monthlyList = monthlyData.stream().map(row -> new RevenueAnalyticsDto.MonthlyRevenueDto(
+                    ((Number) row[0]).intValue(),
+                    ((Number) row[1]).intValue(),
+                    (BigDecimal) row[2],
+                    ((Number) row[3]).longValue()
+            )).collect(java.util.stream.Collectors.toList());
+            analytics.setMonthlyRevenue(monthlyList);
+        } catch (Exception e) {
+            log.error("Error fetching revenue analytics lists: {}", e.getMessage());
+            analytics.setDailyRevenue(Collections.emptyList());
+            analytics.setMonthlyRevenue(Collections.emptyList());
+        }
         
         // Conversion rate - placeholder
         analytics.setConversionRate(0.0);

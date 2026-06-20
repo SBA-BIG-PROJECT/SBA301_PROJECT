@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -20,7 +20,7 @@ public class AdminMovieDto {
     private String overview;
     private String posterPath;
     private String backdropPath;
-    private LocalDate releaseDate;
+    private LocalDateTime releaseDate;
     private Double voteAverage;
     private Integer voteCount;
     private String trailerUrl;
