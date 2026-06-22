@@ -25,8 +25,11 @@ export const genreTranslationMap = {
 export const translateGenre = (genreName) => {
   if (!genreName) return genreName;
   
-  // Normalize string to NFC, convert to lowercase, and collapse multiple spaces
+  // Normalize string to NFC, convert to lowercase, collapse multiple spaces
   let name = genreName.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+  
+  // Remove leading "phim " prefix if it exists
+  name = name.replace(/^phim\s+/, '').trim();
   
   if (genreTranslationMap[name]) return genreTranslationMap[name];
   
