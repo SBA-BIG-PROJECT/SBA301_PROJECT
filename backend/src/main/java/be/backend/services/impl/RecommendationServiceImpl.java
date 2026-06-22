@@ -19,6 +19,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -34,6 +36,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final RecommendationRepository recommendationRepository;
     private final UserRepository userRepository;
     private final ReviewRepository reviewRepository;
+    private final MoviePersonRepository moviePersonRepository;
 
 
     @Override
@@ -88,14 +91,16 @@ public class RecommendationServiceImpl implements RecommendationService {
         generateViewHistoryRecommendations(user, context);
         generateWatchlistRecommendations(user, context);
         generateHighRatingRecommendations(user, context);
-        generateTrendingRecommendations(user, context);
+        generateActorDirectorRecommendations(user, context);
+        generateAssociationRuleRecommendations(user, context);
+
+        notificationService.createRecommendationSummaryNotification(user, context.getAddedMovieIds().size());
     }
 
 
     @Override
     @Transactional
     public void generateRecommendations(Integer userId) {
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         recommendationRepository.deleteByUser_Id(userId);
@@ -314,39 +319,112 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
 
-    private void generateTrendingRecommendations(User user,
-                                                 RecommendationContext context) {
-        List<Integer> trendingMovieIds =
-                viewLogRepository.findTrendingMovieIds(
-                        PageRequest.of(0, 20)
-                );
 
-        if (trendingMovieIds.isEmpty()) {
+    private void generateActorDirectorRecommendations(
+            User user,
+            RecommendationContext context) {
+
+        ViewLog latestView =
+                viewLogRepository
+                        .findTopByUser_IdOrderByWatchedAtDesc(
+                                user.getId())
+                        .orElse(null);
+
+        if (latestView == null) {
             return;
         }
+
+        List<MoviePerson> moviePeople =
+                moviePersonRepository.findByTmdb_Id(
+                        latestView.getTmdb().getId());
 
         List<MovieGenre> candidates =
                 new ArrayList<>();
 
-        for (Integer movieId : trendingMovieIds) {
+        for (MoviePerson moviePerson : moviePeople) {
 
-            candidates.addAll(
-                    movieGenreRepository.findByTmdb_Id(
-                            movieId
-                    )
-            );
+            List<Integer> personIds = moviePeople.stream()
+                            .map(mp -> mp.getPerson().getId())
+                            .distinct()
+                            .toList();
+
+            List<MoviePerson> relatedMovies = moviePersonRepository.findByPersonIds(personIds);
+
+            for (MoviePerson related : relatedMovies) {
+
+                Movie movie = related.getTmdb();
+
+                MovieGenre fakeCandidate =
+                        new MovieGenre();
+
+                fakeCandidate.setTmdb(movie);
+
+                candidates.add(fakeCandidate);
+            }
         }
 
         generateRecommendationsFromCandidates(
                 user,
                 candidates,
-                null,
-                RecommendationSource.TRENDING,
-                "Trending movies on the system",
+                latestView.getTmdb().getId(),
+                RecommendationSource.ACTOR_DIRECTOR,
+                "Phim có cùng diễn viên hoặc đạo diễn với phim bạn quan tâm",
                 context
         );
     }
 
+    private void generateAssociationRuleRecommendations(
+            User user,
+            RecommendationContext context
+    ) {
+
+        ViewLog latestView =
+                viewLogRepository
+                        .findTopByUser_IdOrderByWatchedAtDesc(
+                                user.getId())
+                        .orElse(null);
+
+        if (latestView == null) {
+            return;
+        }
+
+        Integer movieId =
+                latestView.getTmdb().getId();
+
+        List<Integer> userIds =
+                viewLogRepository.findUserIdsByMovieId(movieId);
+
+        if (userIds.isEmpty()) {
+            return;
+        }
+
+        List<Integer> movieIds =
+                viewLogRepository.findPopularMoviesByUsers(
+                        userIds,
+                        PageRequest.of(0, 50)
+                );
+
+        List<MovieGenre> candidates =
+                new ArrayList<>();
+
+        for (Integer candidateMovieId : movieIds) {
+
+            movieGenreRepository
+                    .findByTmdb_Id(candidateMovieId)
+                    .stream()
+                    .findFirst()
+                    .ifPresent(candidates::add);
+        }
+
+        generateRecommendationsFromCandidates(
+                user,
+                candidates,
+                movieId,
+                RecommendationSource.ASSOCIATION_RULE,
+                "Người xem phim này cũng thường xem",
+                context
+        );
+    }
 
     // ---- filters ----
 
@@ -404,6 +482,8 @@ public class RecommendationServiceImpl implements RecommendationService {
         return context;
     }
 
+
+
     // ---- helpers ----
 
     private void saveRecommendation(
@@ -419,9 +499,8 @@ public class RecommendationServiceImpl implements RecommendationService {
         recommendation.setSource(source);
         recommendation.setReason(reason);
 
-        Recommendation saved = recommendationRepository.save(recommendation);
+        recommendationRepository.save(recommendation);
 
-        notificationService.createRecommendationNotification(user, saved);
     }
 
 

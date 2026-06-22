@@ -8,6 +8,11 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        model: gpt-4o-mini
   jpa:
     properties:
       hibernate:
@@ -27,6 +32,9 @@ spring:
     enabled: true
     validate-on-migrate: true
     baseline-version: 0
+  mongodb:
+    uri: ${MONGODB_URI}
+
 
 jwt:
   secret-key: ${JWT_SECRET}

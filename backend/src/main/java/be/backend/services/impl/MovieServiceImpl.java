@@ -5,19 +5,21 @@ import be.backend.exception.ResourceNotFoundException;
 import be.backend.mapper.MovieMapper;
 import be.backend.model.dto.MovieDetailDto;
 import be.backend.model.dto.MovieDto;
+import be.backend.model.dto.TrendingMovieDto;
 import be.backend.model.response.PageResponse;
 import be.backend.repository.MovieRepository;
+import be.backend.repository.ViewLogRepository;
 import be.backend.services.MovieService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +27,7 @@ public class MovieServiceImpl implements MovieService {
 
     private final MovieRepository movieRepository;
     private final MovieMapper movieMapper;
+    private final ViewLogRepository viewLogRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -48,17 +51,66 @@ public class MovieServiceImpl implements MovieService {
         Movie movie = movieRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Movie not found with id=" + id));
         MovieDetailDto dto = movieMapper.toDetailDto(movie);
-        
+
         boolean isUpcoming = movie.getMovieCategories().stream()
                 .anyMatch(mc -> "upcoming".equals(mc.getCategory().getCategoryId()));
-                
+
         boolean locked = isUpcoming && movie.getReleaseDate() != null && movie.getReleaseDate().isAfter(LocalDateTime.now());
         dto.setIsLocked(locked);
-        
+
         if (locked) {
             dto.setTrailerUrl(null);
         }
-        
+
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<TrendingMovieDto> getTrendingMovies(
+            int page,
+            int size) {
+
+        Pageable pageable =
+                PageRequest.of(page, size);
+
+        Instant fromDate =
+                Instant.now().minus(7, ChronoUnit.DAYS);
+
+        Page<Integer> movieIds =
+                viewLogRepository.findTrendingMovieIds(
+                        fromDate,
+                        pageable
+                );
+
+        List<TrendingMovieDto> content =
+                movieIds.getContent()
+                        .stream()
+                        .map(movieRepository::findById)
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .map(this::toTrendingDto)
+                        .toList();
+
+        return PageResponse.from(
+                new PageImpl<>(
+                        content,
+                        pageable,
+                        movieIds.getTotalElements()
+                )
+        );
+    }
+
+    private TrendingMovieDto toTrendingDto(Movie movie) {
+
+        TrendingMovieDto dto = new TrendingMovieDto();
+
+        dto.setMovieId(movie.getId());
+        dto.setTitle(movie.getTitle());
+        dto.setPosterPath(movie.getPosterPath());
+        dto.setVoteAverage(movie.getVoteAverage());
+        dto.setReleaseDate(movie.getReleaseDate());
+
         return dto;
     }
 }
