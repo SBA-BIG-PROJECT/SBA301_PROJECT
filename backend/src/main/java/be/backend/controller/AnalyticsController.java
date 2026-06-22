@@ -22,7 +22,7 @@ import java.time.LocalDate;
 @RequestMapping("/api/v1/admin/analytics")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
-public class  AdminAnalyticsController {
+public class AnalyticsController {
 
     private final AdminAnalyticsService adminAnalyticsService;
 

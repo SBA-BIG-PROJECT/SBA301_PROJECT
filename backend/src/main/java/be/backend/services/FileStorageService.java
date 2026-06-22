@@ -5,19 +5,19 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.Map;
 
-public interface CloudinaryService {
+public interface FileStorageService {
     
     /**
-     * Upload image to Cloudinary
+     * Upload image to storage
      * @param file image file
-     * @param folder folder path in Cloudinary
+     * @param folder folder path in storage
      * @return Map with url and public_id
      * @throws IOException if upload fails
      */
     Map<String, String> uploadImage(MultipartFile file, String folder) throws IOException;
     
     /**
-     * Delete image from Cloudinary
+     * Delete image from storage
      * @param publicId public id of image
      * @throws IOException if delete fails
      */

@@ -53,3 +53,9 @@ sepay:
   api-key:        ${SEPAY_API_KEY}             # webhook key; SePay sends "Authorization: Apikey <key>"
   prefix:         MOVIE                         # transfer-content prefix => content is "MOVIE<orderCode>"
   qr-base-url:    https://qr.sepay.vn/img
+
+storage:
+  image:
+    allowed-types: image/jpeg,image/jpg,image/png,image/gif,image/webp
+    allowed-extensions: jpg,jpeg,png,gif,webp
+    max-file-size: 5242880 # 5MB in bytes

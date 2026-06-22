@@ -1,10 +1,12 @@
 package be.backend.services;
 
 import be.backend.enums.PremiumPlan;
+import be.backend.model.dto.AdminPaymentDto;
 import be.backend.model.dto.PaymentDto;
 import be.backend.model.request.CreatePaymentRequest;
 import be.backend.model.request.SePayWebhookRequest;
 import be.backend.model.response.CreatePaymentResponse;
+import be.backend.model.response.PageResponse;
 import be.backend.model.response.PaymentStatusResponse;
 
 import java.util.List;
@@ -24,4 +26,9 @@ public interface PaymentService {
     List<PaymentDto> getUserPayments(Integer userId);
 
     PaymentStatusResponse getPaymentStatus(Integer orderCode);
+
+    // --- Admin Methods ---
+    PageResponse<AdminPaymentDto> getAllPaymentsAdmin(int page, int size, String status, Integer userId, String planType);
+    AdminPaymentDto getPaymentDetailAdmin(Integer paymentId);
+    AdminPaymentDto updatePaymentStatusAdmin(Integer paymentId, String newStatus);
 }

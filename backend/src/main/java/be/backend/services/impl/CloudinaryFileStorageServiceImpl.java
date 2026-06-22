@@ -1,11 +1,12 @@
 package be.backend.services.impl;
 
-import be.backend.services.CloudinaryService;
+import be.backend.services.FileStorageService;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.Transformation;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,15 +19,18 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class CloudinaryServiceImpl implements CloudinaryService {
+public class CloudinaryFileStorageServiceImpl implements FileStorageService {
 
     private final Cloudinary cloudinary;
     
-    private static final List<String> ALLOWED_IMAGE_TYPES = Arrays.asList(
-            "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"
-    );
+    @Value("#{'${storage.image.allowed-types:image/jpeg,image/jpg,image/png,image/gif,image/webp}'.split(',')}")
+    private List<String> allowedImageTypes;
     
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    @Value("#{'${storage.image.allowed-extensions:jpg,jpeg,png,gif,webp}'.split(',')}")
+    private List<String> allowedExtensions;
+    
+    @Value("${storage.image.max-file-size:5242880}")
+    private long maxFileSize;
 
     @Override
     public Map<String, String> uploadImage(MultipartFile file, String folder) throws IOException {
@@ -38,8 +42,8 @@ public class CloudinaryServiceImpl implements CloudinaryService {
             throw new IllegalArgumentException("Invalid image file. Only JPG, PNG, GIF, WEBP allowed");
         }
 
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File size exceeds 5MB limit");
+        if (file.getSize() > maxFileSize) {
+            throw new IllegalArgumentException("File size exceeds allowed limit of " + (maxFileSize / (1024 * 1024)) + "MB");
         }
 
         try {
@@ -103,7 +107,7 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase())) {
+        if (contentType == null || !allowedImageTypes.contains(contentType.toLowerCase())) {
             log.warn("Invalid content type: {}", contentType);
             return false;
         }
@@ -115,7 +119,6 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         }
 
         String extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
-        List<String> allowedExtensions = Arrays.asList("jpg", "jpeg", "png", "gif", "webp");
 
         return allowedExtensions.contains(extension);
     }

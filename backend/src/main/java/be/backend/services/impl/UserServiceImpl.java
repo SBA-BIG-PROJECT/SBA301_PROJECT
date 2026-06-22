@@ -13,7 +13,7 @@ import be.backend.repository.ReviewRepository;
 import be.backend.repository.UserRepository;
 import be.backend.repository.ViewLogRepository;
 import be.backend.repository.WatchlistRepository;
-import be.backend.services.CloudinaryService;
+import be.backend.services.FileStorageService;
 import be.backend.services.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +39,7 @@ public class UserServiceImpl implements UserService {
     private final ViewLogRepository viewLogRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
-    private final CloudinaryService cloudinaryService;
+    private final FileStorageService fileStorageService;
 
     @Override
     @Transactional(readOnly = true)
@@ -181,7 +181,7 @@ public class UserServiceImpl implements UserService {
             // Delete old avatar if exists
             if (user.getAvatarPublicId() != null && !user.getAvatarPublicId().isEmpty()) {
                 try {
-                    cloudinaryService.deleteImage(user.getAvatarPublicId());
+                    fileStorageService.deleteImage(user.getAvatarPublicId());
                     log.info("Deleted old avatar for user: {}", email);
                 } catch (IOException e) {
                     log.warn("Failed to delete old avatar, continuing with upload: {}", e.getMessage());
@@ -190,7 +190,7 @@ public class UserServiceImpl implements UserService {
             }
 
             // Upload new avatar
-            Map<String, String> uploadResult = cloudinaryService.uploadImage(file, "movie-app/avatars");
+            Map<String, String> uploadResult = fileStorageService.uploadImage(file, "movie-app/avatars");
             
             // Update user avatar fields
             user.setAvatarUrl(uploadResult.get("url"));
@@ -221,7 +221,7 @@ public class UserServiceImpl implements UserService {
 
         try {
             // Delete from Cloudinary
-            cloudinaryService.deleteImage(user.getAvatarPublicId());
+            fileStorageService.deleteImage(user.getAvatarPublicId());
             
             // Clear avatar fields
             user.setAvatarUrl(null);
