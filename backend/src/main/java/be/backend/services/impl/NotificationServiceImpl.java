@@ -122,9 +122,9 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setUser(user);
 
         notification.setMessage(
-                " Có "
+                " You have "
                         + totalRecommendations
-                        + " phim đề xuất mới dành cho bạn"
+                        + " new movie recommendations"
         );
 
         notificationRepository.save(notification);
