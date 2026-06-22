@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -21,7 +22,7 @@ public class GlobalExceptionHandler {
 
     // Invalid email/password (from authenticationManager.authenticate)
     @ExceptionHandler({BadCredentialsException.class, InternalAuthenticationServiceException.class})
-    public ResponseEntity<ErrorResponse> handleBadCredentials(Exception ex, WebRequest request) {
+    public ResponseEntity<ErrorResponse> handleBadCredentials(Exception ex, HttpServletRequest request) {
         log.warn("Auth failed: {}", ex.getMessage());
         return build(HttpStatus.UNAUTHORIZED, "Invalid email or password", request);
     }
@@ -29,7 +30,7 @@ public class GlobalExceptionHandler {
     // Email already exists on registration -> 409
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleEmailExists(
-            EmailAlreadyExistsException ex, WebRequest request) {
+            EmailAlreadyExistsException ex, HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
