@@ -214,7 +214,7 @@ const Home = () => {
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                 <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
-              Xem phim
+              Watch Movie
             </button>
             <button
               className="hm-btn hm-btn--ghost"
@@ -292,7 +292,7 @@ const Home = () => {
             <h2 className="hm-section__title">All Movies</h2>
           </div>
           {movies.length > 0 && (
-            <span className="hm-section__count">{movies.length} phim</span>
+            <span className="hm-section__count">{movies.length} movies</span>
           )}
         </div>
 

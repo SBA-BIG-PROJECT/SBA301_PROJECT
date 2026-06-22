@@ -9,7 +9,7 @@ export const useHistory = () => {
   const [hasMore, setHasMore] = useState(true)
   const [initialized, setInitialized] = useState(false)
 
-  // Fetch history từ API
+  // Fetch history from API
   const fetchHistory = useCallback(async (pageNum = 0) => {
     if (!authService.isAuthenticated()) {
       return
@@ -24,10 +24,10 @@ export const useHistory = () => {
         size: 20
       })
 
-      // Map ViewHistoryDto sang Movie object tương thích với MovieCard
+      // Map ViewHistoryDto to Movie object compatible with MovieCard
       const mappedContent = (response.content || []).map((item) => ({
-        id: item.movieId, // Map movieId sang id để các Link chuyển trang đúng phim
-        viewId: item.id, // Lưu lại viewId để phục vụ việc xoá
+        id: item.movieId, // Map movieId to id so Links navigate to correct movie
+        viewId: item.id, // Save viewId for deletion purpose
         movieId: item.movieId,
         title: item.movieTitle,
         poster_path: item.posterPath,
@@ -53,14 +53,14 @@ export const useHistory = () => {
     }
   }, [])
 
-  // Initialize - Gọi tự động khi user đã đăng nhập
+  // Initialize - Called automatically when user is logged in
   useEffect(() => {
     if (!initialized && authService.isAuthenticated()) {
       fetchHistory(0)
     }
   }, [initialized, fetchHistory])
 
-  // Thêm movie vào history
+  // Add movie to history
   const addToHistory = async (movie, watchDuration = 0) => {
     if (!authService.isAuthenticated()) {
       return
@@ -71,14 +71,14 @@ export const useHistory = () => {
         movieId: movie.id,
         watchDuration: watchDuration
       })
-      // Fetch lại trang đầu
+      // Fetch first page again
       fetchHistory(0)
     } catch (err) {
       console.error('Error adding to history:', err)
     }
   }
 
-  // Xóa movie khỏi history
+  // Remove movie from history
   const removeFromHistory = async (movieId) => {
     if (!authService.isAuthenticated()) {
       return
@@ -95,7 +95,7 @@ export const useHistory = () => {
     }
   }
 
-  // Xóa toàn bộ history
+  // Clear all history
   const clearHistory = async () => {
     if (!authService.isAuthenticated()) {
       return

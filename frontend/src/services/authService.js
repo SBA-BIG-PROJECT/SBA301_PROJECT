@@ -118,7 +118,7 @@ const authService = {
     try {
       // Decode JWT token payload (handle base64url encoding)
       let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-      // Thêm padding cho hợp lệ độ dài Base64
+      // Add padding for valid Base64 length
       base64 = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=')
 
       const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
@@ -128,7 +128,7 @@ const authService = {
       const payload = JSON.parse(jsonPayload)
       // Check expiration
       if (payload.exp && payload.exp * 1000 < Date.now()) {
-        // Token expired — xóa hết data
+        // Token expired — clear all data
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('user')
@@ -136,15 +136,15 @@ const authService = {
       }
       return true
     } catch (error) {
-      // Nếu decode lỗi nhưng token tồn tại, vẫn coi là authenticated
-      // Backend sẽ reject nếu token thật sự không hợp lệ
+      // If decode fails but token exists, still consider authenticated
+      // Backend will reject if token is truly invalid
       console.warn('Could not decode token for expiry check, assuming valid:', error.message)
       return true
     }
   },
 
   /**
-   * Lấy access token
+   * Get access token
    * @returns {string|null}
    */
   getAccessToken() {

@@ -40,7 +40,7 @@ const History = () => {
                 <MovieCard movie={movie} />
               </Link>
               <p className="text-xs text-light-200 text-center">
-                Watched: {movie.watchedAt ? new Date(movie.watchedAt).toLocaleDateString('vi-VN') : '—'}
+                Watched: {movie.watchedAt ? new Date(movie.watchedAt).toLocaleDateString('en-US') : '—'}
               </p>
               <div className="movie-card__actions">
                 <Link className="btn btn--primary flex-1" to={`/watch/${movie.id}`}>

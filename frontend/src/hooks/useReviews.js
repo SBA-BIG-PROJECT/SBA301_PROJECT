@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { reviewService, authService } from '../services'
 
 /**
- * Custom hook để quản lý reviews của một movie
- * @param {number} movieId - ID của movie
+ * Custom hook to manage reviews for a movie
+ * @param {number} movieId - Movie ID
  */
 export const useReviews = (movieId) => {
   const [reviews, setReviews] = useState([])
@@ -54,7 +54,7 @@ export const useReviews = (movieId) => {
     }
   }, [movieId])
 
-  // Load reviews và rating khi component mount
+  // Load reviews and rating on mount
   useEffect(() => {
     if (movieId) {
       fetchReviews(0)
@@ -62,7 +62,7 @@ export const useReviews = (movieId) => {
     }
   }, [movieId, fetchReviews, fetchRating])
 
-  // Tạo review mới
+  // Create new review
   const createReview = async (data) => {
     if (!authService.isAuthenticated()) {
       throw new Error('Please login to write a review')
@@ -72,7 +72,7 @@ export const useReviews = (movieId) => {
       setError(null)
       const newReview = await reviewService.createReview(movieId, data)
       
-      // Thêm review mới vào đầu danh sách
+      // Add new review to top of list
       setReviews((prev) => [newReview, ...prev])
       
       // Refresh rating
@@ -86,7 +86,7 @@ export const useReviews = (movieId) => {
     }
   }
 
-  // Cập nhật review
+  // Update review
   const updateReview = async (reviewId, data) => {
     if (!authService.isAuthenticated()) {
       throw new Error('Please login to update review')
@@ -96,7 +96,7 @@ export const useReviews = (movieId) => {
       setError(null)
       const updatedReview = await reviewService.updateReview(reviewId, data)
       
-      // Cập nhật review trong danh sách
+      // Update review in list
       setReviews((prev) =>
         prev.map((r) => (r.id === reviewId ? updatedReview : r))
       )
@@ -112,7 +112,7 @@ export const useReviews = (movieId) => {
     }
   }
 
-  // Xóa review
+  // Delete review
   const deleteReview = async (reviewId) => {
     if (!authService.isAuthenticated()) {
       throw new Error('Please login to delete review')
@@ -122,7 +122,7 @@ export const useReviews = (movieId) => {
       setError(null)
       await reviewService.deleteReview(reviewId)
       
-      // Xóa review khỏi danh sách
+      // Remove review from list
       setReviews((prev) => prev.filter((r) => r.id !== reviewId))
       
       // Refresh rating
@@ -143,7 +143,7 @@ export const useReviews = (movieId) => {
     }
   }
 
-  // Refresh reviews và rating
+  // Refresh reviews and rating
   const refresh = () => {
     fetchReviews(0)
     fetchRating()

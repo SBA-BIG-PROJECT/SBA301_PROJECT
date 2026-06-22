@@ -9,6 +9,7 @@ import { useDebounce } from 'react-use'
 import Search from './Search.jsx'
 import logo from '../assets/logo.svg'
 import { movieService, authService, userService, genreService } from '../services'
+import { translateGenre } from '../utils/genreTranslator.js'
 import { useNotifications } from '../hooks/useNotifications'
 import UserProfile from '../pages/userprofile.jsx'
 
@@ -69,9 +70,9 @@ const Header = () => {
 
         const sorted = (data || [])
           // Remove TV Shows genre
-          .filter((g) => !g.name?.toLowerCase().includes('chương trình') && !g.name?.toLowerCase().includes('truyền hình'))
+          .filter((g) => !g.name?.toLowerCase().includes('tv') && !g.name?.toLowerCase().includes('show'))
           // Remove the word "Phim" from the beginning of genre name
-          .map((g) => ({ ...g, name: g.name?.replace(/^phim\s+/i, '').trim() }))
+          .map((g) => ({ ...g, name: translateGenre(g.name?.replace(/^phim\s+/i, '').trim()) }))
           .slice()
           .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
         setGenres(sorted)

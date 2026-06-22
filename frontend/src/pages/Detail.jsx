@@ -7,6 +7,7 @@ import { movieService } from '../services'
 import { useWatchlist } from '../hooks/useWatchlist'
 import PosterCard from '../components/PosterCard.jsx'
 import { useToast, ToastContainer } from '../components/Toast.jsx'
+import { translateGenre } from '../utils/genreTranslator.js'
 
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500'
 const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280'
@@ -182,10 +183,10 @@ const Detail = () => {
             </p>
             {movie.genres && movie.genres.length > 0 && (
               <div className="detail__genres">
-                {movie.genres.map((genre) => {
-                  const genreId = typeof genre === 'object' ? genre.id || genre.name : genre;
-                  const genreName = typeof genre === 'object' ? genre.name : genre;
-                  return <span key={genreId}>{genreName}</span>;
+                {movie.genres.map((g) => {
+                  const genreId = typeof g === 'object' ? g.id : g
+                  const genreName = typeof g === 'object' ? g.name : 'Unknown Genre'
+                  return <span key={genreId}>{translateGenre(genreName)}</span>;
                 })}
               </div>
             )}
@@ -197,7 +198,7 @@ const Detail = () => {
                   disabled
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                  Available {new Date(movie.releaseDate).toLocaleString('vi-VN')}
+                  Available {new Date(movie.releaseDate).toLocaleString('en-US')}
                 </button>
               ) : (
                 <button

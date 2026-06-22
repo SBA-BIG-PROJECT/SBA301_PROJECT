@@ -9,9 +9,9 @@ export const useNotifications = () => {
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
 
-  // Fetch notifications từ API
+  // Fetch notifications from API
   const fetchNotifications = useCallback(async (pageNum = 0) => {
-    // Chỉ fetch nếu user đã đăng nhập
+    // Only fetch if user is logged in
     if (!authService.isAuthenticated()) {
       return
     }
@@ -55,7 +55,7 @@ export const useNotifications = () => {
     }
   }, [])
 
-  // Load notifications và unread count khi component mount
+  // Load notifications and unread count on mount
   useEffect(() => {
     if (authService.isAuthenticated()) {
       fetchNotifications(0)
@@ -63,7 +63,7 @@ export const useNotifications = () => {
     }
   }, [fetchNotifications, fetchUnreadCount])
 
-  // Đánh dấu tất cả là đã đọc
+  // Mark all as read
   const markAllAsRead = async () => {
     if (!authService.isAuthenticated()) {
       return
@@ -72,7 +72,7 @@ export const useNotifications = () => {
     try {
       await notificationService.markAllAsRead()
       
-      // Cập nhật local state
+      // Update local state
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, isRead: true }))
       )
@@ -83,7 +83,7 @@ export const useNotifications = () => {
     }
   }
 
-  // Đánh dấu 1 notification là đã đọc
+  // Mark a notification as read
   const markAsRead = async (notificationId) => {
     if (!authService.isAuthenticated()) {
       return
@@ -92,7 +92,7 @@ export const useNotifications = () => {
     try {
       await notificationService.markAsRead(notificationId)
       
-      // Cập nhật local state
+      // Update local state
       setNotifications((prev) =>
         prev.map((n) =>
           n.id === notificationId ? { ...n, isRead: true } : n
@@ -105,7 +105,7 @@ export const useNotifications = () => {
     }
   }
 
-  // Xóa notification
+  // Delete notification
   const deleteNotification = async (notificationId) => {
     if (!authService.isAuthenticated()) {
       return
@@ -114,7 +114,7 @@ export const useNotifications = () => {
     try {
       await notificationService.deleteNotification(notificationId)
       
-      // Cập nhật local state
+      // Update local state
       const notification = notifications.find((n) => n.id === notificationId)
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
       

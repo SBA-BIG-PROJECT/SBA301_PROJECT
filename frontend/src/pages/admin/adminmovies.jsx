@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AdminTaskbar from './admintaskbar.jsx';
 import adminService from '../../services/adminService';
+import { translateGenre } from '../../utils/genreTranslator.js';
 import { useToast, ToastContainer } from '../../components/Toast.jsx';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
 
@@ -426,7 +427,7 @@ const AdminMovies = () => {
                               <div className="flex flex-wrap gap-[4px]">
                                 {movie.genres && movie.genres.length > 0 ? (
                                   movie.genres.map(g => (
-                                    <span key={g.id} className="px-2 py-1 rounded bg-[#0F172A] border border-[#334155] text-[12px] text-[#94A3B8]">{g.name}</span>
+                                    <span key={g.id} className="px-2 py-1 rounded bg-[#0F172A] border border-[#334155] text-[12px] text-[#94A3B8]">{translateGenre(g.name)}</span>
                                   ))
                                 ) : (
                                   <span className="text-[#94A3B8] text-[12px]">-</span>
@@ -688,7 +689,7 @@ const AdminMovies = () => {
                           onChange={() => handleGenreCheckboxChange(g.id)}
                           className="accent-[#E50914]"
                         />
-                        <span className="truncate">{g.name}</span>
+                        <span className="truncate">{translateGenre(g.name)}</span>
                       </label>
                     ))}
                   </div>

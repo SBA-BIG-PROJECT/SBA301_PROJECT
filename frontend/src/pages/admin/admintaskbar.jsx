@@ -5,7 +5,7 @@ const AdminTaskbar = () => {
   const location = useLocation();
   const path = location.pathname;
 
-  // Lấy trạng thái collapse từ localStorage (để nhớ lựa chọn của user khi chuyển trang)
+  // Get collapse state from localStorage (to remember user choice across pages)
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('adminSidebarCollapsed') === 'true';
   });

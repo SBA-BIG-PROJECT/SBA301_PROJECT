@@ -9,9 +9,9 @@ export const useWatchlist = () => {
   const [hasMore, setHasMore] = useState(true)
   const [initialized, setInitialized] = useState(false)
 
-  // Fetch watchlist từ API
+  // Fetch watchlist from API
   const fetchWatchlist = useCallback(async (pageNum = 0) => {
-    // Chỉ fetch nếu user đã đăng nhập
+    // Only fetch if user is logged in
     if (!authService.isAuthenticated()) {
       return
     }
@@ -52,7 +52,7 @@ export const useWatchlist = () => {
     }
   }, [])
 
-  // Auto-fetch khi hook được mount và user đã đăng nhập
+  // Auto-fetch on mount when user is logged in
   useEffect(() => {
     if (authService.isAuthenticated()) {
       fetchWatchlist(0)
@@ -60,7 +60,7 @@ export const useWatchlist = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Thêm movie vào watchlist
+  // Add movie to watchlist
   const addToWatchlist = async (movieId) => {
     if (!authService.isAuthenticated()) {
       throw new Error('Please login to add to watchlist')
@@ -70,7 +70,7 @@ export const useWatchlist = () => {
       setError(null)
       await watchlistService.addToWatchlist(movieId)
       
-      // Refresh lại watchlist
+      // Refresh watchlist
       await fetchWatchlist(0)
       
       return true
@@ -81,7 +81,7 @@ export const useWatchlist = () => {
     }
   }
 
-  // Xóa movie khỏi watchlist
+  // Remove movie from watchlist
   const removeFromWatchlist = async (movieId) => {
     if (!authService.isAuthenticated()) {
       throw new Error('Please login to remove from watchlist')
@@ -91,7 +91,7 @@ export const useWatchlist = () => {
       setError(null)
       await watchlistService.removeFromWatchlist(movieId)
       
-      // Cập nhật local state
+      // Update local state
       setWatchlist((prev) => prev.filter((item) => item.movieId !== movieId))
       
       return true
@@ -102,7 +102,7 @@ export const useWatchlist = () => {
     }
   }
 
-  // Kiểm tra movie có trong watchlist không
+  // Check if movie is in watchlist
   const isInWatchlist = useCallback(async (movieId) => {
     if (!authService.isAuthenticated()) {
       return false

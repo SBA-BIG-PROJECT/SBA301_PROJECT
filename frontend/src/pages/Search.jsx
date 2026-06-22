@@ -99,8 +99,8 @@ const SearchPage = () => {
                     id: movie.id,
                     title: movie.title,
                     poster_path: movie.posterPath,
-                    vote_average: movie.rating,
-                    release_date: movie.releaseYear?.toString(),
+                    vote_average: movie.voteAverage,
+                    release_date: movie.releaseDate,
                     overview: movie.overview
                   }} />
                 </Link>

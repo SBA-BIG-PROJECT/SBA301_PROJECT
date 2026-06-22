@@ -1,9 +1,9 @@
 import axios from 'axios'
 
-// Base URL cho backend API
+// Base URL for backend API
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'
 
-// Tạo axios instance
+// Create axios instance
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -12,7 +12,7 @@ const apiClient = axios.create({
   withCredentials: true
 })
 
-// Request interceptor - thêm token vào mỗi request
+// Request interceptor - add token to each request
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token')
@@ -26,13 +26,13 @@ apiClient.interceptors.request.use(
   }
 )
 
-// Response interceptor - xử lý lỗi và refresh token
+// Response interceptor - handle errors and refresh token
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
 
-    // Nếu token hết hạn (401) hoặc bị từ chối (403) và chưa retry
+    // If token expired (401) or forbidden (403) and not retried
     if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
       originalRequest._retry = true
 
@@ -43,7 +43,7 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token')
         }
 
-        // Gọi API refresh token
+        // Call API to refresh token
         const response = await axios.post(
           `${API_BASE_URL}/auth/refresh`,
           { refreshToken },
@@ -53,15 +53,15 @@ apiClient.interceptors.response.use(
         const accessToken = response.data.token || response.data.accessToken
         const newRefreshToken = response.data.refreshToken
 
-        // Lưu token mới
+        // Save new token
         localStorage.setItem('access_token', accessToken)
         localStorage.setItem('refresh_token', newRefreshToken)
 
-        // Retry request với token mới
+        // Retry request with new token
         originalRequest.headers.Authorization = `Bearer ${accessToken}`
         return apiClient(originalRequest)
       } catch (refreshError) {
-        // Refresh token thất bại - logout user
+        // Refresh token failed - logout user
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('user')

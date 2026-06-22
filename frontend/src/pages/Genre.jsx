@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import MovieCard from '../components/MovieCard.jsx'
 import Spinner from '../components/Spinner.jsx'
+import { translateGenre } from '../utils/genreTranslator.js'
 import { movieService } from '../services'
 
 const Genre = () => {
@@ -38,11 +39,10 @@ const Genre = () => {
           return
         }
 
-        // Get genres from backend (fallback to empty array if no api)
         const allGenres = genresData || []
         const match = allGenres.find((genre) => genre.id === genreId)
 
-        setGenreName(match?.name || 'Genre')
+        setGenreName(translateGenre(match?.name) || 'Genre')
         
         // Backend returns PageResponse<MovieDto> with content property
         setMovies(moviesData?.content || [])
@@ -91,8 +91,8 @@ const Genre = () => {
                   id: movie.id,
                   title: movie.title,
                   poster_path: movie.posterPath,
-                  vote_average: movie.rating,
-                  release_date: movie.releaseYear?.toString()
+                  vote_average: movie.voteAverage,
+                  release_date: movie.releaseDate
                 }} />
               </Link>
               <div className="movie-card__actions">

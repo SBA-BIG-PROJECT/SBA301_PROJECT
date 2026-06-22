@@ -41,11 +41,11 @@ const AdminDashboard = () => {
             
             const revData = await adminService.getRevenueAnalytics(startDateStr, endDateStr);
             
-            // Xử lý dữ liệu trả về từ API backend thực tế
+            // Process data returned from actual backend API
             if (revData) {
                 let chartData = [];
                 if (period === '1Y') {
-                    // Tạo danh sách 12 tháng gần nhất với doanh thu 0
+                    // Create list of last 12 months with 0 revenue
                     for(let i=11; i>=0; i--) {
                         const d = new Date();
                         d.setMonth(d.getMonth() - i);
@@ -59,7 +59,7 @@ const AdminDashboard = () => {
                         });
                     }
                 } else {
-                    // Tạo danh sách 7 hoặc 30 ngày gần nhất với doanh thu 0
+                    // Create list of last 7 or 30 days with 0 revenue
                     const days = period === '1W' ? 7 : 30;
                     for(let i=days-1; i>=0; i--) {
                         const d = new Date();
@@ -117,10 +117,10 @@ const AdminDashboard = () => {
     };
 
     const formatCurrency = (amount) => {
-        if (!amount) return '0 đ';
-        if (amount >= 1000000) return (amount / 1000000).toFixed(1) + 'M đ';
-        if (amount >= 1000) return (amount / 1000).toFixed(1) + 'K đ';
-        return amount + ' đ';
+        if (!amount) return '0 VND';
+        if (amount >= 1000000) return (amount / 1000000).toFixed(1) + 'M VND';
+        if (amount >= 1000) return (amount / 1000).toFixed(1) + 'K VND';
+        return amount + ' VND';
     };
 
     return (
