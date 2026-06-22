@@ -36,20 +36,20 @@ public class ViewHistoryServiceImpl implements ViewHistoryService {
     public ViewHistoryDto recordViewHistory(ViewHistoryRequest request) {
         User user = getCurrentUser();
         Movie movie = movieRepository.findById(request.getMovieId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim id=" + request.getMovieId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Movie not found with id=" + request.getMovieId()));
 
-        // Kiểm tra xem đã xem phim này chưa, nếu rồi thì update, chưa thì tạo mới
+        // Check if this movie has been watched, if yes then update, otherwise create new
         Optional<ViewLog> existingLog = viewHistoryRepository
                 .findTopByUser_IdAndTmdb_IdOrderByWatchedAtDesc(user.getId(), request.getMovieId());
 
         ViewLog viewLog;
         if (existingLog.isPresent()) {
-            // Update lượt xem hiện tại
+            // Update current view log
             viewLog = existingLog.get();
             viewLog.setWatchedAt(Instant.now());
             viewLog.setWatchDuration(request.getWatchDuration());
         } else {
-            // Tạo lượt xem mới
+            // Create new view log
             viewLog = new ViewLog();
             viewLog.setUser(user);
             viewLog.setTmdb(movie);
@@ -94,11 +94,11 @@ public class ViewHistoryServiceImpl implements ViewHistoryService {
     public void deleteViewHistoryItem(Integer viewId) {
         User user = getCurrentUser();
         ViewLog viewLog = viewHistoryRepository.findById(viewId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lịch sử xem id=" + viewId));
+                .orElseThrow(() -> new ResourceNotFoundException("View history not found with id=" + viewId));
 
-        // Kiểm tra xem lịch sử này có phải của user hiện tại không
+        // Check if this view history belongs to the current user
         if (!viewLog.getUser().getId().equals(user.getId())) {
-            throw new ResourceNotFoundException("Không tìm thấy lịch sử xem id=" + viewId);
+            throw new ResourceNotFoundException("View history not found with id=" + viewId);
         }
 
         viewHistoryRepository.delete(viewLog);
@@ -107,7 +107,7 @@ public class ViewHistoryServiceImpl implements ViewHistoryService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
     }
 
     private ViewHistoryDto toDto(ViewLog v) {

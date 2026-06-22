@@ -18,7 +18,7 @@ public class ViewHistoryController {
     private final ViewHistoryService viewHistoryService;
 
     /**
-     * Ghi nhận lịch sử xem phim
+     * Record view history
      */
     @PostMapping
     public ResponseEntity<ViewHistoryDto> recordViewHistory(@Valid @RequestBody ViewHistoryRequest request) {
@@ -27,7 +27,7 @@ public class ViewHistoryController {
     }
 
     /**
-     * Lấy lịch sử xem phim của user hiện tại
+     * Get view history of current user
      */
     @GetMapping
     public ResponseEntity<PageResponse<ViewHistoryDto>> getMyViewHistory(
@@ -37,7 +37,7 @@ public class ViewHistoryController {
     }
 
     /**
-     * Xóa toàn bộ lịch sử xem của user
+     * Clear all view history of user
      */
     @DeleteMapping("/clear")
     public ResponseEntity<Void> clearViewHistory() {
@@ -46,7 +46,7 @@ public class ViewHistoryController {
     }
 
     /**
-     * Xóa một mục lịch sử xem cụ thể
+     * Delete a specific view history item
      */
     @DeleteMapping("/{viewId}")
     public ResponseEntity<Void> deleteViewHistoryItem(@PathVariable Integer viewId) {

@@ -60,7 +60,7 @@ public class NotificationServiceImpl implements NotificationService {
                         )
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Không tìm thấy notification: "
+                                        "Notification not found: "
                                                 + notificationId
                                 )
                         );
@@ -100,7 +100,7 @@ public class NotificationServiceImpl implements NotificationService {
                         )
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Không tìm thấy notification: "
+                                        "Notification not found: "
                                                 + notificationId
                                 )
                         );
@@ -116,7 +116,7 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setRec(recommendation);
 
         notification.setMessage(
-                "🎬 Chúng tôi đề xuất phim: "
+                "🎬 We recommend movie: "
                         + recommendation.getTmdb().getTitle()
                         + " - "
                         + recommendation.getReason()
@@ -141,7 +141,7 @@ public class NotificationServiceImpl implements NotificationService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
     }
 }
 

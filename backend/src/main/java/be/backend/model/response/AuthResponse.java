@@ -12,6 +12,6 @@ public class AuthResponse {
     private String token;          // access token
     private String refreshToken;
     private String tokenType;      // "Bearer"
-    private long expiresIn;        // giây
+    private long expiresIn;        // seconds
     private UserDto user;
 }

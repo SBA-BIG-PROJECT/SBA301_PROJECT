@@ -8,9 +8,9 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ViewHistoryRequest {
-    @NotNull(message = "Movie ID không được để trống")
+    @NotNull(message = "Movie ID is required")
     private Integer movieId;
 
-    @Min(value = 0, message = "Thời lượng xem phải >= 0")
+    @Min(value = 0, message = "Watch duration must be >= 0")
     private Integer watchDuration; // in seconds
 }

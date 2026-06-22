@@ -36,7 +36,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new EmailAlreadyExistsException("Email đã được sử dụng");
+            throw new EmailAlreadyExistsException("Email is already in use");
         }
 
         User user = userMapper.toEntity(request);
@@ -56,7 +56,7 @@ public class AuthServiceImpl implements AuthService {
         );
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return buildTokens(user);
     }

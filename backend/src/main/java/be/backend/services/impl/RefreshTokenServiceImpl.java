@@ -36,11 +36,11 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Transactional
     public RefreshToken verifyAndGet(String token) {
         RefreshToken refreshToken = repository.findByToken(token)
-                .orElseThrow(() -> new ResourceNotFoundException("Refresh token không hợp lệ"));
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid refresh token"));
 
         if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
             repository.delete(refreshToken);
-            throw new ResourceNotFoundException("Refresh token đã hết hạn, vui lòng đăng nhập lại");
+            throw new ResourceNotFoundException("Refresh token expired, please login again");
         }
         return refreshToken;
     }

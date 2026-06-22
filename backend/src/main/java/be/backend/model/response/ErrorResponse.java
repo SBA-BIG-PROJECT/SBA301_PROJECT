@@ -16,5 +16,5 @@ public class ErrorResponse {
     private String error;
     private String message;
     private String path;
-    private Map<String, String> validationErrors; // chỉ xuất hiện khi lỗi validate
+    private Map<String, String> validationErrors; // only present on validation error
 }

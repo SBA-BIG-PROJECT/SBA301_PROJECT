@@ -18,7 +18,7 @@ public class ReviewController {
 
     private final ReviewService reviewService;
 
-    // CREATE — thêm review vào collection của 1 phim
+    // CREATE — add review to a movie's collection
     @PostMapping("/movies/{movieId}/reviews")
     public ResponseEntity<ReviewDto> createReview(
             @PathVariable Integer movieId,
@@ -27,7 +27,7 @@ public class ReviewController {
                 .body(reviewService.createReview(movieId, request));
     }
 
-    // READ (list) — danh sách review của 1 phim, phân trang
+    // READ (list) — list of reviews for a movie, paginated
     @GetMapping("/movies/{movieId}/reviews")
     public ResponseEntity<PageResponse<ReviewDto>> getReviews(
             @PathVariable Integer movieId,
@@ -36,13 +36,13 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.getReviews(movieId, page, size));
     }
 
-    // READ (singleton) — điểm tổng hợp của phim (1 phim = 1 điểm TB)
+    // READ (singleton) — aggregate score for a movie (1 movie = 1 average score)
     @GetMapping("/movies/{movieId}/rating")
     public ResponseEntity<RatingSummaryDto> getMovieRating(@PathVariable Integer movieId) {
         return ResponseEntity.ok(reviewService.getRatingSummary(movieId));
     }
 
-    // UPDATE — sửa review theo id
+    // UPDATE — edit review by id
     @PutMapping("/reviews/{reviewId}")
     public ResponseEntity<ReviewDto> updateReview(
             @PathVariable Integer reviewId,
@@ -50,7 +50,7 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.updateReview(reviewId, request));
     }
 
-    // DELETE — xóa review theo id
+    // DELETE — delete review by id
     @DeleteMapping("/reviews/{reviewId}")
     public ResponseEntity<Void> deleteReview(@PathVariable Integer reviewId) {
         reviewService.deleteReview(reviewId);

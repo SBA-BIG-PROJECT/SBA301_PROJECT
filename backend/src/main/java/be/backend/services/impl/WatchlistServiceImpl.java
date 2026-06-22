@@ -35,10 +35,10 @@ public class WatchlistServiceImpl implements WatchlistService {
     public WatchlistDto addToWatchlist(Integer movieId) {
         User user = getCurrentUser();
         Movie movie = movieRepository.findById(movieId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim id=" + movieId));
+                .orElseThrow(() -> new ResourceNotFoundException("Movie not found with id=" + movieId));
 
         if (watchlistRepository.existsByUser_IdAndTmdb_Id(user.getId(), movieId)) {
-            throw new DuplicateWatchlistException("Phim này đã có trong Watchlist của bạn rồi");
+            throw new DuplicateWatchlistException("This movie is already in your Watchlist");
         }
 
         Watchlist watchlist = new Watchlist();
@@ -80,14 +80,14 @@ public class WatchlistServiceImpl implements WatchlistService {
     public void removeFromWatchlist(Integer movieId) {
         User user = getCurrentUser();
         Watchlist watchlist = watchlistRepository.findByUser_IdAndTmdb_Id(user.getId(), movieId);
-//                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim id=" + movieId + " trong Watchlist của bạn"));
+//                .orElseThrow(() -> new ResourceNotFoundException("Movie not found with id=" + movieId + " in your Watchlist"));
         watchlistRepository.delete(watchlist);
     }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
     }
 
     private WatchlistDto toDto(Watchlist w) {

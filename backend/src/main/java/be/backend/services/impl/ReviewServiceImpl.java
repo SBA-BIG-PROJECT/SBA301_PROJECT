@@ -38,10 +38,10 @@ public class ReviewServiceImpl implements ReviewService {
     public ReviewDto createReview(Integer movieId, ReviewRequest request) {
         User user = getCurrentUser();
         Movie movie = movieRepository.findById(movieId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim id=" + movieId));
+                .orElseThrow(() -> new ResourceNotFoundException("Movie not found with id=" + movieId));
 
         if (reviewRepository.existsByTmdb_IdAndUser_Id(movieId, user.getId())) {
-            throw new DuplicateReviewException("Bạn đã đánh giá phim này rồi. Hãy sửa đánh giá cũ.");
+            throw new DuplicateReviewException("You have already reviewed this movie. Please edit your previous review.");
         }
 
         Review review = new Review();
@@ -49,13 +49,13 @@ public class ReviewServiceImpl implements ReviewService {
         review.setTmdb(movie);
         review.setRating(request.getRating());
         review.setComment(request.getComment());
-        review.setCreatedAt(Instant.now());   // bắt buộc set vì ColumnDefault chỉ dùng cho DDL
+        review.setCreatedAt(Instant.now());   // must set because ColumnDefault is only for DDL
 
         return toDto(reviewRepository.save(review));
     }
 
     @Override
-    @Transactional(readOnly = true)   // cần tx để load LAZY user khi map
+    @Transactional(readOnly = true)   // requires tx to load LAZY user when mapping
     public PageResponse<ReviewDto> getReviews(Integer movieId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Review> result = reviewRepository.findByTmdb_IdOrderByCreatedAtDesc(movieId, pageable);
@@ -82,7 +82,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional
     public ReviewDto updateReview(Integer reviewId, ReviewRequest request) {
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy review id=" + reviewId));
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found with id=" + reviewId));
         checkOwner(review);
 
         review.setRating(request.getRating());
@@ -94,7 +94,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional
     public void deleteReview(Integer reviewId) {
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy review id=" + reviewId));
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found with id=" + reviewId));
         checkOwner(review);
         reviewRepository.delete(review);
     }
@@ -104,13 +104,13 @@ public class ReviewServiceImpl implements ReviewService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
     }
 
     private void checkOwner(Review review) {
         User current = getCurrentUser();
         if (!review.getUser().getId().equals(current.getId())) {
-            throw new AccessDeniedException("Bạn không có quyền sửa/xóa đánh giá này");
+            throw new AccessDeniedException("You do not have permission to edit/delete this review");
         }
     }
 
@@ -121,7 +121,7 @@ public class ReviewServiceImpl implements ReviewService {
         dto.setComment(r.getComment());
         dto.setCreatedAt(r.getCreatedAt());
         dto.setUserId(r.getUser().getId());
-        dto.setUserName(r.getUser().getFullName());   // đổi nếu field User tên khác
+        dto.setUserName(r.getUser().getFullName());   // change if User field name is different
         return dto;
     }
 }

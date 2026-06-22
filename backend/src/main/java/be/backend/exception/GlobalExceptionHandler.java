@@ -19,35 +19,35 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
-    // Sai email/mật khẩu (từ authenticationManager.authenticate)
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentials(
-            BadCredentialsException ex, HttpServletRequest request) {
-        return build(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng", request);
+    // Invalid email/password (from authenticationManager.authenticate)
+    @ExceptionHandler({BadCredentialsException.class, InternalAuthenticationServiceException.class})
+    public ResponseEntity<ErrorResponse> handleBadCredentials(Exception ex, WebRequest request) {
+        log.warn("Auth failed: {}", ex.getMessage());
+        return build(HttpStatus.UNAUTHORIZED, "Invalid email or password", request);
     }
 
-    // Email đã tồn tại khi đăng ký -> 409
+    // Email already exists on registration -> 409
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleEmailExists(
-            EmailAlreadyExistsException ex, HttpServletRequest request) {
+            EmailAlreadyExistsException ex, WebRequest request) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
-    // Không tìm thấy user / refresh token -> 404
+    // User / refresh token not found -> 404
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(
             ResourceNotFoundException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
-    // Đã đăng nhập nhưng không đủ quyền -> 403
+    // Logged in but not enough permissions -> 403
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(
             AccessDeniedException ex, HttpServletRequest request) {
-        return build(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập tài nguyên này", request);
+        return build(HttpStatus.FORBIDDEN, "You do not have permission to access this resource", request);
     }
 
-    // Lỗi validate từ @Valid -> 400 kèm chi tiết từng field
+    // Validation error from @Valid -> 400 with details per field
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
@@ -60,7 +60,7 @@ public class GlobalExceptionHandler {
                 .timestamp(Instant.now())
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-                .message("Dữ liệu không hợp lệ")
+                .message("Invalid data")
                 .path(request.getRequestURI())
                 .validationErrors(errors)
                 .build();
@@ -68,27 +68,27 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    // Lỗi đầu vào chung -> 400
+    // General input error -> 400
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(
             IllegalArgumentException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
-    // Chức năng chưa được implement -> 501
+    // Feature not implemented -> 501
     @ExceptionHandler(UnsupportedOperationException.class)
     public ResponseEntity<ErrorResponse> handleUnsupportedOperation(
             UnsupportedOperationException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), request);
     }
 
-    // Mọi lỗi còn lại -> 500 (không lộ stack trace)
+    // All remaining errors -> 500 (do not expose stack trace)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(
             Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception occurred: ", ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR,
-                "Đã có lỗi xảy ra, vui lòng thử lại sau", request);
+                "An error occurred, please try again later", request);
     }
 
     @ExceptionHandler(DuplicateReviewException.class)

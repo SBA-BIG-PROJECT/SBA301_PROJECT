@@ -97,7 +97,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     public void generateRecommendations(Integer userId) {
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         recommendationRepository.deleteByUser_Id(userId);
         generateAllRecommendations(user);
     }
@@ -131,7 +131,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 allCandidates,
                 latestView.getTmdb().getId(),
                 RecommendationSource.CONTENT_BASED,
-                "Phim cùng thể loại với "
+                "Movies with similar genre to "
                         + latestView.getTmdb().getTitle(),
                 context
         );
@@ -147,13 +147,13 @@ public class RecommendationServiceImpl implements RecommendationService {
                 recommendationRepository.findById(recommendationId)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
-                                        "Không tìm thấy recommendation: "
+                                        "Recommendation not found: "
                                                 + recommendationId
                                 ));
 
         if (!recommendation.getUser().getId().equals(user.getId())) {
             throw new ResourceNotFoundException(
-                    "Bạn không có quyền xóa recommendation này"
+                    "You do not have permission to delete this recommendation"
             );
         }
 
@@ -207,7 +207,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 candidates,
                 null,
                 RecommendationSource.VIEW_HISTORY,
-                "Dựa trên lịch sử xem của bạn",
+                "Based on your view history",
                 context
         );
     }
@@ -245,7 +245,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 candidates,
                 null,
                 RecommendationSource.WATCHLIST,
-                "Dựa trên phim trong watchlist của bạn",
+                "Based on movies in your watchlist",
                 context
         );
     }
@@ -308,7 +308,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 candidates,
                 null,
                 RecommendationSource.HIGH_RATING,
-                "Dựa trên các phim bạn đánh giá cao",
+                "Based on movies you rated highly",
                 context
         );
     }
@@ -342,7 +342,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 candidates,
                 null,
                 RecommendationSource.TRENDING,
-                "Phim đang thịnh hành trên hệ thống",
+                "Trending movies on the system",
                 context
         );
     }
@@ -432,7 +432,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         if (authentication == null) {
             throw new ResourceNotFoundException(
-                    "User chưa đăng nhập"
+                    "User not logged in"
             );
         }
 
@@ -441,7 +441,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
-                                "Không tìm thấy user: " + email
+                                "User not found: " + email
                         )
                 );
     }

@@ -13,11 +13,11 @@ import java.math.BigDecimal;
 @Setter
 public class ReviewRequest {
 
-    @NotNull(message = "Điểm không được để trống")
-    @DecimalMin(value = "1.0", message = "Điểm tối thiểu là 1.0")
-    @DecimalMax(value = "10.0", message = "Điểm tối đa là 10.0")
+    @NotNull(message = "Rating is required")
+    @DecimalMin(value = "1.0", message = "Minimum rating is 1.0")
+    @DecimalMax(value = "10.0", message = "Maximum rating is 10.0")
     private BigDecimal rating;
 
-    @Size(max = 1000, message = "Bình luận tối đa 1000 ký tự")
+    @Size(max = 1000, message = "Comment must not exceed 1000 characters")
     private String comment;
 }

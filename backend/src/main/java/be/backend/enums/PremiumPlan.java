@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 
 /**
- * Premium plans. Price is in VND (whole đồng). {@code label} is for display only.
+ * Premium plans. Price is in VND. {@code label} is for display only.
  * Durations are calendar-based, so we add them through a fixed zone (Instant has
  * no notion of months/years).
  */

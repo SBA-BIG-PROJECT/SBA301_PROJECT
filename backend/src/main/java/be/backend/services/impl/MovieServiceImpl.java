@@ -46,7 +46,7 @@ public class MovieServiceImpl implements MovieService {
     @Transactional(readOnly = true)
     public MovieDetailDto getMovieDetail(Integer id) {
         Movie movie = movieRepository.findByIdAndIsActiveTrue(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phim id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Movie not found with id=" + id));
         MovieDetailDto dto = movieMapper.toDetailDto(movie);
         
         boolean isUpcoming = movie.getMovieCategories().stream()

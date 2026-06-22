@@ -13,10 +13,10 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface MovieMapper {
 
-    // dùng cho danh sách
+    // used for list
     MovieDto toDto(Movie movie);
 
-    // dùng cho chi tiết — MapStruct tự map Set -> List qua 2 method bên dưới
+    // used for details — MapStruct auto maps Set -> List via 2 methods below
     @Mapping(target = "genres", source = "movieGenres")
     @Mapping(target = "cast", source = "moviePeople")
     MovieDetailDto toDetailDto(Movie movie);
