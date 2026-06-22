@@ -3,7 +3,7 @@ package be.backend.model.dto;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -17,5 +17,5 @@ public class TrendingMovieDto {
 
     private Double voteAverage;
 
-    private LocalDate releaseDate;
+    private LocalDateTime releaseDate;
 }

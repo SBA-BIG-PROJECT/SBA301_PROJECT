@@ -6,5 +6,6 @@ public enum RecommendationSource {
     WATCHLIST,
     HIGH_RATING,
     ACTOR_DIRECTOR,
-    ASSOCIATION_RULE
+    ASSOCIATION_RULE,
+    TRENDING
 }
