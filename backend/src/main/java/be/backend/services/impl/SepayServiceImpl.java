@@ -8,14 +8,21 @@ import be.backend.enums.PremiumPlan;
 import be.backend.exception.PaymentProcessingException;
 import be.backend.exception.ResourceNotFoundException;
 import be.backend.mapper.PaymentMapper;
+import be.backend.model.dto.AdminPaymentDto;
 import be.backend.model.dto.PaymentDto;
 import be.backend.model.request.SePayWebhookRequest;
 import be.backend.model.response.CreatePaymentResponse;
+import be.backend.model.response.PageResponse;
 import be.backend.model.response.PaymentStatusResponse;
 import be.backend.repository.PaymentRepository;
 import be.backend.repository.UserRepository;
 import be.backend.services.PaymentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +39,7 @@ import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -163,6 +171,61 @@ public class PaymentServiceImpl implements PaymentService {
                 .expiresAt(payment.getExpiresAt())
                 .build();
     }
+
+    // --- Admin Methods ---
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<AdminPaymentDto> getAllPaymentsAdmin(int page, int size, String status, Integer userId, String planType) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        
+        Page<Payment> paymentPage = paymentRepository.findByFilters(status, userId, planType, pageable);
+        
+        Page<AdminPaymentDto> dtoPage = paymentPage.map(this::toAdminPaymentDto);
+        return PageResponse.from(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdminPaymentDto getPaymentDetailAdmin(Integer paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + paymentId));
+        return toAdminPaymentDto(payment);
+    }
+
+    @Override
+    @Transactional
+    public AdminPaymentDto updatePaymentStatusAdmin(Integer paymentId, String newStatus) {
+        Payment payment = paymentRepository.findById(paymentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + paymentId));
+        
+        payment.setStatus(newStatus);
+        
+        Payment updated = paymentRepository.save(payment);
+        log.info("Admin updated payment {} status to: {}", paymentId, newStatus);
+        
+        return toAdminPaymentDto(updated);
+    }
+
+    private AdminPaymentDto toAdminPaymentDto(Payment payment) {
+        AdminPaymentDto dto = new AdminPaymentDto();
+        dto.setPaymentId(payment.getId());
+        dto.setUserId(payment.getUser().getId());
+        dto.setUserEmail(payment.getUser().getEmail());
+        dto.setUserFullName(payment.getUser().getFullName());
+        dto.setPlanType(payment.getPlanType());
+        dto.setAmount(payment.getAmount());
+        dto.setStatus(payment.getStatus());
+        dto.setOrderCode(payment.getOrderCode());
+        dto.setPaymentLinkId(payment.getPaymentLinkId());
+        dto.setTransactionId(payment.getTransactionId());
+        dto.setPaidAt(payment.getPaidAt());
+        dto.setStartsAt(payment.getStartsAt());
+        dto.setExpiresAt(payment.getExpiresAt());
+        dto.setCreatedAt(payment.getCreatedAt());
+        return dto;
+    }
+
 
     // ---------------------------------------------------------------- helpers
 
