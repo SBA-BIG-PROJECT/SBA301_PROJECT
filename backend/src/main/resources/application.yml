@@ -8,6 +8,16 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+            model: gpt-4o-mini
   jpa:
     properties:
       hibernate:
@@ -27,6 +37,34 @@ spring:
     enabled: true
     validate-on-migrate: true
     baseline-version: 0
+
+  spring:
+    config:
+      import: optional:file:.env[.properties]
+
+    datasource:
+      url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?ssl-mode=REQUIRED
+      username: ${DB_USER}
+      password: ${DB_PASSWORD}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+
+    data:
+      mongodb:
+        uri: ${MONGODB_URI}
+
+    ai:
+      openai:
+        api-key: ${OPENAI_API_KEY}
+        chat:
+          options:
+            model: gpt-4o-mini
+
+    jpa:
+      properties:
+        hibernate:
+          default_batch_fetch_size: 100
+      hibernate:
+        ddl-auto: validate
 
 jwt:
   secret-key: ${JWT_SECRET}
