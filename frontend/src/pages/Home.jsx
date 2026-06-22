@@ -33,9 +33,9 @@ const SkeletonCard = () => (
 
 // ── Movie Card ─────────────────────────────────────────────────────────────
 const MovieCard = ({ movie, onNavigate }) => {
-  const rating = getRating(movie.rating ?? movie.vote_average)
-  const year = getYear(movie.releaseYear ?? movie.release_date)
-  const poster = getPoster(movie.posterPath ?? movie.poster_path)
+  const rating = getRating(movie.vote_average ?? movie.rating ?? movie.voteAverage)
+  const year = getYear(movie.release_date ?? movie.releaseYear ?? movie.releaseDate)
+  const poster = getPoster(movie.poster_path ?? movie.posterPath)
 
   return (
     <div
@@ -158,12 +158,12 @@ const Home = () => {
   }
 
   const heroMovie = heroMovies[activeHeroIndex] || null;
-  const heroBackdrop = getBackdrop(heroMovie?.posterPath)
-  const heroPoster = getPoster(heroMovie?.posterPath)
+  const heroBackdrop = getBackdrop(heroMovie?.poster_path ?? heroMovie?.posterPath)
+  const heroPoster = getPoster(heroMovie?.poster_path ?? heroMovie?.posterPath)
   const heroTitle = heroMovie?.title || 'Welcome to SBA Movies'
   const heroOverview = heroMovie?.overview || 'Explore our extensive movie collection.'
-  const heroRating = getRating(heroMovie?.rating)
-  const heroYear = getYear(heroMovie?.releaseYear)
+  const heroRating = getRating(heroMovie?.vote_average ?? heroMovie?.rating ?? heroMovie?.voteAverage)
+  const heroYear = getYear(heroMovie?.release_date ?? heroMovie?.releaseYear ?? heroMovie?.releaseDate)
 
   return (
     <div className="hm-page">

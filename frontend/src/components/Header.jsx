@@ -268,10 +268,10 @@ const Header = () => {
     >
       <nav className="nav">
         <div className="nav__left">
-          <Link className="nav__brand" to="/">
+          <a className="nav__brand" href="/">
             <img src={logo} alt="SBA Movies" />
             <span>SBA Movies</span>
-          </Link>
+          </a>
           
           <div className="nav__menu hidden lg:flex" role="list">
             {menuItems.map((item) => {

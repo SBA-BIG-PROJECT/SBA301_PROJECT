@@ -4,17 +4,21 @@ import noPoster from '../assets/No-Poster.svg'
 
 const IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 
-const MovieCard = ({ movie:
-  { title, vote_average, poster_path, release_date, original_language }
-}) => {
-  const rating = vote_average != null ? Number(vote_average) : null
-  const year = release_date
-    ? (release_date.includes('-') ? release_date.split('-')[0] : String(release_date))
-    : 'N/A'
+const MovieCard = ({ movie }) => {
+  const { title } = movie;
+  const rating_val = movie.vote_average ?? movie.rating ?? movie.voteAverage;
+  const poster_val = movie.poster_path ?? movie.posterPath;
+  const release_val = movie.release_date ?? movie.releaseDate ?? movie.releaseYear;
+  const language_val = movie.original_language ?? movie.originalLanguage;
 
-  const posterSrc = poster_path
-    ? (poster_path.startsWith('http') ? poster_path : `${IMAGE_BASE}${poster_path.startsWith('/') ? '' : '/'}${poster_path}`)
-    : noPoster
+  const rating = rating_val != null ? Number(rating_val) : null;
+  const year = release_val
+    ? (String(release_val).includes('-') ? String(release_val).split('-')[0] : String(release_val))
+    : 'N/A';
+
+  const posterSrc = poster_val
+    ? (String(poster_val).startsWith('http') ? poster_val : `${IMAGE_BASE}${String(poster_val).startsWith('/') ? '' : '/'}${poster_val}`)
+    : noPoster;
 
   return (
     <div className="movie-card">
@@ -29,10 +33,10 @@ const MovieCard = ({ movie:
             <p>{rating != null && !isNaN(rating) ? rating.toFixed(1) : 'N/A'}</p>
           </div>
 
-          {original_language && (
+          {language_val && (
             <>
               <span>•</span>
-              <p className="lang">{original_language}</p>
+              <p className="lang">{language_val}</p>
             </>
           )}
 
