@@ -23,9 +23,33 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import be.backend.enums.UserRole;
+import be.backend.mapper.AdminUserMapper;
+import be.backend.mapper.PaymentMapper;
+import be.backend.mapper.ReviewMapper;
+import be.backend.mapper.ViewLogMapper;
+import be.backend.mapper.WatchlistMapper;
+import be.backend.model.dto.AdminPaymentDto;
+import be.backend.model.dto.AdminUserDto;
+import be.backend.model.dto.ReviewDto;
+import be.backend.model.dto.ViewHistoryDto;
+import be.backend.model.dto.WatchlistDto;
+import be.backend.model.request.AdminUpdateUserRequest;
+import be.backend.model.response.AdminUserDetailResponse;
+import be.backend.model.response.PageResponse;
+import be.backend.repository.PaymentRepository;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @Service
 @RequiredArgsConstructor
@@ -37,13 +61,13 @@ public class UserServiceImpl implements UserService {
     private final ReviewRepository reviewRepository;
     private final WatchlistRepository watchlistRepository;
     private final ViewLogRepository viewLogRepository;
-    private final be.backend.repository.PaymentRepository paymentRepository;
+    private final PaymentRepository paymentRepository;
     private final UserMapper userMapper;
-    private final be.backend.mapper.AdminUserMapper adminUserMapper;
-    private final be.backend.mapper.ReviewMapper reviewMapper;
-    private final be.backend.mapper.WatchlistMapper watchlistMapper;
-    private final be.backend.mapper.ViewLogMapper viewLogMapper;
-    private final be.backend.mapper.PaymentMapper paymentMapper;
+    private final AdminUserMapper adminUserMapper;
+    private final ReviewMapper reviewMapper;
+    private final WatchlistMapper watchlistMapper;
+    private final ViewLogMapper viewLogMapper;
+    private final PaymentMapper paymentMapper;
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
 
@@ -119,7 +143,7 @@ public class UserServiceImpl implements UserService {
         // Count statistics from repositories
         long totalReviews = reviewRepository.findByUser_IdAndRatingGreaterThanEqual(
                 userId, 
-                java.math.BigDecimal.ZERO
+                BigDecimal.ZERO
         ).size();
         
         long totalWatchlistItems = watchlistRepository.findByUser_Id(userId).size();
@@ -129,7 +153,7 @@ public class UserServiceImpl implements UserService {
         // Calculate average rating
         double averageRating = reviewRepository.findByUser_IdAndRatingGreaterThanEqual(
                 userId,
-                java.math.BigDecimal.ZERO
+                BigDecimal.ZERO
         ).stream()
                 .mapToDouble(review -> review.getRating().doubleValue())
                 .average()
@@ -156,27 +180,9 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Password confirmation is incorrect");
         }
 
-        // TODO: Implement soft delete
-        // For now, we'll just throw an exception
-        // In production, you should:
-        // 1. Add deletedAt field to User entity
-        // 2. Set deletedAt = Instant.now()
-        // 3. Update UserDetailsService to exclude deleted users
-        // 4. Schedule a job to hard delete after 30 days
-        
         throw new UnsupportedOperationException(
                 "Account deletion is not yet implemented. Please contact support."
         );
-        
-        // Future implementation:
-        // user.setDeletedAt(Instant.now());
-        // user.setIsActive(false);
-        // userRepository.save(user);
-        
-        // Optional: Log deletion reason for analytics
-        // if (request.getReason() != null) {
-        //     auditLogService.logAccountDeletion(user.getId(), request.getReason());
-        // }
     }
 
     @Override
@@ -259,75 +265,75 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public be.backend.model.response.PageResponse<be.backend.model.dto.AdminUserDto> getAllUsersAdmin(int page, int size, String search, String role, Boolean isPremium) {
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+    public PageResponse<AdminUserDto> getAllUsersAdmin(int page, int size, String search, String role, Boolean isPremium) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         
-        org.springframework.data.domain.Page<User> userPage = userRepository.findByFilters(search, role, isPremium, pageable);
+        Page<User> userPage = userRepository.findByFilters(search, role, isPremium, pageable);
         
-        java.util.List<Integer> userIds = userPage.getContent().stream().map(User::getId).toList();
-        java.util.Map<Integer, Object[]> statsMap = new java.util.HashMap<>();
+        List<Integer> userIds = userPage.getContent().stream().map(User::getId).toList();
+        Map<Integer, Object[]> statsMap = new HashMap<>();
         if (!userIds.isEmpty()) {
-            java.util.List<Object[]> batchStats = userRepository.findUserStatsBatch(userIds);
+            List<Object[]> batchStats = userRepository.findUserStatsBatch(userIds);
             for (Object[] row : batchStats) {
                 statsMap.put((Integer) row[0], row);
             }
         }
         
-        org.springframework.data.domain.Page<be.backend.model.dto.AdminUserDto> dtoPage = userPage.map(user -> {
-            be.backend.model.dto.AdminUserDto dto = adminUserMapper.toAdminDto(user);
+        Page<AdminUserDto> dtoPage = userPage.map(user -> {
+            AdminUserDto dto = adminUserMapper.toAdminDto(user);
             Object[] stats = statsMap.get(user.getId());
             if (stats != null) {
                 dto.setTotalReviews(((Number) stats[1]).longValue());
                 dto.setTotalWatchlist(((Number) stats[2]).longValue());
                 dto.setTotalViews(((Number) stats[3]).longValue());
                 dto.setTotalPayments(((Number) stats[4]).longValue());
-                dto.setTotalSpent(stats[5] != null ? (java.math.BigDecimal) stats[5] : java.math.BigDecimal.ZERO);
+                dto.setTotalSpent(stats[5] != null ? (BigDecimal) stats[5] : BigDecimal.ZERO);
             } else {
                 dto.setTotalReviews(0L);
                 dto.setTotalWatchlist(0L);
                 dto.setTotalViews(0L);
                 dto.setTotalPayments(0L);
-                dto.setTotalSpent(java.math.BigDecimal.ZERO);
+                dto.setTotalSpent(BigDecimal.ZERO);
             }
             dto.setIsActive(user.getDeletedAt() == null && user.getBannedAt() == null);
             return dto;
         });
         
-        return be.backend.model.response.PageResponse.from(dtoPage);
+        return PageResponse.from(dtoPage);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public be.backend.model.response.AdminUserDetailResponse getUserDetailAdmin(Integer userId) {
+    public AdminUserDetailResponse getUserDetailAdmin(Integer userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         
-        be.backend.model.dto.AdminUserDto userDto = adminUserMapper.toAdminDto(user);
+        AdminUserDto userDto = adminUserMapper.toAdminDto(user);
         enrichUserStats(userDto, user);
         
-        java.util.List<be.backend.model.dto.ReviewDto> recentReviews = reviewRepository.findTop10ByUser_IdOrderByCreatedAtDesc(userId)
+        List<ReviewDto> recentReviews = reviewRepository.findTop10ByUser_IdOrderByCreatedAtDesc(userId)
             .stream()
             .map(reviewMapper::toDto)
             .toList();
 
-        java.util.List<be.backend.model.dto.WatchlistDto> recentWatchlist = watchlistRepository.findByUser_IdOrderByAddedAtDesc(userId, org.springframework.data.domain.PageRequest.of(0, 10))
+        List<WatchlistDto> recentWatchlist = watchlistRepository.findByUser_IdOrderByAddedAtDesc(userId, PageRequest.of(0, 10))
             .getContent()
             .stream()
             .map(watchlistMapper::toDto)
             .toList();
 
-        java.util.List<be.backend.model.dto.ViewHistoryDto> recentViews = viewLogRepository.findTop20ByUser_IdOrderByWatchedAtDesc(userId)
+        List<ViewHistoryDto> recentViews = viewLogRepository.findTop20ByUser_IdOrderByWatchedAtDesc(userId)
             .stream()
             .limit(10)
             .map(viewLogMapper::toDto)
             .toList();
 
-        java.util.List<be.backend.model.dto.AdminPaymentDto> paymentHistory = paymentRepository.findTop10ByUser_IdOrderByCreatedAtDesc(userId)
+        List<AdminPaymentDto> paymentHistory = paymentRepository.findTop10ByUser_IdOrderByCreatedAtDesc(userId)
             .stream()
             .map(paymentMapper::toAdminDto)
             .toList();
         
-        return new be.backend.model.response.AdminUserDetailResponse(
+        return new AdminUserDetailResponse(
             userDto,
             recentReviews,
             recentWatchlist,
@@ -338,7 +344,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public be.backend.model.dto.AdminUserDto updateUserAdmin(Integer userId, be.backend.model.request.AdminUpdateUserRequest request) {
+    public AdminUserDto updateUserAdmin(Integer userId, AdminUpdateUserRequest request) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         
@@ -361,7 +367,7 @@ public class UserServiceImpl implements UserService {
         }
         
         User updated = userRepository.save(user);
-        be.backend.model.dto.AdminUserDto dto = adminUserMapper.toAdminDto(updated);
+        AdminUserDto dto = adminUserMapper.toAdminDto(updated);
         enrichUserStats(dto, updated);
         
         log.info("Admin updated user: {} (fullName, adminNotes and/or isActive)", userId);
@@ -381,16 +387,16 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public be.backend.model.dto.AdminUserDto changeUserRoleAdmin(Integer userId, String newRole) {
+    public AdminUserDto changeUserRoleAdmin(Integer userId, String newRole) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         
         try {
-            be.backend.enums.UserRole role = be.backend.enums.UserRole.fromString(newRole);
+            UserRole role = UserRole.fromString(newRole);
             user.setRole(role.getValue());
             User updated = userRepository.save(user);
             
-            be.backend.model.dto.AdminUserDto dto = adminUserMapper.toAdminDto(updated);
+            AdminUserDto dto = adminUserMapper.toAdminDto(updated);
             enrichUserStats(dto, updated);
             
             log.info("Admin changed user {} role to: {}", userId, newRole);
@@ -402,7 +408,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public be.backend.model.dto.AdminUserDto revokePremiumAdmin(Integer userId) {
+    public AdminUserDto revokePremiumAdmin(Integer userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         
@@ -410,28 +416,28 @@ public class UserServiceImpl implements UserService {
         user.setPremiumExpiresAt(null);
         
         User updated = userRepository.save(user);
-        be.backend.model.dto.AdminUserDto dto = adminUserMapper.toAdminDto(updated);
+        AdminUserDto dto = adminUserMapper.toAdminDto(updated);
         enrichUserStats(dto, updated);
         
         log.info("Admin revoked premium from user: {}", userId);
         return dto;
     }
 
-    private void enrichUserStats(be.backend.model.dto.AdminUserDto dto, User user) {
-        java.util.List<Object[]> batchStats = userRepository.findUserStatsBatch(java.util.List.of(user.getId()));
+    private void enrichUserStats(AdminUserDto dto, User user) {
+        List<Object[]> batchStats = userRepository.findUserStatsBatch(List.of(user.getId()));
         if (!batchStats.isEmpty()) {
             Object[] stats = batchStats.get(0);
             dto.setTotalReviews(((Number) stats[1]).longValue());
             dto.setTotalWatchlist(((Number) stats[2]).longValue());
             dto.setTotalViews(((Number) stats[3]).longValue());
             dto.setTotalPayments(((Number) stats[4]).longValue());
-            dto.setTotalSpent(stats[5] != null ? (java.math.BigDecimal) stats[5] : java.math.BigDecimal.ZERO);
+            dto.setTotalSpent(stats[5] != null ? (BigDecimal) stats[5] : BigDecimal.ZERO);
         } else {
             dto.setTotalReviews(0L);
             dto.setTotalWatchlist(0L);
             dto.setTotalViews(0L);
             dto.setTotalPayments(0L);
-            dto.setTotalSpent(java.math.BigDecimal.ZERO);
+            dto.setTotalSpent(BigDecimal.ZERO);
         }
         
         dto.setIsActive(user.getDeletedAt() == null && user.getBannedAt() == null);

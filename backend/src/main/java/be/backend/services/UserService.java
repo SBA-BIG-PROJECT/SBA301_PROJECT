@@ -6,6 +6,11 @@ import be.backend.model.dto.UserStatsDto;
 import be.backend.model.request.ChangePasswordRequest;
 import be.backend.model.request.DeleteAccountRequest;
 import be.backend.model.request.UpdateProfileRequest;
+import be.backend.model.dto.AdminUserDto;
+import be.backend.model.request.AdminUpdateUserRequest;
+import be.backend.model.response.AdminUserDetailResponse;
+import be.backend.model.response.PageResponse;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface UserService {
     
@@ -58,7 +63,7 @@ public interface UserService {
      * @param file avatar image file
      * @return updated user profile with new avatar URL
      */
-    UserDto uploadAvatar(String email, org.springframework.web.multipart.MultipartFile file);
+    UserDto uploadAvatar(String email, MultipartFile file);
     
     /**
      * Delete user avatar
@@ -68,10 +73,10 @@ public interface UserService {
     UserDto deleteAvatar(String email);
 
     // --- Admin Methods ---
-    be.backend.model.response.PageResponse<be.backend.model.dto.AdminUserDto> getAllUsersAdmin(int page, int size, String search, String role, Boolean isPremium);
-    be.backend.model.response.AdminUserDetailResponse getUserDetailAdmin(Integer userId);
-    be.backend.model.dto.AdminUserDto updateUserAdmin(Integer userId, be.backend.model.request.AdminUpdateUserRequest request);
+    PageResponse<AdminUserDto> getAllUsersAdmin(int page, int size, String search, String role, Boolean isPremium);
+    AdminUserDetailResponse getUserDetailAdmin(Integer userId);
+    AdminUserDto updateUserAdmin(Integer userId, AdminUpdateUserRequest request);
     void deleteUserAdmin(Integer userId);
-    be.backend.model.dto.AdminUserDto changeUserRoleAdmin(Integer userId, String newRole);
-    be.backend.model.dto.AdminUserDto revokePremiumAdmin(Integer userId);
+    AdminUserDto changeUserRoleAdmin(Integer userId, String newRole);
+    AdminUserDto revokePremiumAdmin(Integer userId);
 }

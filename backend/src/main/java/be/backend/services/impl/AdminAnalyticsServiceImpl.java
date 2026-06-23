@@ -47,7 +47,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
         
         // User statistics
         stats.setTotalUsers(userRepository.countByDeletedAtIsNull());
-        stats.setActiveUsers(userRepository.countByDeletedAtIsNull()); // Can refine with last login
+        stats.setActiveUsers(userRepository.countByDeletedAtIsNull());
         stats.setPremiumUsers(userRepository.countByDeletedAtIsNullAndIsPremiumTrue());
         stats.setNewUsersToday(userRepository.countByDeletedAtIsNullAndCreatedAtAfter(startOfToday));
         stats.setNewUsersThisMonth(userRepository.countByDeletedAtIsNullAndCreatedAtAfter(startOfMonth));
@@ -99,7 +99,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
                     ((Number) row[3]).longValue(),  // viewCount
                     null               // rating not needed for views
                 ))
-                .collect(java.util.stream.Collectors.toList()));
+                .toList());
         } catch (Exception e) {
             log.warn("Failed to fetch most viewed movies: {}", e.getMessage());
             analytics.setMostViewedMovies(Collections.emptyList());
@@ -117,7 +117,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
                     ((Number) row[3]).longValue(),
                     ((Number) row[4]).doubleValue()
                 ))
-                .collect(java.util.stream.Collectors.toList()));
+                .toList());
         } catch (Exception e) {
             log.warn("Failed to fetch highest rated movies: {}", e.getMessage());
             analytics.setHighestRatedMovies(Collections.emptyList());
@@ -135,7 +135,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
                     ((Number) row[3]).longValue(),
                     null
                 ))
-                .collect(java.util.stream.Collectors.toList()));
+                .toList());
         } catch (Exception e) {
             log.warn("Failed to fetch most watchlisted movies: {}", e.getMessage());
             analytics.setMostWatchlistedMovies(Collections.emptyList());
@@ -153,7 +153,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
                     0L,  // viewCount - would need additional query
                     0.0  // averageRating - would need additional query
                 ))
-                .collect(java.util.stream.Collectors.toList()));
+                .toList());
         } catch (Exception e) {
             log.warn("Failed to fetch popular genres: {}", e.getMessage());
             analytics.setPopularGenres(Collections.emptyList());
@@ -220,7 +220,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
                         (BigDecimal) row[1],
                         ((Number) row[2]).longValue()
                 );
-            }).collect(java.util.stream.Collectors.toList());
+            }).toList();
             analytics.setDailyRevenue(dailyList);
             
             List<Object[]> monthlyData = paymentRepository.getMonthlyRevenue(startInstant, endInstant);
@@ -229,7 +229,7 @@ public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
                     ((Number) row[1]).intValue(),
                     (BigDecimal) row[2],
                     ((Number) row[3]).longValue()
-            )).collect(java.util.stream.Collectors.toList());
+            )).toList();
             analytics.setMonthlyRevenue(monthlyList);
         } catch (Exception e) {
             log.error("Error fetching revenue analytics lists: {}", e.getMessage());

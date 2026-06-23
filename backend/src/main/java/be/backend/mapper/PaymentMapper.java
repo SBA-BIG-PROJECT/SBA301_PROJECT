@@ -2,6 +2,7 @@ package be.backend.mapper;
 
 import be.backend.entity.Payment;
 import be.backend.model.dto.PaymentDto;
+import be.backend.model.dto.AdminPaymentDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -19,7 +20,7 @@ public interface PaymentMapper {
     @Mapping(source = "user.id", target = "userId")
     @Mapping(source = "user.email", target = "userEmail")
     @Mapping(source = "user.fullName", target = "userFullName")
-    be.backend.model.dto.AdminPaymentDto toAdminDto(Payment payment);
+    AdminPaymentDto toAdminDto(Payment payment);
 
     List<PaymentDto> toDtoList(List<Payment> payments);
 }

@@ -11,6 +11,7 @@ import be.backend.repository.MovieRepository;
 import be.backend.repository.UserRepository;
 import be.backend.repository.WatchlistRepository;
 import be.backend.services.WatchlistService;
+import be.backend.mapper.WatchlistMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,7 +30,7 @@ public class WatchlistServiceImpl implements WatchlistService {
     private final WatchlistRepository watchlistRepository;
     private final MovieRepository movieRepository;
     private final UserRepository userRepository;
-    private final be.backend.mapper.WatchlistMapper watchlistMapper;
+    private final WatchlistMapper watchlistMapper;
 
     @Override
     @Transactional
@@ -81,8 +82,9 @@ public class WatchlistServiceImpl implements WatchlistService {
     public void removeFromWatchlist(Integer movieId) {
         User user = getCurrentUser();
         Watchlist watchlist = watchlistRepository.findByUser_IdAndTmdb_Id(user.getId(), movieId);
-//                .orElseThrow(() -> new ResourceNotFoundException("Movie not found with id=" + movieId + " in your Watchlist"));
-        watchlistRepository.delete(watchlist);
+        if (watchlist != null) {
+            watchlistRepository.delete(watchlist);
+        }
     }
 
     private User getCurrentUser() {

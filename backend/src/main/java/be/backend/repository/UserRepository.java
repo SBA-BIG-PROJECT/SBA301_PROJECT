@@ -3,6 +3,7 @@ package be.backend.repository;
 import be.backend.entity.User;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -44,5 +45,5 @@ public interface UserRepository extends JpaRepository<User, Integer> {
         LEFT JOIN Payment p ON p.user.id = u.id
         WHERE u.id IN :userIds GROUP BY u.id
         """)
-    java.util.List<Object[]> findUserStatsBatch(@Param("userIds") java.util.List<Integer> userIds);
+    List<Object[]> findUserStatsBatch(@Param("userIds") List<Integer> userIds);
 }

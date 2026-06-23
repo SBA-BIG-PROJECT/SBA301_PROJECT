@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 
 /**
  * Admin view of user data with additional fields
@@ -34,5 +35,5 @@ public class AdminUserDto {
     private Long totalWatchlist;
     private Long totalViews;
     private Long totalPayments;
-    private java.math.BigDecimal totalSpent;
+    private BigDecimal totalSpent;
 }

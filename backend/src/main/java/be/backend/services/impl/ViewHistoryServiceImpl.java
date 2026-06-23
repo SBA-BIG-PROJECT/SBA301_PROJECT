@@ -11,6 +11,7 @@ import be.backend.repository.MovieRepository;
 import be.backend.repository.UserRepository;
 import be.backend.repository.ViewHistoryRepository;
 import be.backend.services.ViewHistoryService;
+import be.backend.mapper.ViewLogMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,7 +31,7 @@ public class ViewHistoryServiceImpl implements ViewHistoryService {
     private final ViewHistoryRepository viewHistoryRepository;
     private final MovieRepository movieRepository;
     private final UserRepository userRepository;
-    private final be.backend.mapper.ViewLogMapper viewLogMapper;
+    private final ViewLogMapper viewLogMapper;
 
     @Override
     @Transactional
