@@ -21,6 +21,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
     boolean existsByTransactionId(String transactionId);
 
     List<Payment> findByUser_IdOrderByCreatedAtDesc(Integer userId);
+    List<Payment> findTop10ByUser_IdOrderByCreatedAtDesc(Integer userId);
     long countByUser_Id(Integer userId);
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = :status AND p.user.id = :userId")

@@ -11,8 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import be.backend.mapper.GenreMapper;
+
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,17 +21,13 @@ import java.util.stream.Collectors;
 public class GenreServiceImpl implements GenreService {
 
     private final GenreRepository genreRepository;
+    private final GenreMapper genreMapper;
 
     @Override
     @Transactional(readOnly = true)
     public List<GenreDto> getAllGenres() {
         return genreRepository.findAll().stream()
-                .map(g -> {
-                    GenreDto dto = new GenreDto();
-                    dto.setId(g.getId());
-                    dto.setName(g.getName());
-                    return dto;
-                })
+                .map(genreMapper::toDto)
                 .toList();
     }
 
@@ -50,7 +47,7 @@ public class GenreServiceImpl implements GenreService {
         Genre saved = genreRepository.save(genre);
         log.info("Admin created genre: {} ({})", saved.getName(), saved.getId());
         
-        return new GenreDto(saved.getId(), saved.getName());
+        return genreMapper.toDto(saved);
     }
 
     @Override
@@ -63,7 +60,7 @@ public class GenreServiceImpl implements GenreService {
         Genre updated = genreRepository.save(genre);
         
         log.info("Admin updated genre {} to: {}", genreId, newName);
-        return new GenreDto(updated.getId(), updated.getName());
+        return genreMapper.toDto(updated);
     }
 
     @Override

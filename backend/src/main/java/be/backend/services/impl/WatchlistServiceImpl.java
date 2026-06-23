@@ -29,6 +29,7 @@ public class WatchlistServiceImpl implements WatchlistService {
     private final WatchlistRepository watchlistRepository;
     private final MovieRepository movieRepository;
     private final UserRepository userRepository;
+    private final be.backend.mapper.WatchlistMapper watchlistMapper;
 
     @Override
     @Transactional
@@ -46,7 +47,7 @@ public class WatchlistServiceImpl implements WatchlistService {
         watchlist.setTmdb(movie);
         watchlist.setAddedAt(Instant.now());
 
-        return toDto(watchlistRepository.save(watchlist));
+        return watchlistMapper.toDto(watchlistRepository.save(watchlist));
     }
 
     @Override
@@ -56,7 +57,7 @@ public class WatchlistServiceImpl implements WatchlistService {
         Pageable pageable = PageRequest.of(page, size);
         Page<Watchlist> result = watchlistRepository.findByUser_IdOrderByAddedAtDesc(user.getId(), pageable);
 
-        List<WatchlistDto> content = result.getContent().stream().map(this::toDto).toList();
+        List<WatchlistDto> content = result.getContent().stream().map(watchlistMapper::toDto).toList();
 
         return PageResponse.<WatchlistDto>builder()
                 .content(content)
@@ -90,17 +91,4 @@ public class WatchlistServiceImpl implements WatchlistService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
     }
 
-    private WatchlistDto toDto(Watchlist w) {
-        WatchlistDto dto = new WatchlistDto();
-        dto.setId(w.getId());
-        dto.setAddedAt(w.getAddedAt());
-        Movie movie = w.getTmdb();
-        dto.setMovieId(movie.getId());
-        dto.setMovieTitle(movie.getTitle());
-        dto.setPosterPath(movie.getPosterPath());
-        dto.setReleaseDate(movie.getReleaseDate());
-        dto.setVoteAverage(movie.getVoteAverage());
-        dto.setVoteCount(movie.getVoteCount());
-        return dto;
-    }
 }

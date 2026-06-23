@@ -30,6 +30,7 @@ public class ViewHistoryServiceImpl implements ViewHistoryService {
     private final ViewHistoryRepository viewHistoryRepository;
     private final MovieRepository movieRepository;
     private final UserRepository userRepository;
+    private final be.backend.mapper.ViewLogMapper viewLogMapper;
 
     @Override
     @Transactional
@@ -57,7 +58,7 @@ public class ViewHistoryServiceImpl implements ViewHistoryService {
             viewLog.setWatchDuration(request.getWatchDuration());
         }
 
-        return toDto(viewHistoryRepository.save(viewLog));
+        return viewLogMapper.toDto(viewHistoryRepository.save(viewLog));
     }
 
     @Override
@@ -67,7 +68,7 @@ public class ViewHistoryServiceImpl implements ViewHistoryService {
         Pageable pageable = PageRequest.of(page, size);
         Page<ViewLog> result = viewHistoryRepository.findByUser_IdOrderByWatchedAtDesc(user.getId(), pageable);
 
-        List<ViewHistoryDto> content = result.getContent().stream().map(this::toDto).toList();
+        List<ViewHistoryDto> content = result.getContent().stream().map(viewLogMapper::toDto).toList();
 
         return PageResponse.<ViewHistoryDto>builder()
                 .content(content)
@@ -110,21 +111,4 @@ public class ViewHistoryServiceImpl implements ViewHistoryService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
     }
 
-    private ViewHistoryDto toDto(ViewLog v) {
-        ViewHistoryDto dto = new ViewHistoryDto();
-        dto.setId(v.getId());
-        dto.setWatchedAt(v.getWatchedAt());
-        dto.setWatchDuration(v.getWatchDuration());
-
-        Movie movie = v.getTmdb();
-        dto.setMovieId(movie.getId());
-        dto.setMovieTitle(movie.getTitle());
-        dto.setPosterPath(movie.getPosterPath());
-        dto.setOverview(movie.getOverview());
-        dto.setReleaseDate(movie.getReleaseDate());
-        dto.setVoteAverage(movie.getVoteAverage());
-        dto.setVoteCount(movie.getVoteCount());
-
-        return dto;
-    }
 }

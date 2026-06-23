@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface MovieRepository extends JpaRepository<Movie, Integer> {
@@ -68,6 +69,6 @@ public interface MovieRepository extends JpaRepository<Movie, Integer> {
                (SELECT AVG(r2.rating) FROM Review r2 WHERE r2.tmdb.id = m.id)
         FROM Movie m WHERE m.id IN :movieIds
     """)
-    java.util.List<Object[]> findMovieStatsBatch(@Param("movieIds") java.util.List<Integer> movieIds);
+ List<Object[]> findMovieStatsBatch(@Param("movieIds") List<Integer> movieIds);
     long countByIsPremiumTrue();
 }

@@ -15,5 +15,11 @@ public interface PaymentMapper {
     @Mapping(source = "user.id", target = "userId")
     PaymentDto toDto(Payment payment);
 
+    @Mapping(source = "id", target = "paymentId")
+    @Mapping(source = "user.id", target = "userId")
+    @Mapping(source = "user.email", target = "userEmail")
+    @Mapping(source = "user.fullName", target = "userFullName")
+    be.backend.model.dto.AdminPaymentDto toAdminDto(Payment payment);
+
     List<PaymentDto> toDtoList(List<Payment> payments);
 }

@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import be.backend.mapper.CategoryMapper;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,12 +22,13 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final CategoryMapper categoryMapper;
 
     @Override
     @Transactional(readOnly = true)
     public List<CategoryDto> getAllCategories() {
         return categoryRepository.findAll().stream()
-            .map(category -> new CategoryDto(category.getCategoryId(), category.getName()))
+            .map(categoryMapper::toDto)
             .collect(Collectors.toList());
     }
 
@@ -45,7 +48,7 @@ public class CategoryServiceImpl implements CategoryService {
         Category saved = categoryRepository.save(category);
         log.info("Admin created category: {} ({})", saved.getName(), saved.getCategoryId());
         
-        return new CategoryDto(saved.getCategoryId(), saved.getName());
+        return categoryMapper.toDto(saved);
     }
 
     @Override
@@ -58,7 +61,7 @@ public class CategoryServiceImpl implements CategoryService {
         Category updated = categoryRepository.save(category);
         
         log.info("Admin updated category {} to: {}", categoryId, newName);
-        return new CategoryDto(updated.getCategoryId(), updated.getName());
+        return categoryMapper.toDto(updated);
     }
 
     @Override

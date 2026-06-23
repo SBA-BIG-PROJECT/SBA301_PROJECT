@@ -181,7 +181,7 @@ public class SepayServiceImpl implements PaymentService {
         
         Page<Payment> paymentPage = paymentRepository.findByFilters(status, userId, planType, pageable);
         
-        Page<AdminPaymentDto> dtoPage = paymentPage.map(this::toAdminPaymentDto);
+        Page<AdminPaymentDto> dtoPage = paymentPage.map(paymentMapper::toAdminDto);
         return PageResponse.from(dtoPage);
     }
 
@@ -190,7 +190,7 @@ public class SepayServiceImpl implements PaymentService {
     public AdminPaymentDto getPaymentDetailAdmin(Integer paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
             .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + paymentId));
-        return toAdminPaymentDto(payment);
+        return paymentMapper.toAdminDto(payment);
     }
 
     @Override
@@ -204,26 +204,7 @@ public class SepayServiceImpl implements PaymentService {
         Payment updated = paymentRepository.save(payment);
         log.info("Admin updated payment {} status to: {}", paymentId, newStatus);
         
-        return toAdminPaymentDto(updated);
-    }
-
-    private AdminPaymentDto toAdminPaymentDto(Payment payment) {
-        AdminPaymentDto dto = new AdminPaymentDto();
-        dto.setPaymentId(payment.getId());
-        dto.setUserId(payment.getUser().getId());
-        dto.setUserEmail(payment.getUser().getEmail());
-        dto.setUserFullName(payment.getUser().getFullName());
-        dto.setPlanType(payment.getPlanType());
-        dto.setAmount(payment.getAmount());
-        dto.setStatus(payment.getStatus());
-        dto.setOrderCode(payment.getOrderCode());
-        dto.setPaymentLinkId(payment.getPaymentLinkId());
-        dto.setTransactionId(payment.getTransactionId());
-        dto.setPaidAt(payment.getPaidAt());
-        dto.setStartsAt(payment.getStartsAt());
-        dto.setExpiresAt(payment.getExpiresAt());
-        dto.setCreatedAt(payment.getCreatedAt());
-        return dto;
+        return paymentMapper.toAdminDto(updated);
     }
 
 

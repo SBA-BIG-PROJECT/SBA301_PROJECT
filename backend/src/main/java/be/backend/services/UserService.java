@@ -66,4 +66,12 @@ public interface UserService {
      * @return updated user profile without avatar
      */
     UserDto deleteAvatar(String email);
+
+    // --- Admin Methods ---
+    be.backend.model.response.PageResponse<be.backend.model.dto.AdminUserDto> getAllUsersAdmin(int page, int size, String search, String role, Boolean isPremium);
+    be.backend.model.response.AdminUserDetailResponse getUserDetailAdmin(Integer userId);
+    be.backend.model.dto.AdminUserDto updateUserAdmin(Integer userId, be.backend.model.request.AdminUpdateUserRequest request);
+    void deleteUserAdmin(Integer userId);
+    be.backend.model.dto.AdminUserDto changeUserRoleAdmin(Integer userId, String newRole);
+    be.backend.model.dto.AdminUserDto revokePremiumAdmin(Integer userId);
 }
