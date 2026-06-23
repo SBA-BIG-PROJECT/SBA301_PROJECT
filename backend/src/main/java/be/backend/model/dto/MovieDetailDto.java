@@ -3,7 +3,8 @@ package be.backend.model.dto;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+
 import java.util.List;
 
 @Getter
@@ -14,11 +15,12 @@ public class MovieDetailDto {
     private String overview;
     private String posterPath;
     private String backdropPath;
-    private LocalDateTime releaseDate;
+    private Instant releaseDate;
     private Double voteAverage;
     private Integer voteCount;
     private String trailerUrl;
     private List<GenreDto> genres;
     private List<CastMemberDto> cast;
+    private Boolean requiresPremium;
     private Boolean isLocked;
 }

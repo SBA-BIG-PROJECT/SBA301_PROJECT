@@ -14,7 +14,7 @@ public class WatchlistDto {
     private Integer movieId;
     private String movieTitle;
     private String posterPath;
-    private LocalDateTime releaseDate;
+    private Instant releaseDate;
     private Double voteAverage;
     private Integer voteCount;
 }

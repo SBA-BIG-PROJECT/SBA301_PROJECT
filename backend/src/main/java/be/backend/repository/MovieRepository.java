@@ -69,4 +69,5 @@ public interface MovieRepository extends JpaRepository<Movie, Integer> {
         FROM Movie m WHERE m.id IN :movieIds
     """)
     java.util.List<Object[]> findMovieStatsBatch(@Param("movieIds") java.util.List<Integer> movieIds);
+    long countByIsPremiumTrue();
 }

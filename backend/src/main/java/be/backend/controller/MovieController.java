@@ -148,10 +148,11 @@ public class MovieController {
         return ResponseEntity.ok(movieService.updateMovieCategories(tmdbId, categoryIds));
     }
 
-    private String extractEmail(Authentication authentication) {
-        if (authentication != null && authentication.getPrincipal() instanceof UserDetails userDetails) {
-            return userDetails.getUsername();
-        }
-        throw new IllegalStateException("User not authenticated");
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/admin/{tmdbId}/premium")
+    public ResponseEntity<AdminMovieDto> setMoviePremium(
+            @PathVariable Integer tmdbId,
+            @RequestParam boolean isPremium) {
+        return ResponseEntity.ok(movieService.setMoviePremium(tmdbId, isPremium));
     }
 }

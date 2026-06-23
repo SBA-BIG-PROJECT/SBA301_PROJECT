@@ -29,7 +29,11 @@ import be.backend.repository.WatchlistRepository;
 import be.backend.services.MovieService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -37,9 +41,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -47,6 +53,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class MovieServiceImpl implements MovieService {
+
+    private static final int MAX_PREMIUM_MOVIES = 10;
 
     private final MovieRepository movieRepository;
     private final MovieMapper movieMapper;
@@ -58,6 +66,8 @@ public class MovieServiceImpl implements MovieService {
     private final UserRepository userRepository;
     private final ReviewRepository reviewRepository;
     private final WatchlistRepository watchlistRepository;
+
+    // ---------------------------------------------------------------- Public
 
     @Override
     @Transactional(readOnly = true)
@@ -81,16 +91,26 @@ public class MovieServiceImpl implements MovieService {
     public MovieDetailDto getMovieDetail(Integer id) {
         Movie movie = movieRepository.findByIdAndIsActiveTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Movie not found with id=" + id));
+
         MovieDetailDto dto = movieMapper.toDetailDto(movie);
 
+        // Lock upcoming — releaseDate là LocalDate
         boolean isUpcoming = movie.getMovieCategories().stream()
                 .anyMatch(mc -> "upcoming".equals(mc.getCategory().getCategoryId()));
+        boolean upcomingLocked = isUpcoming
+                && movie.getReleaseDate() != null
+                && movie.getReleaseDate().isAfter(Instant.now());
 
-        boolean locked = isUpcoming && movie.getReleaseDate() != null && movie.getReleaseDate().isAfter(LocalDateTime.now());
-        dto.setIsLocked(locked);
+        dto.setIsLocked(upcomingLocked);
+        if (upcomingLocked) dto.setTrailerUrl(null);
 
-        if (locked) {
+        // Lock premium
+        boolean requiresPremium = Boolean.TRUE.equals(movie.getIsPremium());
+        dto.setRequiresPremium(requiresPremium);
+
+        if (requiresPremium && !currentUserHasActivePremium()) {
             dto.setTrailerUrl(null);
+            dto.setIsLocked(true);
         }
 
         return dto;
@@ -98,90 +118,49 @@ public class MovieServiceImpl implements MovieService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<TrendingMovieDto> getTrendingMovies(
-            int page,
-            int size) {
+    public PageResponse<TrendingMovieDto> getTrendingMovies(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Instant fromDate = Instant.now().minus(7, ChronoUnit.DAYS);
 
-        Pageable pageable =
-                PageRequest.of(page, size);
+        Page<Integer> movieIds = viewLogRepository.findTrendingMovieIds(fromDate, pageable);
 
-        Instant fromDate =
-                Instant.now().minus(7, ChronoUnit.DAYS);
+        List<TrendingMovieDto> content = movieIds.getContent().stream()
+                .map(movieRepository::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(this::toTrendingDto)
+                .toList();
 
-        Page<Integer> movieIds =
-                viewLogRepository.findTrendingMovieIds(
-                        fromDate,
-                        pageable
-                );
-
-        List<TrendingMovieDto> content =
-                movieIds.getContent()
-                        .stream()
-                        .map(movieRepository::findById)
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .map(this::toTrendingDto)
-                        .toList();
-
-        return PageResponse.from(
-                new PageImpl<>(
-                        content,
-                        pageable,
-                        movieIds.getTotalElements()
-                )
-        );
+        return PageResponse.from(new PageImpl<>(content, pageable, movieIds.getTotalElements()));
     }
 
-    private TrendingMovieDto toTrendingDto(Movie movie) {
-
-        TrendingMovieDto dto = new TrendingMovieDto();
-
-        dto.setMovieId(movie.getId());
-        dto.setTitle(movie.getTitle());
-        dto.setPosterPath(movie.getPosterPath());
-        dto.setVoteAverage(movie.getVoteAverage());
-        dto.setReleaseDate(movie.getReleaseDate());
-
-        return dto;
-    }
-
-    // --- Admin Methods ---
+    // ---------------------------------------------------------------- Admin
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<AdminMovieDto> getAllMoviesAdmin(int page, int size, String search, Boolean isActive) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "addedAt"));
-        
+
         Page<Movie> moviePage;
-        if (search != null && !search.trim().isEmpty()) {
-            moviePage = movieRepository.searchByKeyword(search, pageable);
+        if (search != null && !search.isBlank()) {
+            moviePage = movieRepository.searchByKeyword(search.trim(), pageable);
         } else if (isActive != null) {
-            moviePage = isActive 
-                ? movieRepository.findByIsActiveTrue(pageable)
-                : movieRepository.findAll(pageable);
+            moviePage = isActive
+                    ? movieRepository.findByIsActiveTrue(pageable)
+                    : movieRepository.findAll(pageable);
         } else {
             moviePage = movieRepository.findAll(pageable);
         }
-        
-        List<Integer> movieIds = moviePage.getContent().stream().map(Movie::getId).toList();
-        java.util.Map<Integer, Object[]> statsMap = new java.util.HashMap<>();
-        if (!movieIds.isEmpty()) {
-            List<Object[]> batchStats = movieRepository.findMovieStatsBatch(movieIds);
-            for (Object[] row : batchStats) {
-                statsMap.put((Integer) row[0], row);
-            }
-        }
-        
-        Page<AdminMovieDto> dtoPage = moviePage.map(movie -> toAdminMovieDto(movie, statsMap.get(movie.getId())));
-        return PageResponse.from(dtoPage);
+
+        Map<Integer, Object[]> statsMap = fetchStatsMap(moviePage);
+        return PageResponse.from(moviePage.map(m -> toAdminMovieDto(m, statsMap.get(m.getId()))));
     }
 
     @Override
     @Transactional(readOnly = true)
     public AdminMovieDto getMovieDetailAdmin(Integer tmdbId) {
         Movie movie = findMovieById(tmdbId);
-        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(tmdbId));
-        return toAdminMovieDto(movie, stats.isEmpty() ? null : stats.get(0));
+        return toAdminMovieDto(movie, fetchSingleStats(tmdbId));
     }
 
     @Override
@@ -190,7 +169,7 @@ public class MovieServiceImpl implements MovieService {
         if (movieRepository.existsById(request.getTmdbId())) {
             throw new IllegalArgumentException("Movie with TMDB ID " + request.getTmdbId() + " already exists");
         }
-        
+
         Movie movie = new Movie();
         movie.setId(request.getTmdbId());
         movie.setTitle(request.getTitle());
@@ -202,76 +181,51 @@ public class MovieServiceImpl implements MovieService {
         movie.setVoteCount(request.getVoteCount());
         movie.setTrailerUrl(request.getTrailerUrl());
         movie.setIsActive(true);
+        movie.setIsPremium(false);
         movie.setAddedAt(Instant.now());
-        
-        User currentAdmin = getCurrentAdmin();
-        movie.setAddedBy(currentAdmin);
-        
+        movie.setAddedBy(getCurrentAdmin());
+
         if (request.getGenreIds() != null && !request.getGenreIds().isEmpty()) {
             addGenresToMovie(movie, request.getGenreIds());
         }
-        
         if (request.getCategoryIds() != null && !request.getCategoryIds().isEmpty()) {
             addCategoriesToMovie(movie, request.getCategoryIds());
         }
-        
-        Movie savedMovie = movieRepository.save(movie);
-        
-        log.info("Admin created movie: {} ({})", savedMovie.getTitle(), savedMovie.getId());
-        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(savedMovie.getId()));
-        return toAdminMovieDto(savedMovie, stats.isEmpty() ? null : stats.get(0));
+
+        Movie saved = movieRepository.save(movie);
+        log.info("Admin created movie: {} (id={})", saved.getTitle(), saved.getId());
+        return toAdminMovieDto(saved, fetchSingleStats(saved.getId()));
     }
 
     @Override
     @Transactional
     public AdminMovieDto updateMovie(Integer tmdbId, AdminUpdateMovieRequest request) {
         Movie movie = findMovieById(tmdbId);
-        
-        if (request.getTitle() != null) {
-            movie.setTitle(request.getTitle());
-        }
-        if (request.getOverview() != null) {
-            movie.setOverview(request.getOverview());
-        }
-        if (request.getPosterPath() != null) {
-            movie.setPosterPath(request.getPosterPath());
-        }
-        if (request.getBackdropPath() != null) {
-            movie.setBackdropPath(request.getBackdropPath());
-        }
-        if (request.getReleaseDate() != null) {
-            movie.setReleaseDate(request.getReleaseDate());
-        }
-        if (request.getVoteAverage() != null) {
-            movie.setVoteAverage(request.getVoteAverage());
-        }
-        if (request.getVoteCount() != null) {
-            movie.setVoteCount(request.getVoteCount());
-        }
-        if (request.getTrailerUrl() != null) {
-            movie.setTrailerUrl(request.getTrailerUrl());
-        }
-        if (request.getIsActive() != null) {
-            movie.setIsActive(request.getIsActive());
-        }
-        
+
+        if (request.getTitle() != null)        movie.setTitle(request.getTitle());
+        if (request.getOverview() != null)     movie.setOverview(request.getOverview());
+        if (request.getPosterPath() != null)   movie.setPosterPath(request.getPosterPath());
+        if (request.getBackdropPath() != null) movie.setBackdropPath(request.getBackdropPath());
+        if (request.getReleaseDate() != null)  movie.setReleaseDate(request.getReleaseDate());
+        if (request.getVoteAverage() != null)  movie.setVoteAverage(request.getVoteAverage());
+        if (request.getVoteCount() != null)    movie.setVoteCount(request.getVoteCount());
+        if (request.getTrailerUrl() != null)   movie.setTrailerUrl(request.getTrailerUrl());
+        if (request.getIsActive() != null)     movie.setIsActive(request.getIsActive());
+
         if (request.getGenreIds() != null) {
             movie.getMovieGenres().clear();
             movieRepository.saveAndFlush(movie);
             addGenresToMovie(movie, request.getGenreIds());
         }
-        
         if (request.getCategoryIds() != null) {
             movie.getMovieCategories().clear();
             movieRepository.saveAndFlush(movie);
             addCategoriesToMovie(movie, request.getCategoryIds());
         }
-        
-        Movie updatedMovie = movieRepository.saveAndFlush(movie);
-        
-        log.info("Admin updated movie: {} ({})", updatedMovie.getTitle(), updatedMovie.getId());
-        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(updatedMovie.getId()));
-        return toAdminMovieDto(updatedMovie, stats.isEmpty() ? null : stats.get(0));
+
+        Movie updated = movieRepository.saveAndFlush(movie);
+        log.info("Admin updated movie: {} (id={})", updated.getTitle(), updated.getId());
+        return toAdminMovieDto(updated, fetchSingleStats(updated.getId()));
     }
 
     @Override
@@ -280,7 +234,7 @@ public class MovieServiceImpl implements MovieService {
         Movie movie = findMovieById(tmdbId);
         movie.setIsActive(false);
         movieRepository.save(movie);
-        log.info("Admin deactivated movie: {} ({})", movie.getTitle(), movie.getId());
+        log.info("Admin deactivated movie: {} (id={})", movie.getTitle(), movie.getId());
     }
 
     @Override
@@ -289,40 +243,67 @@ public class MovieServiceImpl implements MovieService {
         Movie movie = findMovieById(tmdbId);
         movie.setIsActive(true);
         Movie restored = movieRepository.save(movie);
-        
-        log.info("Admin restored movie: {} ({})", movie.getTitle(), movie.getId());
-        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(restored.getId()));
-        return toAdminMovieDto(restored, stats.isEmpty() ? null : stats.get(0));
+        log.info("Admin restored movie: {} (id={})", restored.getTitle(), restored.getId());
+        return toAdminMovieDto(restored, fetchSingleStats(restored.getId()));
     }
 
     @Override
     @Transactional
     public AdminMovieDto updateMovieGenres(Integer tmdbId, List<Integer> genreIds) {
         Movie movie = findMovieById(tmdbId);
-        
         movie.getMovieGenres().clear();
         movieRepository.saveAndFlush(movie);
         addGenresToMovie(movie, genreIds);
-        
+
         Movie updated = movieRepository.saveAndFlush(movie);
-        log.info("Admin updated genres for movie: {}", tmdbId);
-        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(updated.getId()));
-        return toAdminMovieDto(updated, stats.isEmpty() ? null : stats.get(0));
+        log.info("Admin updated genres for movie id={}", tmdbId);
+        return toAdminMovieDto(updated, fetchSingleStats(updated.getId()));
     }
 
     @Override
     @Transactional
     public AdminMovieDto updateMovieCategories(Integer tmdbId, List<String> categoryIds) {
         Movie movie = findMovieById(tmdbId);
-        
         movie.getMovieCategories().clear();
         movieRepository.saveAndFlush(movie);
         addCategoriesToMovie(movie, categoryIds);
-        
+
         Movie updated = movieRepository.saveAndFlush(movie);
-        log.info("Admin updated categories for movie: {}", tmdbId);
-        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(updated.getId()));
-        return toAdminMovieDto(updated, stats.isEmpty() ? null : stats.get(0));
+        log.info("Admin updated categories for movie id={}", tmdbId);
+        return toAdminMovieDto(updated, fetchSingleStats(updated.getId()));
+    }
+
+    @Override
+    @Transactional
+    public AdminMovieDto setMoviePremium(Integer tmdbId, boolean isPremium) {
+        if (isPremium && movieRepository.countByIsPremiumTrue() >= MAX_PREMIUM_MOVIES) {
+            throw new IllegalStateException("Maximum " + MAX_PREMIUM_MOVIES + " premium movies allowed");
+        }
+        Movie movie = findMovieById(tmdbId);
+        movie.setIsPremium(isPremium);
+        Movie saved = movieRepository.save(movie);
+        log.info("Admin {} movie id={} as premium", isPremium ? "marked" : "unmarked", tmdbId);
+        return toAdminMovieDto(saved, fetchSingleStats(saved.getId()));
+    }
+
+    // ---------------------------------------------------------------- Helpers
+
+    private boolean currentUserHasActivePremium() {
+        User user = getCurrentUserOrNull();
+        return user != null
+                && Boolean.TRUE.equals(user.getIsPremium())
+                && user.getPremiumExpiresAt() != null
+                && user.getPremiumExpiresAt().isAfter(Instant.now());
+    }
+
+    private TrendingMovieDto toTrendingDto(Movie movie) {
+        TrendingMovieDto dto = new TrendingMovieDto();
+        dto.setMovieId(movie.getId());
+        dto.setTitle(movie.getTitle());
+        dto.setPosterPath(movie.getPosterPath());
+        dto.setVoteAverage(movie.getVoteAverage());
+        dto.setReleaseDate(movie.getReleaseDate());
+        return dto;
     }
 
     private AdminMovieDto toAdminMovieDto(Movie movie, Object[] stats) {
@@ -338,78 +319,95 @@ public class MovieServiceImpl implements MovieService {
         dto.setTrailerUrl(movie.getTrailerUrl());
         dto.setAddedAt(movie.getAddedAt());
         dto.setIsActive(movie.getIsActive());
-        
+        dto.setIsPremium(movie.getIsPremium());
+
         if (movie.getAddedBy() != null) {
             dto.setAddedBy(movie.getAddedBy().getId());
             dto.setAddedByName(movie.getAddedBy().getFullName());
         }
-        
-        List<GenreDto> genres = movie.getMovieGenres().stream()
-            .map(mg -> new GenreDto(mg.getGenre().getId(), mg.getGenre().getName()))
-            .collect(Collectors.toList());
-        dto.setGenres(genres);
-        
-        List<CategoryDto> categories = movie.getMovieCategories().stream()
-            .map(mc -> new CategoryDto(mc.getCategory().getCategoryId(), mc.getCategory().getName()))
-            .collect(Collectors.toList());
-        dto.setCategories(categories);
-        
+
+        dto.setGenres(movie.getMovieGenres().stream()
+                .map(mg -> new GenreDto(mg.getGenre().getId(), mg.getGenre().getName()))
+                .collect(Collectors.toList()));
+
+        dto.setCategories(movie.getMovieCategories().stream()
+                .map(mc -> new CategoryDto(mc.getCategory().getCategoryId(), mc.getCategory().getName()))
+                .collect(Collectors.toList()));
+
         if (stats != null) {
             dto.setTotalViews(((Number) stats[1]).longValue());
             dto.setTotalReviews(((Number) stats[2]).longValue());
             dto.setTotalWatchlist(((Number) stats[3]).longValue());
-            
-            if (stats[4] != null) {
-                double avgRating = ((Number) stats[4]).doubleValue();
-                dto.setAverageRating(Math.round(avgRating * 10.0) / 10.0);
-            } else {
-                dto.setAverageRating(0.0);
-            }
+            dto.setAverageRating(stats[4] != null
+                    ? Math.round(((Number) stats[4]).doubleValue() * 10.0) / 10.0
+                    : 0.0);
         } else {
             dto.setTotalViews(0L);
             dto.setTotalReviews(0L);
             dto.setTotalWatchlist(0L);
             dto.setAverageRating(0.0);
         }
-        
+
         return dto;
+    }
+
+    private Map<Integer, Object[]> fetchStatsMap(Page<Movie> moviePage) {
+        List<Integer> ids = moviePage.getContent().stream().map(Movie::getId).toList();
+        if (ids.isEmpty()) return Map.of();
+
+        Map<Integer, Object[]> statsMap = new HashMap<>();
+        movieRepository.findMovieStatsBatch(ids).forEach(row -> statsMap.put((Integer) row[0], row));
+        return statsMap;
+    }
+
+    private Object[] fetchSingleStats(Integer tmdbId) {
+        List<Object[]> stats = movieRepository.findMovieStatsBatch(List.of(tmdbId));
+        return stats.isEmpty() ? null : stats.get(0);
     }
 
     private void addGenresToMovie(Movie movie, List<Integer> genreIds) {
         for (Integer genreId : genreIds) {
             Genre genre = genreRepository.findById(genreId)
-                .orElseThrow(() -> new ResourceNotFoundException("Genre not found: " + genreId));
-            
-            MovieGenre movieGenre = new MovieGenre();
-            movieGenre.setTmdb(movie);
-            movieGenre.setGenre(genre);
-            movie.getMovieGenres().add(movieGenre);
+                    .orElseThrow(() -> new ResourceNotFoundException("Genre not found: " + genreId));
+            MovieGenre mg = new MovieGenre();
+            mg.setTmdb(movie);
+            mg.setGenre(genre);
+            movie.getMovieGenres().add(mg);
         }
     }
 
     private void addCategoriesToMovie(Movie movie, List<String> categoryIds) {
         for (String categoryId : categoryIds) {
             Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + categoryId));
-            
-            MovieCategory movieCategory = new MovieCategory();
-            movieCategory.setTmdb(movie);
-            movieCategory.setCategory(category);
-            movie.getMovieCategories().add(movieCategory);
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + categoryId));
+            MovieCategory mc = new MovieCategory();
+            mc.setTmdb(movie);
+            mc.setCategory(category);
+            movie.getMovieCategories().add(mc);
         }
     }
 
     private Movie findMovieById(Integer tmdbId) {
         return movieRepository.findById(tmdbId)
-            .orElseThrow(() -> new ResourceNotFoundException("Movie not found: " + tmdbId));
+                .orElseThrow(() -> new ResourceNotFoundException("Movie not found: " + tmdbId));
     }
 
     private User getCurrentAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof UserDetails userDetails) {
-            return userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new IllegalStateException("Admin user not found"));
+        if (auth != null && auth.getPrincipal() instanceof UserDetails ud) {
+            return userRepository.findByEmail(ud.getUsername())
+                    .orElseThrow(() -> new IllegalStateException("Admin user not found"));
         }
         throw new IllegalStateException("No authenticated admin");
+    }
+
+    private User getCurrentUserOrNull() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()
+                || "anonymousUser".equals(auth.getPrincipal())) return null;
+        if (auth.getPrincipal() instanceof UserDetails ud) {
+            return userRepository.findByEmail(ud.getUsername()).orElse(null);
+        }
+        return null;
     }
 }

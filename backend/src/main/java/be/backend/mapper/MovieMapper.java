@@ -9,16 +9,15 @@ import be.backend.model.dto.MovieDetailDto;
 import be.backend.model.dto.MovieDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
 @Mapper(componentModel = "spring")
 public interface MovieMapper {
 
-    // used for list
     MovieDto toDto(Movie movie);
 
-    // used for details — MapStruct auto maps Set -> List via 2 methods below
     @Mapping(target = "genres", source = "movieGenres")
     @Mapping(target = "cast", source = "moviePeople")
+    @Mapping(target = "requiresPremium", ignore = true)
+    @Mapping(target = "isLocked", ignore = true)
     MovieDetailDto toDetailDto(Movie movie);
 
     @Mapping(target = "id", source = "genre.id")

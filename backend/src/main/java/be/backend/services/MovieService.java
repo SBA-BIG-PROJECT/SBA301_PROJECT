@@ -24,4 +24,5 @@ public interface MovieService {
     AdminMovieDto restoreMovie(Integer tmdbId);
     AdminMovieDto updateMovieGenres(Integer tmdbId, List<Integer> genreIds);
     AdminMovieDto updateMovieCategories(Integer tmdbId, List<String> categoryIds);
+    AdminMovieDto setMoviePremium(Integer tmdbId, boolean isPremium);
 }

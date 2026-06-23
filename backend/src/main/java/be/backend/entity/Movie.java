@@ -1,6 +1,8 @@
 package be.backend.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
@@ -8,8 +10,6 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -22,6 +22,8 @@ public class Movie {
     @Column(name = "tmdb_id", nullable = false)
     private Integer id;
 
+    @Size(max = 500)
+    @NotNull
     @Column(name = "title", nullable = false, length = 500)
     private String title;
 
@@ -29,14 +31,16 @@ public class Movie {
     @Column(name = "overview")
     private String overview;
 
+    @Size(max = 500)
     @Column(name = "poster_path", length = 500)
     private String posterPath;
 
+    @Size(max = 500)
     @Column(name = "backdrop_path", length = 500)
     private String backdropPath;
 
     @Column(name = "release_date")
-    private LocalDateTime releaseDate;
+    private Instant releaseDate;
 
     @Column(name = "vote_average")
     private Double voteAverage;
@@ -44,6 +48,7 @@ public class Movie {
     @Column(name = "vote_count")
     private Integer voteCount;
 
+    @Size(max = 500)
     @Column(name = "trailer_url", length = 500)
     private String trailerUrl;
 
@@ -52,18 +57,27 @@ public class Movie {
     @JoinColumn(name = "added_by")
     private User addedBy;
 
+    @NotNull
     @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "added_at", nullable = false)
     private Instant addedAt;
 
+    @NotNull
     @ColumnDefault("1")
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = false;
 
-    @OneToMany(mappedBy = "tmdb", cascade = CascadeType.ALL, orphanRemoval = true)
+    @NotNull
+    @ColumnDefault("0")
+    @Column(name = "is_premium", nullable = false)
+    private Boolean isPremium = false;
+
+    @OneToMany
+    @JoinColumn(name = "tmdb_id")
     private Set<MovieCategory> movieCategories = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "tmdb", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany
+    @JoinColumn(name = "tmdb_id")
     private Set<MovieGenre> movieGenres = new LinkedHashSet<>();
 
     @OneToMany

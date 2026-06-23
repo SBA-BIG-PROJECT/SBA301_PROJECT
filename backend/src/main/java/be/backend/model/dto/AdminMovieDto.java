@@ -20,7 +20,7 @@ public class AdminMovieDto {
     private String overview;
     private String posterPath;
     private String backdropPath;
-    private LocalDateTime releaseDate;
+    private Instant releaseDate;
     private Double voteAverage;
     private Integer voteCount;
     private String trailerUrl;
@@ -28,6 +28,7 @@ public class AdminMovieDto {
     private String addedByName;
     private Instant addedAt;
     private Boolean isActive;
+    private Boolean isPremium;
     
     // Genres and categories
     private List<GenreDto> genres;

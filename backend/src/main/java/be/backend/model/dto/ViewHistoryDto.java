@@ -16,7 +16,7 @@ public class ViewHistoryDto {
     private String movieTitle;
     private String posterPath;
     private String overview;
-    private LocalDateTime releaseDate;
+    private Instant releaseDate;
     private Double voteAverage;
     private Integer voteCount;
 }
