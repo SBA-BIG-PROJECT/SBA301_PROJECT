@@ -15,4 +15,5 @@ public class MovieDto {
     private Instant releaseDate;
     private Double voteAverage;
     private Integer voteCount;
+    private Boolean isPremium;
 }

@@ -8,18 +8,23 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+
   ai:
     openai:
       api-key: ${OPENAI_API_KEY}
       chat:
         model: gpt-4o-mini
+
   jpa:
-    properties:
-      hibernate:
-        default_batch_fetch_size: 100
     hibernate:
       ddl-auto: validate
     show-sql: true
+    properties:
+      hibernate:
+        default_batch_fetch_size: 100
 
   servlet:
     multipart:
@@ -32,9 +37,6 @@ spring:
     enabled: true
     validate-on-migrate: true
     baseline-version: 0
-  mongodb:
-    uri: ${MONGODB_URI}
-
 
 jwt:
   secret-key: ${JWT_SECRET}
@@ -47,15 +49,15 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET}
 
 sepay:
-  account-number: ${SEPAY_ACCOUNT_NUMBER}      # bank account linked in SePay
-  account-name:   ${SEPAY_ACCOUNT_NAME}        # holder name (for display)
-  bank:           ${SEPAY_BANK}                # VietQR bank short name, e.g. "Vietcombank", "MBBank", "TPBank"
-  api-key:        ${SEPAY_API_KEY}             # webhook key; SePay sends "Authorization: Apikey <key>"
-  prefix:         MOVIE                         # transfer-content prefix => content is "MOVIE<orderCode>"
-  qr-base-url:    https://qr.sepay.vn/img
+  account-number: ${SEPAY_ACCOUNT_NUMBER}
+  account-name: ${SEPAY_ACCOUNT_NAME}
+  bank: ${SEPAY_BANK}
+  api-key: ${SEPAY_API_KEY}
+  prefix: MOVIE
+  qr-base-url: https://qr.sepay.vn/img
 
 storage:
   image:
     allowed-types: image/jpeg,image/jpg,image/png,image/gif,image/webp
     allowed-extensions: jpg,jpeg,png,gif,webp
-    max-file-size: 5242880 # 5MB in bytes
+    max-file-size: 5242880
