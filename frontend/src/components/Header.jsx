@@ -351,21 +351,33 @@ const Header = () => {
                         ) : (
                           <div className="genres-panel__grid">
                             {genres.map((genre, index) => {
-                              const colors = [
-                                'genre-pill--blue','genre-pill--purple','genre-pill--pink',
-                                'genre-pill--green','genre-pill--orange','genre-pill--teal',
-                                'genre-pill--red','genre-pill--indigo','genre-pill--yellow',
-                                'genre-pill--cyan'
+                              const gradients = [
+                                'genre-box--violet',
+                                'genre-box--sky',
+                                'genre-box--peach',
+                                'genre-box--rose',
+                                'genre-box--emerald',
+                                'genre-box--amber',
+                                'genre-box--fuchsia',
+                                'genre-box--teal',
+                                'genre-box--indigo',
+                                'genre-box--coral',
                               ]
-                              const color = colors[index % colors.length]
+                              const gradient = gradients[index % gradients.length]
                               return (
                                 <button
-                                  className={`genre-pill ${color}`}
+                                  className={`genre-box ${gradient}`}
                                   key={genre.id}
                                   type="button"
                                   onClick={() => handleGenreSelect(genre.id)}
                                 >
-                                  <span className="genre-pill__name">{genre.name}</span>
+                                  <span className="genre-box__name">{genre.name}</span>
+                                  <span className="genre-box__link">
+                                    View all
+                                    <svg viewBox="0 0 20 20" fill="currentColor" className="genre-box__arrow">
+                                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                                    </svg>
+                                  </span>
                                 </button>
                               )
                             })}
@@ -435,24 +447,31 @@ const Header = () => {
 
                         <div className="genres-panel__grid">
                           {categoriesList.map((category, index) => {
-                            const colors = [
-                              'genre-pill--blue','genre-pill--purple','genre-pill--pink',
-                              'genre-pill--green','genre-pill--orange','genre-pill--teal',
-                              'genre-pill--red','genre-pill--indigo'
+                            const gradients = [
+                              'genre-box--sky','genre-box--amber','genre-box--rose',
+                              'genre-box--emerald','genre-box--violet','genre-box--peach',
+                              'genre-box--fuchsia','genre-box--teal'
                             ]
-                            const color = colors[index % colors.length]
+                            const gradient = gradients[index % gradients.length]
                             return (
                               <button
-                                className={`genre-pill ${color}`}
+                                className={`genre-box ${gradient}`}
                                 key={category.id}
                                 type="button"
                                 onClick={() => handleCategorySelect(category.id)}
                               >
-                                <span className="genre-pill__name">{category.name}</span>
+                                <span className="genre-box__name">{category.name}</span>
+                                <span className="genre-box__link">
+                                  View all
+                                  <svg viewBox="0 0 20 20" fill="currentColor" className="genre-box__arrow">
+                                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                                  </svg>
+                                </span>
                               </button>
                             )
                           })}
                         </div>
+
                       </div>
                     )}
                   </div>

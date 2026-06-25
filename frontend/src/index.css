@@ -126,14 +126,16 @@
   }
 
   .nav__genres-panel {
-    @apply absolute left-0 top-full mt-2 rounded-xl border border-white/10 backdrop-blur-xl;
-    width: 600px;
+    @apply absolute left-0 top-full mt-3 rounded-2xl border border-white/10 backdrop-blur;
+    width: 720px;
     max-width: 90vw;
-    background: rgba(15, 23, 42, 0.95);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.05);
+    max-height: 80vh;
+    overflow-y: auto;
+    background: rgba(10, 8, 24, 0.97);
+    box-shadow: 0 32px 80px rgba(3, 0, 20, 0.7), 0 0 0 1px rgba(255,255,255,0.05);
     z-index: 60;
-    overflow: hidden;
-    animation: zoomIn 0.15s ease-out both;
+    overflow-x: hidden;
+    animation: zoomIn 0.18s ease-out both;
   }
 
   .genres-panel__head {
@@ -165,12 +167,12 @@
   }
 
   .genres-panel__grid {
-    @apply grid gap-2 p-4;
-    grid-template-columns: repeat(4, 1fr);
+    @apply grid gap-3 p-5;
+    grid-template-columns: repeat(3, 1fr);
   }
 
   @media (max-width: 640px) {
-    .genres-panel__grid { grid-template-columns: repeat(3, 1fr); }
+    .genres-panel__grid { grid-template-columns: repeat(2, 1fr); }
   }
 
   .genres-panel__empty {
@@ -183,23 +185,73 @@
     animation: spin 0.8s linear infinite;
   }
 
-  /* Genre Pills */
-  .genre-pill {
-    @apply flex items-center px-3 py-2 text-left text-sm font-medium text-gray-300 transition-colors rounded-lg cursor-pointer;
-    background: transparent !important;
-    border: none !important;
+  /* Genre Box Cards */
+  .genre-box {
+    @apply relative flex flex-col justify-between rounded-2xl p-4 text-left transition-all duration-300 cursor-pointer overflow-hidden;
+    min-height: 110px;
+    border: none;
+    outline: none;
   }
 
-  .genre-pill:hover {
-    @apply !bg-white/10 !text-white;
-    transform: none !important;
-    box-shadow: none !important;
+  .genre-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    background: rgba(255,255,255,0.08);
+    border-radius: inherit;
   }
 
-  .genre-pill__name {
-    @apply truncate;
+  .genre-box:hover::before {
+    opacity: 1;
   }
 
+  .genre-box:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+
+  .genre-box__name {
+    @apply text-base font-bold text-white;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 1;
+  }
+
+  .genre-box__link {
+    @apply flex items-center gap-1 text-xs font-medium text-white/80 mt-auto pt-2;
+    position: relative;
+    z-index: 1;
+    transition: color 0.2s, gap 0.2s;
+  }
+
+  .genre-box:hover .genre-box__link {
+    color: rgba(255,255,255,1);
+    gap: 6px;
+  }
+
+  .genre-box__arrow {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.2s ease;
+  }
+
+  .genre-box:hover .genre-box__arrow {
+    transform: translateX(2px);
+  }
+
+  /* Gradient variants */
+  .genre-box--violet  { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #c4b5fd 100%); }
+  .genre-box--sky     { background: linear-gradient(135deg, #0284c7 0%, #38bdf8 50%, #7dd3fc 100%); }
+  .genre-box--peach   { background: linear-gradient(135deg, #ea580c 0%, #fb923c 40%, #fdba74 100%); }
+  .genre-box--rose    { background: linear-gradient(135deg, #e11d48 0%, #fb7185 50%, #fda4af 100%); }
+  .genre-box--emerald { background: linear-gradient(135deg, #059669 0%, #34d399 50%, #6ee7b7 100%); }
+  .genre-box--amber   { background: linear-gradient(135deg, #d97706 0%, #fbbf24 50%, #fde68a 100%); }
+  .genre-box--fuchsia { background: linear-gradient(135deg, #c026d3 0%, #e879f9 50%, #f0abfc 100%); }
+  .genre-box--teal    { background: linear-gradient(135deg, #0d9488 0%, #2dd4bf 50%, #5eead4 100%); }
+  .genre-box--indigo  { background: linear-gradient(135deg, #4f46e5 0%, #818cf8 50%, #a5b4fc 100%); }
+  .genre-box--coral   { background: linear-gradient(135deg, #dc2626 0%, #f87171 40%, #fca5a5 100%); }
   .nav__menu-item:hover {
     @apply border-yellow-200/30 text-light-100;
     box-shadow: 0 0 12px rgba(255, 214, 128, 0.25);
