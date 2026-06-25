@@ -17,5 +17,13 @@ public interface NotificationService {
 
     //--- by system ---
     void createRecommendationSummaryNotification(User user, int totalRecommendations);
+
+    void createNewMovieNotification(User user, String movieTitle);
+
+    void createPremiumPaymentSuccessNotification(User user);
+
+    void createPremiumExpiringNotification(User user, int remainingDays);
+
+    void createAccountBannedNotification(User user, String reason);
 }
 

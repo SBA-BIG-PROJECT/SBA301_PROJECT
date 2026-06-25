@@ -16,6 +16,7 @@ import be.backend.model.response.PageResponse;
 import be.backend.model.response.PaymentStatusResponse;
 import be.backend.repository.PaymentRepository;
 import be.backend.repository.UserRepository;
+import be.backend.services.NotificationService;
 import be.backend.services.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +52,7 @@ public class SepayServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final PaymentMapper paymentMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -135,6 +137,10 @@ public class SepayServiceImpl implements PaymentService {
         user.setIsPremium(true);
         user.setPremiumExpiresAt(expiresAt);
         userRepository.save(user);
+
+        notificationService.createPremiumPaymentSuccessNotification(user);
+        log.info("Payment success for orderCode {}: userId={}, plan={}, amount={}, expiresAt={}",
+                orderCode, user.getId(), payment.getPlanType(), payment.getAmount(), expiresAt);
     }
 
     @Override

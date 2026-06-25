@@ -27,6 +27,7 @@ import be.backend.repository.UserRepository;
 import be.backend.repository.ViewLogRepository;
 import be.backend.repository.WatchlistRepository;
 import be.backend.services.MovieService;
+import be.backend.services.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -66,6 +67,7 @@ public class MovieServiceImpl implements MovieService {
     private final UserRepository userRepository;
     private final ReviewRepository reviewRepository;
     private final WatchlistRepository watchlistRepository;
+    private final NotificationService notificationService;
 
     // ---------------------------------------------------------------- Public
 
@@ -193,6 +195,16 @@ public class MovieServiceImpl implements MovieService {
         }
 
         Movie saved = movieRepository.save(movie);
+        // gửi notification cho tất cả user
+        List<User> users = userRepository.findAll();
+
+        for (User user : users) {
+            notificationService.createNewMovieNotification(
+                    user,
+                    saved.getTitle()
+            );
+        }
+
         log.info("Admin created movie: {} (id={})", saved.getTitle(), saved.getId());
         return toAdminMovieDto(saved, fetchSingleStats(saved.getId()));
     }

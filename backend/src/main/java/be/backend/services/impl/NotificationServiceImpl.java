@@ -16,7 +16,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,32 +24,58 @@ import java.util.stream.Collectors;
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
-    private final UserRepository userRepository;
 
+    private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
     public Long countUnreadNotifications() {
+
         User user = getCurrentUser();
-        return notificationRepository.countByUser_IdAndIsReadFalse(user.getId());
+
+        return notificationRepository
+                .countByUser_IdAndIsReadFalse(user.getId());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<NotificationDto> getNotifications(int page, int size) {
+    public PageResponse<NotificationDto> getNotifications(
+            int page,
+            int size) {
+
         User user = getCurrentUser();
-        Pageable pageable = PageRequest.of(page, size);
-        var pageResult = notificationRepository.findByUser_IdOrderByCreatedAtDesc(user.getId(), pageable);
-        List<NotificationDto> content = pageResult.getContent().stream().map(this::toDto).collect(Collectors.toList());
-        return PageResponse.from(new PageImpl<>(content, pageable, pageResult.getTotalElements()));
+
+        Pageable pageable =
+                PageRequest.of(page, size);
+
+        var pageResult =
+                notificationRepository
+                        .findByUser_IdOrderByCreatedAtDesc(
+                                user.getId(),
+                                pageable
+                        );
+
+        List<NotificationDto> content =
+                pageResult.getContent()
+                        .stream()
+                        .map(this::toDto)
+                        .collect(Collectors.toList());
+
+        return PageResponse.from(
+                new PageImpl<>(
+                        content,
+                        pageable,
+                        pageResult.getTotalElements()
+                )
+        );
     }
-
-
 
     @Override
     @Transactional
     public void markAsRead(Integer notificationId) {
+
         User user = getCurrentUser();
+
         Notification notification =
                 notificationRepository
                         .findByIdAndUser_Id(
@@ -107,7 +132,11 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.delete(notification);
     }
 
+    /**
+     * Recommendation generated
+     */
     @Override
+    @Transactional
     public void createRecommendationSummaryNotification(
             User user,
             int totalRecommendations) {
@@ -116,37 +145,130 @@ public class NotificationServiceImpl implements NotificationService {
             return;
         }
 
+        createNotification(
+                user,
+                "You have "
+                        + totalRecommendations
+                        + " new movie recommendations."
+        );
+    }
+
+    /**
+     * New movie added
+     */
+    @Override
+    @Transactional
+    public void createNewMovieNotification(
+            User user,
+            String movieTitle) {
+
+        createNotification(
+                user,
+                "A new movie \""
+                        + movieTitle
+                        + "\" has been added."
+        );
+    }
+
+    /**
+     * Premium payment success
+     */
+    @Override
+    @Transactional
+    public void createPremiumPaymentSuccessNotification(
+            User user) {
+
+        createNotification(
+                user,
+                "Premium subscription activated successfully."
+        );
+    }
+
+    /**
+     * Premium expiring soon
+     */
+    @Override
+    @Transactional
+    public void createPremiumExpiringNotification(
+            User user,
+            int remainingDays) {
+
+        createNotification(
+                user,
+                "Your Premium subscription will expire in "
+                        + remainingDays
+                        + " day(s)."
+        );
+    }
+
+    /**
+     * Account banned
+     */
+    @Override
+    @Transactional
+    public void createAccountBannedNotification(
+            User user,
+            String reason) {
+
+        createNotification(
+                user,
+                "Your account has been restricted. Reason: "
+                        + reason
+        );
+    }
+
+// ---------- Helpers ----------
+
+    private void createNotification(
+            User user,
+            String message) {
+
         Notification notification =
                 new Notification();
 
         notification.setUser(user);
-
-        notification.setMessage(
-                " You have "
-                        + totalRecommendations
-                        + " new movie recommendations"
-        );
+        notification.setMessage(message);
 
         notificationRepository.save(notification);
     }
 
-    // ---- helpers ----
+    private NotificationDto toDto(
+            Notification notification) {
 
-    private NotificationDto toDto(Notification n) {
-        NotificationDto dto = new NotificationDto();
+        NotificationDto dto =
+                new NotificationDto();
 
-        dto.setId(n.getId());
-        dto.setMessage(n.getMessage());
-        dto.setIsRead(n.getIsRead());
-        dto.setCreatedAt(n.getCreatedAt());
+        dto.setId(notification.getId());
+        dto.setMessage(notification.getMessage());
+        dto.setIsRead(notification.getIsRead());
+        dto.setCreatedAt(notification.getCreatedAt());
 
         return dto;
     }
 
     private User getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
-    }
-}
 
+        var authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        if (authentication == null) {
+            throw new ResourceNotFoundException(
+                    "User chưa đăng nhập"
+            );
+        }
+
+        String email =
+                authentication.getName();
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found: "
+                                        + email
+                        )
+                );
+    }
+
+}
