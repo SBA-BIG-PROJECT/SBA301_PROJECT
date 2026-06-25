@@ -53,8 +53,8 @@ const Footer = () => {
         </div>
         <div className="footer__col">
           <p className="footer__title">Support</p>
-          <a className="footer__link" href="mailto:support@sbamovies.com">
-            support@sbamovies.com
+          <a className="footer__link" href="mailto:levonhatquang11@gmail.com">
+            levonhatquang11@gmail.com
           </a>
         </div>
       </div>
