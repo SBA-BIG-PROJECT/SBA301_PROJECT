@@ -5,6 +5,7 @@ import be.backend.exception.ResourceNotFoundException;
 import be.backend.mapper.UserMapper;
 import be.backend.model.dto.SubscriptionDto;
 import be.backend.model.dto.UserDto;
+import be.backend.enums.UserRole;
 import be.backend.model.dto.UserStatsDto;
 import be.backend.model.request.ChangePasswordRequest;
 import be.backend.model.request.DeleteAccountRequest;
@@ -348,6 +349,10 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         
+        if (be.backend.enums.UserRole.ADMIN.getValue().equals(user.getRole())) {
+            throw new IllegalStateException("Không thể chỉnh sửa thông tin của quản trị viên khác");
+        }
+        
         if (request.getFullName() != null) {
             user.setFullName(request.getFullName());
         }
@@ -379,6 +384,11 @@ public class UserServiceImpl implements UserService {
     public void deleteUserAdmin(Integer userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        
+        if (UserRole.ADMIN.getValue().equals(user.getRole())) {
+            throw new IllegalStateException("Không thể vô hiệu hóa tài khoản quản trị viên");
+        }
+        
         user.setDeletedAt(Instant.now());
         userRepository.save(user);
         
@@ -390,6 +400,10 @@ public class UserServiceImpl implements UserService {
     public AdminUserDto changeUserRoleAdmin(Integer userId, String newRole) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        
+        if (UserRole.ADMIN.getValue().equals(user.getRole())) {
+            throw new IllegalStateException("Không thể thay đổi quyền của quản trị viên");
+        }
         
         try {
             UserRole role = UserRole.fromString(newRole);
@@ -411,6 +425,10 @@ public class UserServiceImpl implements UserService {
     public AdminUserDto revokePremiumAdmin(Integer userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        
+        if (UserRole.ADMIN.getValue().equals(user.getRole())) {
+            throw new IllegalStateException("Không thể thay đổi gói Premium của quản trị viên");
+        }
         
         user.setIsPremium(false);
         user.setPremiumExpiresAt(null);
