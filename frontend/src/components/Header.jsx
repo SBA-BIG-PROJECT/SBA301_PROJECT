@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Link,
   useLocation,
@@ -46,6 +46,7 @@ const Header = () => {
   const [debounced, setDebounced] = useState(searchTerm)
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const userIsTypingRef = useRef(false)
   const toggleRef = useRef(null)
   const panelRef = useRef(null)
   const genresButtonRef = useRef(null)
@@ -54,6 +55,12 @@ const Header = () => {
   const categoriesPanelRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Wrapper so we know when the user typed vs when we synced from URL
+  const handleSearchInput = useCallback((value) => {
+    userIsTypingRef.current = true
+    setSearchTerm(value)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -120,6 +127,10 @@ const Header = () => {
   useDebounce(() => setDebounced(searchTerm), 400, [searchTerm])
 
   useEffect(() => {
+    // Only navigate when the change came from user typing, not from URL sync
+    if (!userIsTypingRef.current) return
+    userIsTypingRef.current = false
+
     const trimmed = debounced.trim()
 
     if (!trimmed) {
@@ -130,7 +141,7 @@ const Header = () => {
     }
 
     navigate(`/search?query=${encodeURIComponent(trimmed)}`, { replace: true })
-  }, [debounced, navigate])
+  }, [debounced, navigate, location.pathname])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -467,7 +478,7 @@ const Header = () => {
           <Search
             className="nav__search"
             searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
+            setSearchTerm={handleSearchInput}
             placeholder="Search movies, actors"
           />
         </div>
