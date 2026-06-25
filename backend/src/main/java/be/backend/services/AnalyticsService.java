@@ -10,7 +10,7 @@ import java.time.LocalDate;
  * Admin Analytics Service
  * Provides analytics and statistics for administrators
  */
-public interface AdminAnalyticsService {
+public interface AnalyticsService {
     
     /**
      * Get overall dashboard statistics

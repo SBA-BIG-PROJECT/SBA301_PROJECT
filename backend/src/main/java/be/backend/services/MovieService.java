@@ -23,6 +23,7 @@ public interface MovieService {
     void deleteMovie(Integer tmdbId);
     AdminMovieDto restoreMovie(Integer tmdbId);
     AdminMovieDto updateMovieGenres(Integer tmdbId, List<Integer> genreIds);
-    AdminMovieDto updateMovieCategories(Integer tmdbId, List<String> categoryIds);
     AdminMovieDto setMoviePremium(Integer tmdbId, boolean isPremium);
+    void refreshAllMovieCategories();
+    void refreshMovieCategories(Integer tmdbId);
 }

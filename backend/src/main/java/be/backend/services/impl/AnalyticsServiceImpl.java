@@ -5,7 +5,7 @@ import be.backend.model.dto.MovieAnalyticsDto;
 import be.backend.model.dto.RevenueAnalyticsDto;
 import be.backend.repository.*;
 import org.springframework.data.domain.PageRequest;
-import be.backend.services.AdminAnalyticsService;
+import be.backend.services.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,7 +26,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 @Slf4j
-public class AdminAnalyticsServiceImpl implements AdminAnalyticsService {
+public class AnalyticsServiceImpl implements AnalyticsService {
 
     private final UserRepository userRepository;
     private final MovieRepository movieRepository;

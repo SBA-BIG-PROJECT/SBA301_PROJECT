@@ -132,19 +132,6 @@ public class MovieController {
         return ResponseEntity.ok(movieService.updateMovieGenres(tmdbId, genreIds));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/admin/{tmdbId}/categories")
-    public ResponseEntity<AdminMovieDto> updateMovieCategories(
-            @PathVariable Integer tmdbId,
-            @RequestBody Map<String, List<String>> request) {
-        
-        List<String> categoryIds = request.get("categoryIds");
-        if (categoryIds == null || categoryIds.isEmpty()) {
-            throw new IllegalArgumentException("categoryIds is required and cannot be empty");
-        }
-        
-        return ResponseEntity.ok(movieService.updateMovieCategories(tmdbId, categoryIds));
-    }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/admin/{tmdbId}/premium")

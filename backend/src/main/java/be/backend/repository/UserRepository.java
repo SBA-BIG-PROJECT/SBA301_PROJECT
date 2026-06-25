@@ -19,7 +19,9 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     
     @Query("""
         SELECT u FROM User u
-        WHERE u.deletedAt IS NULL
+        WHERE (:isActive IS NULL OR 
+              (:isActive = true AND u.deletedAt IS NULL) OR 
+              (:isActive = false AND u.deletedAt IS NOT NULL))
           AND (:search IS NULL OR 
                LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR
                LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%')))
@@ -29,6 +31,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     Page<User> findByFilters(@Param("search") String search,
                              @Param("role") String role,
                              @Param("isPremium") Boolean isPremium,
+                             @Param("isActive") Boolean isActive,
                              Pageable pageable);
     
     long countByDeletedAtIsNull();

@@ -3,7 +3,7 @@ package be.backend.controller;
 import be.backend.model.dto.AdminDashboardStatsDto;
 import be.backend.model.dto.MovieAnalyticsDto;
 import be.backend.model.dto.RevenueAnalyticsDto;
-import be.backend.services.AdminAnalyticsService;
+import be.backend.services.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +24,7 @@ import java.time.LocalDate;
 @PreAuthorize("hasRole('ADMIN')")
 public class AnalyticsController {
 
-    private final AdminAnalyticsService adminAnalyticsService;
+    private final AnalyticsService adminAnalyticsService;
 
     /**
      * Get overall dashboard statistics

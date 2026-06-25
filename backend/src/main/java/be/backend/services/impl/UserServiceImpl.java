@@ -265,10 +265,10 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<AdminUserDto> getAllUsersAdmin(int page, int size, String search, String role, Boolean isPremium) {
+    public PageResponse<AdminUserDto> getAllUsersAdmin(int page, int size, String search, String role, Boolean isPremium, Boolean isActive) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         
-        Page<User> userPage = userRepository.findByFilters(search, role, isPremium, pageable);
+        Page<User> userPage = userRepository.findByFilters(search, role, isPremium, isActive, pageable);
         
         List<Integer> userIds = userPage.getContent().stream().map(User::getId).toList();
         Map<Integer, Object[]> statsMap = new HashMap<>();

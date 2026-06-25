@@ -36,14 +36,9 @@ public class AdminCreateMovieRequest {
     
     private Instant releaseDate;
     
-    private Double voteAverage;
-    
-    private Integer voteCount;
-    
     @Size(max = 500, message = "Trailer URL must not exceed 500 characters")
     private String trailerUrl;
     
     private List<Integer> genreIds;
     
-    private List<String> categoryIds;
 }

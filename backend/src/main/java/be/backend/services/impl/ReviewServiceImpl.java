@@ -21,6 +21,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import be.backend.services.MovieService;
 
 import java.time.Instant;
 import java.util.List;
@@ -32,6 +33,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewRepository reviewRepository;
     private final MovieRepository movieRepository;
     private final UserRepository userRepository;
+    private final MovieService movieService;
 
     @Override
     @Transactional
@@ -51,7 +53,9 @@ public class ReviewServiceImpl implements ReviewService {
         review.setComment(request.getComment());
         review.setCreatedAt(Instant.now());   // must set because ColumnDefault is only for DDL
 
-        return toDto(reviewRepository.save(review));
+        Review saved = reviewRepository.save(review);
+        movieService.refreshMovieCategories(movieId);
+        return toDto(saved);
     }
 
     @Override
@@ -87,7 +91,9 @@ public class ReviewServiceImpl implements ReviewService {
 
         review.setRating(request.getRating());
         review.setComment(request.getComment());
-        return toDto(reviewRepository.save(review));
+        Review saved = reviewRepository.save(review);
+        movieService.refreshMovieCategories(review.getTmdb().getId());
+        return toDto(saved);
     }
 
     @Override
@@ -96,7 +102,9 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found with id=" + reviewId));
         checkOwner(review);
+        Integer movieId = review.getTmdb().getId();
         reviewRepository.delete(review);
+        movieService.refreshMovieCategories(movieId);
     }
 
     // ---- helpers ----

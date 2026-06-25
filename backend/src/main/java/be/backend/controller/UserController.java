@@ -28,10 +28,11 @@ public class UserController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String role,
-            @RequestParam(required = false) Boolean isPremium) {
+            @RequestParam(required = false) Boolean isPremium,
+            @RequestParam(required = false) Boolean isActive) {
         
         return ResponseEntity.ok(
-                userService.getAllUsersAdmin(page, size, search, role, isPremium)
+                userService.getAllUsersAdmin(page, size, search, role, isPremium, isActive)
         );
     }
 

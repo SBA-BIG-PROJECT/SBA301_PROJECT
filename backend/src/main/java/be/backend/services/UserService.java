@@ -73,7 +73,7 @@ public interface UserService {
     UserDto deleteAvatar(String email);
 
     // --- Admin Methods ---
-    PageResponse<AdminUserDto> getAllUsersAdmin(int page, int size, String search, String role, Boolean isPremium);
+    PageResponse<AdminUserDto> getAllUsersAdmin(int page, int size, String search, String role, Boolean isPremium, Boolean isActive);
     AdminUserDetailResponse getUserDetailAdmin(Integer userId);
     AdminUserDto updateUserAdmin(Integer userId, AdminUpdateUserRequest request);
     void deleteUserAdmin(Integer userId);
