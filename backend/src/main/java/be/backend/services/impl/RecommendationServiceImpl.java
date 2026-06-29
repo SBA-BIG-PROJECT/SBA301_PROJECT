@@ -29,6 +29,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final UserRepository userRepository;
     private final ReviewRepository reviewRepository;
     private final MoviePersonRepository moviePersonRepository;
+    private final MovieRepository movieRepository;
 
     // ================================
     // MAIN API
@@ -49,6 +50,11 @@ public class RecommendationServiceImpl implements RecommendationService {
         generateHighRating(user, context, results);
         generateActorDirector(user, context, results);
         generateAssociation(user, context, results);
+
+        // Fallback for Cold Start (New Users)
+        if (results.isEmpty()) {
+            generateFallbackRecommendations(user, context, results);
+        }
 
         // Pagination
         int start = Math.min(page * size, results.size());
@@ -222,6 +228,31 @@ public class RecommendationServiceImpl implements RecommendationService {
     // ================================
     // CORE LOGIC
     // ================================
+
+    private void generateFallbackRecommendations(User user, RecommendationContext context, List<RecommendationDto> results) {
+        // Find trending movies in the last 30 days
+        java.time.Instant thirtyDaysAgo = java.time.Instant.now().minus(30, java.time.temporal.ChronoUnit.DAYS);
+        org.springframework.data.domain.Page<Integer> trendingMovieIds = viewLogRepository.findTrendingMovieIds(
+                thirtyDaysAgo,
+                PageRequest.of(0, 15)
+        );
+
+        for (Integer movieId : trendingMovieIds.getContent()) {
+            movieRepository.findById(movieId).ifPresent(movie -> {
+                if (isValid(movie, null, context)) {
+                    RecommendationDto dto = new RecommendationDto();
+                    dto.setMovieId(movie.getId());
+                    dto.setTitle(movie.getTitle());
+                    dto.setPosterPath(movie.getPosterPath());
+                    dto.setReason("Trending movies you might like");
+                    dto.setSource(RecommendationSource.CONTENT_BASED.name()); // Using content_based as generic
+
+                    results.add(dto);
+                    context.getAddedMovieIds().add(movie.getId());
+                }
+            });
+        }
+    }
 
     private void addCandidates(
             List<MovieGenre> candidates,

@@ -29,7 +29,6 @@ public interface UserMapper {
     @Mapping(target = "movies", ignore = true)
     @Mapping(target = "notifications", ignore = true)
     @Mapping(target = "payments", ignore = true)
-    @Mapping(target = "recommendations", ignore = true)
     @Mapping(target = "reviews", ignore = true)
     @Mapping(target = "viewLogs", ignore = true)
     @Mapping(target = "watchlists", ignore = true)
