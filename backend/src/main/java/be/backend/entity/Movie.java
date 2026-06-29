@@ -84,9 +84,6 @@ public class Movie {
     @JoinColumn(name = "tmdb_id")
     private Set<MoviePerson> moviePeople = new LinkedHashSet<>();
 
-    @OneToMany
-    @JoinColumn(name = "tmdb_id")
-    private Set<Recommendation> recommendations = new LinkedHashSet<>();
 
     @OneToMany
     @JoinColumn(name = "tmdb_id")

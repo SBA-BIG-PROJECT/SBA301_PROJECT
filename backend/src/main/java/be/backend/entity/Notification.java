@@ -25,10 +25,6 @@ public class Notification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @OnDelete(action = OnDeleteAction.SET_NULL)
-    @JoinColumn(name = "rec_id")
-    private Recommendation rec;
 
 
     @Column(name = "message", nullable = false)

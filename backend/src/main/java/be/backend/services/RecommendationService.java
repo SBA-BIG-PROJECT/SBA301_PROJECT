@@ -6,12 +6,5 @@ import be.backend.model.response.PageResponse;
 
 public interface RecommendationService {
     PageResponse<RecommendationDto> getRecommendations(int page, int size);
-
-    void generateRecommendations();
-
-    void generateRecommendations(Integer userId);
-
-    void deleteRecommendation(Integer recommendationId);
-
 }
 

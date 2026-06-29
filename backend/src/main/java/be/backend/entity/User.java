@@ -84,9 +84,6 @@ public class User {
     @JoinColumn(name = "user_id")
     private Set<Payment> payments = new LinkedHashSet<>();
 
-    @OneToMany
-    @JoinColumn(name = "user_id")
-    private Set<Recommendation> recommendations = new LinkedHashSet<>();
 
     @OneToMany
     @JoinColumn(name = "user_id")
