@@ -69,7 +69,6 @@ public class MovieServiceImpl implements MovieService {
     private final WatchlistRepository watchlistRepository;
     private final NotificationService notificationService;
 
-    // ---------------------------------------------------------------- Public
 
     @Override
     @Transactional(readOnly = true)
