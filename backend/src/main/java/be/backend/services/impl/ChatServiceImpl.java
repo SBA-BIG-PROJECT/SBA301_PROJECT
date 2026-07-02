@@ -175,17 +175,6 @@ public class ChatServiceImpl implements ChatService {
 
         String aiResponse =
                 chatClient.prompt()
-                        .system("""
-                            You are a movie recommendation assistant.
-
-                            Responsibilities:
-                            - Recommend movies.
-                            - Explain movie plots without spoilers.
-                            - Compare movies, actors, directors and genres.
-                            - Suggest trending movies.
-                            - Answer in Vietnamese unless requested otherwise.
-                            - Keep answers concise and useful.
-                            """)
                         .user(conversation.toString())
                         .call()
                         .content();
