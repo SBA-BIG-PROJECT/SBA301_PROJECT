@@ -3,18 +3,24 @@ package be.backend.model.dto;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.math.BigDecimal;
-import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
 public class RecommendationDto {
-    private Integer recommendationId;
-    private Integer movieId;
-    private String title;
-    private String posterPath;
-    private String source;
-    private String reason;
-    private Instant createdAt;
-}
 
+    private Integer movieId;
+
+    private String title;
+
+    private String posterPath;
+
+    private double score;
+
+    private List<String> reasons =
+            new ArrayList<>();
+
+    private List<String> sources =
+            new ArrayList<>();
+}

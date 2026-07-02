@@ -3,6 +3,7 @@ package be.backend.services.impl;
 import be.backend.entity.*;
 import be.backend.enums.RecommendationSource;
 import be.backend.exception.ResourceNotFoundException;
+import be.backend.model.dto.RecommendationCandidate;
 import be.backend.model.dto.RecommendationContext;
 import be.backend.model.dto.RecommendationDto;
 import be.backend.model.response.PageResponse;
@@ -16,320 +17,688 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class RecommendationServiceImpl implements RecommendationService {
 
+    private static final int MAX_RESULT = 30;
+
+    private final MovieRepository movieRepository;
     private final MovieGenreRepository movieGenreRepository;
+    private final MoviePersonRepository moviePersonRepository;
+    private final ReviewRepository reviewRepository;
     private final ViewLogRepository viewLogRepository;
     private final WatchlistRepository watchlistRepository;
     private final UserRepository userRepository;
-    private final ReviewRepository reviewRepository;
-    private final MoviePersonRepository moviePersonRepository;
-    private final MovieRepository movieRepository;
 
     // ================================
     // MAIN API
     // ================================
     @Override
-    @Transactional(readOnly = true)
-    public PageResponse<RecommendationDto> getRecommendations(int page, int size) {
+    public PageResponse<RecommendationDto> getRecommendations(
+            int page,
+            int size) {
 
         User user = getCurrentUser();
 
-        RecommendationContext context = buildContext(user);
+        RecommendationContext context =
+                buildContext(user);
 
-        List<RecommendationDto> results = new ArrayList<>();
+        Map<Integer, RecommendationCandidate> recommendationMap =
+                new HashMap<>();
 
-        generateContentBased(user, context, results);
-        generateViewHistory(user, context, results);
-        generateWatchlist(user, context, results);
-        generateHighRating(user, context, results);
-        generateActorDirector(user, context, results);
-        generateAssociation(user, context, results);
+        generateContentBased(
+                user,
+                context,
+                recommendationMap);
 
-        // Fallback for Cold Start (New Users)
-        if (results.isEmpty()) {
-            generateFallbackRecommendations(user, context, results);
+        generateViewHistory(
+                user,
+                context,
+                recommendationMap);
+
+        generateWatchlist(
+                user,
+                context,
+                recommendationMap);
+
+        generateHighRating(
+                user,
+                context,
+                recommendationMap);
+
+        generateActorDirector(
+                user,
+                context,
+                recommendationMap);
+
+        generateAssociation(
+                user,
+                context,
+                recommendationMap);
+
+        if (recommendationMap.isEmpty()) {
+
+            generateTrendingFallback(
+                    context,
+                    recommendationMap);
         }
 
-        // Pagination
-        int start = Math.min(page * size, results.size());
-        int end = Math.min(start + size, results.size());
+        List<RecommendationDto> recommendations =
+                recommendationMap.values()
+                        .stream()
+                        .sorted(
+                                Comparator.comparingDouble(
+                                                RecommendationCandidate::getScore)
+                                        .reversed())
+                        .limit(MAX_RESULT)
+                        .map(this::toDto)
+                        .toList();
 
-        List<RecommendationDto> pageContent = results.subList(start, end);
+        int start =
+                Math.min(
+                        page * size,
+                        recommendations.size());
+
+        int end =
+                Math.min(
+                        start + size,
+                        recommendations.size());
 
         return PageResponse.from(
-                new PageImpl<>(pageContent, PageRequest.of(page, size), results.size())
-        );
+                new PageImpl<>(
+                        recommendations.subList(start, end),
+                        PageRequest.of(page, size),
+                        recommendations.size()));
     }
 
     // ================================
     // ALGORITHMS
     // ================================
 
-    private void generateContentBased(User user, RecommendationContext context, List<RecommendationDto> results) {
+    // ================================
+// CONTENT BASED
+// ================================
 
-        ViewLog latest = viewLogRepository
-                .findTopByUser_IdOrderByWatchedAtDesc(user.getId())
-                .orElse(null);
+    private void generateContentBased(
+            User user,
+            RecommendationContext context,
+            Map<Integer, RecommendationCandidate> recommendationMap) {
 
-        if (latest == null) return;
+        ViewLog latestView =
+                viewLogRepository
+                        .findTopByUser_IdOrderByWatchedAtDesc(user.getId())
+                        .orElse(null);
 
-        List<MovieGenre> genres = movieGenreRepository.findByTmdb_Id(latest.getTmdb().getId());
+        if (latestView == null) {
+            return;
+        }
 
-        for (MovieGenre g : genres) {
-            List<MovieGenre> candidates = movieGenreRepository.findByGenre_Id(g.getGenre().getId());
+        List<MovieGenre> genres =
+                movieGenreRepository.findByTmdb_Id(
+                        latestView.getTmdb().getId());
 
-            addCandidates(
-                    candidates,
-                    latest.getTmdb().getId(),
-                    "Similar to " + latest.getTmdb().getTitle(),
-                    RecommendationSource.CONTENT_BASED,
-                    context,
-                    results
+        for (MovieGenre genre : genres) {
+
+            List<MovieGenre> relatedMovies =
+                    movieGenreRepository.findByGenre_Id(
+                            genre.getGenre().getId());
+
+            for (MovieGenre candidate : relatedMovies) {
+
+                Movie movie = candidate.getTmdb();
+
+                if (!isValidRecommendation(
+                        movie,
+                        latestView.getTmdb().getId(),
+                        context)) {
+                    continue;
+                }
+
+                addScore(
+                        recommendationMap,
+                        movie,
+                        RecommendationSource.CONTENT_BASED,
+                        "Movies similar to \"" +
+                                latestView.getTmdb().getTitle() + "\"",
+                        3.5
+                );
+            }
+        }
+    }
+
+// ================================
+// VIEW HISTORY
+// ================================
+
+    private void generateViewHistory(
+            User user,
+            RecommendationContext context,
+            Map<Integer, RecommendationCandidate> recommendationMap) {
+
+        List<ViewLog> histories =
+                viewLogRepository
+                        .findTop20ByUser_IdOrderByWatchedAtDesc(
+                                user.getId());
+
+        if (histories.isEmpty()) {
+            return;
+        }
+
+        Map<Integer, Long> genreFrequency =
+                new HashMap<>();
+
+        for (ViewLog history : histories) {
+
+            List<MovieGenre> genres =
+                    movieGenreRepository.findByTmdb_Id(
+                            history.getTmdb().getId());
+
+            for (MovieGenre genre : genres) {
+
+                genreFrequency.merge(
+                        genre.getGenre().getId(),
+                        1L,
+                        Long::sum
+                );
+            }
+        }
+
+        Integer favoriteGenre =
+                findFavoriteGenreId(
+                        genreFrequency);
+
+        if (favoriteGenre == null) {
+            return;
+        }
+
+        List<MovieGenre> candidates =
+                movieGenreRepository.findByGenre_Id(
+                        favoriteGenre);
+
+        for (MovieGenre candidate : candidates) {
+
+            Movie movie =
+                    candidate.getTmdb();
+
+            if (!isValidRecommendation(
+                    movie,
+                    null,
+                    context)) {
+                continue;
+            }
+
+            addScore(
+                    recommendationMap,
+                    movie,
+                    RecommendationSource.VIEW_HISTORY,
+                    "Based on your viewing history",
+                    2.5
             );
         }
     }
 
-    private void generateViewHistory(User user, RecommendationContext context, List<RecommendationDto> results) {
-
-        List<ViewLog> logs = viewLogRepository.findTop20ByUser_IdOrderByWatchedAtDesc(user.getId());
-
-        if (logs.isEmpty()) return;
-
-        Map<Integer, Long> freq = new HashMap<>();
-
-        for (ViewLog log : logs) {
-            List<MovieGenre> genres = movieGenreRepository.findByTmdb_Id(log.getTmdb().getId());
-
-            for (MovieGenre g : genres) {
-                Integer id = g.getGenre().getId();
-                freq.put(id, freq.getOrDefault(id, 0L) + 1);
-            }
-        }
-
-        Integer fav = findTopGenre(freq);
-        if (fav == null) return;
-
-        List<MovieGenre> candidates = movieGenreRepository.findByGenre_Id(fav);
-
-        addCandidates(candidates, null, "Based on your history", RecommendationSource.VIEW_HISTORY, context, results);
-    }
-
-    private void generateWatchlist(User user, RecommendationContext context, List<RecommendationDto> results) {
-
-        Watchlist latest = watchlistRepository
-                .findTopByUser_IdOrderByAddedAtDesc(user.getId())
-                .orElse(null);
-
-        if (latest == null) return;
-
-        List<MovieGenre> genres = movieGenreRepository.findByTmdb_Id(latest.getTmdb().getId());
-
-        for (MovieGenre g : genres) {
-            List<MovieGenre> candidates = movieGenreRepository.findByGenre_Id(g.getGenre().getId());
-
-            addCandidates(candidates, null, "From your watchlist", RecommendationSource.WATCHLIST, context, results);
-        }
-    }
-
-    private void generateHighRating(User user, RecommendationContext context, List<RecommendationDto> results) {
-
-        List<Review> reviews = reviewRepository
-                .findByUser_IdAndRatingGreaterThanEqual(user.getId(), BigDecimal.valueOf(4));
-
-        if (reviews.isEmpty()) return;
-
-        Map<Integer, Long> freq = new HashMap<>();
-
-        for (Review r : reviews) {
-            List<MovieGenre> genres = movieGenreRepository.findByTmdb_Id(r.getTmdb().getId());
-
-            for (MovieGenre g : genres) {
-                Integer id = g.getGenre().getId();
-                freq.put(id, freq.getOrDefault(id, 0L) + 1);
-            }
-        }
-
-        Integer fav = findTopGenre(freq);
-        if (fav == null) return;
-
-        List<MovieGenre> candidates = movieGenreRepository.findByGenre_Id(fav);
-
-        addCandidates(candidates, null, "Based on your ratings", RecommendationSource.HIGH_RATING, context, results);
-    }
-
-    private void generateActorDirector(User user, RecommendationContext context, List<RecommendationDto> results) {
-
-        ViewLog latest = viewLogRepository
-                .findTopByUser_IdOrderByWatchedAtDesc(user.getId())
-                .orElse(null);
-
-        if (latest == null) return;
-
-        List<MoviePerson> people = moviePersonRepository.findByTmdb_Id(latest.getTmdb().getId());
-
-        List<Integer> personIds = people.stream()
-                .map(p -> p.getPerson().getId())
-                .distinct()
-                .toList();
-
-        List<MoviePerson> related = moviePersonRepository.findByPersonIds(personIds);
-
-        List<MovieGenre> candidates = new ArrayList<>();
-
-        for (MoviePerson mp : related) {
-            MovieGenre fake = new MovieGenre();
-            fake.setTmdb(mp.getTmdb());
-            candidates.add(fake);
-        }
-
-        addCandidates(
-                candidates,
-                latest.getTmdb().getId(),
-                "Same actor/director",
-                RecommendationSource.ACTOR_DIRECTOR,
-                context,
-                results
-        );
-    }
-
-    private void generateAssociation(User user, RecommendationContext context, List<RecommendationDto> results) {
-
-        ViewLog latest = viewLogRepository
-                .findTopByUser_IdOrderByWatchedAtDesc(user.getId())
-                .orElse(null);
-
-        if (latest == null) return;
-
-        Integer movieId = latest.getTmdb().getId();
-
-        List<Integer> userIds = viewLogRepository.findUserIdsByMovieId(movieId);
-        if (userIds.isEmpty()) return;
-
-        List<Integer> movieIds = viewLogRepository.findPopularMoviesByUsers(userIds, PageRequest.of(0, 50));
-
-        List<MovieGenre> candidates = new ArrayList<>();
-
-        for (Integer id : movieIds) {
-            movieGenreRepository.findByTmdb_Id(id)
-                    .stream()
-                    .findFirst()
-                    .ifPresent(candidates::add);
-        }
-
-        addCandidates(candidates, movieId, "People also watch", RecommendationSource.ASSOCIATION_RULE, context, results);
-    }
-
     // ================================
-    // CORE LOGIC
-    // ================================
+// WATCHLIST
+// ================================
 
-    private void generateFallbackRecommendations(User user, RecommendationContext context, List<RecommendationDto> results) {
-        // Find trending movies in the last 30 days
-        java.time.Instant thirtyDaysAgo = java.time.Instant.now().minus(30, java.time.temporal.ChronoUnit.DAYS);
-        org.springframework.data.domain.Page<Integer> trendingMovieIds = viewLogRepository.findTrendingMovieIds(
-                thirtyDaysAgo,
-                PageRequest.of(0, 15)
-        );
-
-        for (Integer movieId : trendingMovieIds.getContent()) {
-            movieRepository.findById(movieId).ifPresent(movie -> {
-                if (isValid(movie, null, context)) {
-                    RecommendationDto dto = new RecommendationDto();
-                    dto.setMovieId(movie.getId());
-                    dto.setTitle(movie.getTitle());
-                    dto.setPosterPath(movie.getPosterPath());
-                    dto.setReason("Trending movies you might like");
-                    dto.setSource(RecommendationSource.CONTENT_BASED.name()); // Using content_based as generic
-
-                    results.add(dto);
-                    context.getAddedMovieIds().add(movie.getId());
-                }
-            });
-        }
-    }
-
-    private void addCandidates(
-            List<MovieGenre> candidates,
-            Integer currentId,
-            String reason,
-            RecommendationSource source,
+    private void generateWatchlist(
+            User user,
             RecommendationContext context,
-            List<RecommendationDto> results
-    ) {
+            Map<Integer, RecommendationCandidate> recommendationMap) {
 
-        for (MovieGenre mg : candidates) {
+        Watchlist latest =
+                watchlistRepository
+                        .findTopByUser_IdOrderByAddedAtDesc(
+                                user.getId())
+                        .orElse(null);
 
-            Movie movie = mg.getTmdb();
+        if (latest == null) {
+            return;
+        }
 
-            if (!isValid(movie, currentId, context)) continue;
+        List<MovieGenre> genres =
+                movieGenreRepository.findByTmdb_Id(
+                        latest.getTmdb().getId());
 
-            RecommendationDto dto = new RecommendationDto();
-            dto.setMovieId(movie.getId());
-            dto.setTitle(movie.getTitle());
-            dto.setPosterPath(movie.getPosterPath());
-            dto.setReason(reason);
-            dto.setSource(source.name());
+        for (MovieGenre genre : genres) {
 
-            results.add(dto);
+            List<MovieGenre> candidates =
+                    movieGenreRepository.findByGenre_Id(
+                            genre.getGenre().getId());
 
-            context.getAddedMovieIds().add(movie.getId());
+            for (MovieGenre candidate : candidates) {
 
-            if (results.size() >= 50) return;
+                Movie movie = candidate.getTmdb();
+
+                if (!isValidRecommendation(
+                        movie,
+                        latest.getTmdb().getId(),
+                        context)) {
+                    continue;
+                }
+
+                addScore(
+                        recommendationMap,
+                        movie,
+                        RecommendationSource.WATCHLIST,
+                        "Based on your watchlist",
+                        2.8
+                );
+            }
         }
     }
 
-    private boolean isValid(Movie movie, Integer currentId, RecommendationContext context) {
+// ================================
+// HIGH RATING
+// ================================
 
-        if (Objects.equals(movie.getId(), currentId)) return false;
-        if (context.getViewedMovieIds().contains(movie.getId())) return false;
-        if (context.getWatchlistMovieIds().contains(movie.getId())) return false;
-        if (context.getAddedMovieIds().contains(movie.getId())) return false;
+    private void generateHighRating(
+            User user,
+            RecommendationContext context,
+            Map<Integer, RecommendationCandidate> recommendationMap) {
 
-        return Boolean.TRUE.equals(movie.getIsActive());
+        List<Review> reviews =
+                reviewRepository
+                        .findByUser_IdAndRatingGreaterThanEqual(
+                                user.getId(),
+                                BigDecimal.valueOf(4));
+
+        if (reviews.isEmpty()) {
+            return;
+        }
+
+        Map<Integer, Long> genreFrequency =
+                new HashMap<>();
+
+        for (Review review : reviews) {
+
+            List<MovieGenre> genres =
+                    movieGenreRepository.findByTmdb_Id(
+                            review.getTmdb().getId());
+
+            for (MovieGenre genre : genres) {
+
+                genreFrequency.merge(
+                        genre.getGenre().getId(),
+                        1L,
+                        Long::sum);
+            }
+        }
+
+        Integer favoriteGenre =
+                findFavoriteGenreId(
+                        genreFrequency);
+
+        if (favoriteGenre == null) {
+            return;
+        }
+
+        List<MovieGenre> candidates =
+                movieGenreRepository.findByGenre_Id(
+                        favoriteGenre);
+
+        for (MovieGenre candidate : candidates) {
+
+            Movie movie =
+                    candidate.getTmdb();
+
+            if (!isValidRecommendation(
+                    movie,
+                    null,
+                    context)) {
+                continue;
+            }
+
+            addScore(
+                    recommendationMap,
+                    movie,
+                    RecommendationSource.HIGH_RATING,
+                    "Because you highly rated similar movies",
+                    3.2
+            );
+        }
     }
 
-    private RecommendationContext buildContext(User user) {
+    // ================================
+// ACTOR / DIRECTOR
+// ================================
 
-        RecommendationContext ctx = new RecommendationContext();
+    private void generateActorDirector(
+            User user,
+            RecommendationContext context,
+            Map<Integer, RecommendationCandidate> recommendationMap) {
 
-        ctx.setViewedMovieIds(
-                viewLogRepository.findByUser_Id(user.getId())
+        ViewLog latest =
+                viewLogRepository
+                        .findTopByUser_IdOrderByWatchedAtDesc(
+                                user.getId())
+                        .orElse(null);
+
+        if (latest == null) {
+            return;
+        }
+
+        List<MoviePerson> moviePeople =
+                moviePersonRepository.findByTmdb_Id(
+                        latest.getTmdb().getId());
+
+        List<Integer> personIds =
+                moviePeople.stream()
+                        .map(mp -> mp.getPerson().getId())
+                        .distinct()
+                        .toList();
+
+        if (personIds.isEmpty()) {
+            return;
+        }
+
+        List<MoviePerson> relatedMovies =
+                moviePersonRepository.findByPersonIds(
+                        personIds);
+
+        for (MoviePerson related : relatedMovies) {
+
+            Movie movie =
+                    related.getTmdb();
+
+            if (!isValidRecommendation(
+                    movie,
+                    latest.getTmdb().getId(),
+                    context)) {
+                continue;
+            }
+
+            addScore(
+                    recommendationMap,
+                    movie,
+                    RecommendationSource.ACTOR_DIRECTOR,
+                    "Same actor or director",
+                    2.7
+            );
+        }
+    }
+
+//
+// ================================
+// ASSOCIATION RULE
+// ================================
+
+    private void generateAssociation(
+            User user,
+            RecommendationContext context,
+            Map<Integer, RecommendationCandidate> recommendationMap) {
+
+        ViewLog latest =
+                viewLogRepository
+                        .findTopByUser_IdOrderByWatchedAtDesc(
+                                user.getId())
+                        .orElse(null);
+
+        if (latest == null) {
+            return;
+        }
+
+        Integer movieId =
+                latest.getTmdb().getId();
+
+        List<Integer> userIds =
+                viewLogRepository.findUserIdsByMovieId(movieId);
+
+        if (userIds.isEmpty()) {
+            return;
+        }
+
+        List<Integer> movieIds =
+                viewLogRepository.findPopularMoviesByUsers(
+                        userIds,
+                        PageRequest.of(0, 50));
+
+        for (Integer candidateMovieId : movieIds) {
+
+            movieRepository.findById(candidateMovieId)
+                    .ifPresent(movie -> {
+
+                        if (!isValidRecommendation(
+                                movie,
+                                movieId,
+                                context)) {
+                            return;
+                        }
+
+                        addScore(
+                                recommendationMap,
+                                movie,
+                                RecommendationSource.ASSOCIATION_RULE,
+                                "People who watched this also watched",
+                                2.9
+                        );
+                    });
+        }
+    }
+
+//
+// ================================
+// TRENDING FALLBACK
+// ================================
+
+    private void generateTrendingFallback(
+            RecommendationContext context,
+            Map<Integer, RecommendationCandidate> recommendationMap) {
+
+        Instant from =
+                Instant.now()
+                        .minus(30, ChronoUnit.DAYS);
+
+        List<Integer> trendingMovieIds =
+                viewLogRepository
+                        .findTrendingMovieIds(
+                                from,
+                                PageRequest.of(0, 20))
+                        .getContent();
+
+        for (Integer movieId : trendingMovieIds) {
+
+            movieRepository.findById(movieId)
+                    .ifPresent(movie -> {
+
+                        if (!isValidRecommendation(
+                                movie,
+                                null,
+                                context)) {
+                            return;
+                        }
+
+                        addScore(
+                                recommendationMap,
+                                movie,
+                                RecommendationSource.TRENDING,
+                                "Trending now",
+                                1.5
+                        );
+                    });
+        }
+    }
+
+    // ================================
+// SCORE
+// ================================
+
+    private void addScore(
+            Map<Integer, RecommendationCandidate> recommendationMap,
+            Movie movie,
+            RecommendationSource source,
+            String reason,
+            double score) {
+
+        RecommendationCandidate candidate =
+                recommendationMap.computeIfAbsent(
+                        movie.getId(),
+                        id -> {
+
+                            RecommendationCandidate c =
+                                    new RecommendationCandidate();
+
+                            c.setMovie(movie);
+                            c.setScore(0);
+
+                            return c;
+                        });
+
+        candidate.setScore(candidate.getScore() + score);
+
+        candidate.getReasons().add(reason);
+
+        candidate.getSources().add(source);
+    }
+
+//
+// ================================
+// VALIDATION
+// ================================
+
+    private boolean isValidRecommendation(
+            Movie movie,
+            Integer currentMovieId,
+            RecommendationContext context) {
+
+        if (movie == null) {
+            return false;
+        }
+
+        if (Objects.equals(
+                movie.getId(),
+                currentMovieId)) {
+            return false;
+        }
+
+        if (context.getViewedMovieIds()
+                .contains(movie.getId())) {
+            return false;
+        }
+
+        if (context.getWatchlistMovieIds()
+                .contains(movie.getId())) {
+            return false;
+        }
+
+        return Boolean.TRUE.equals(
+                movie.getIsActive());
+    }
+
+//
+// ================================
+// BUILD CONTEXT
+// ================================
+
+    private RecommendationContext buildContext(
+            User user) {
+
+        RecommendationContext context =
+                new RecommendationContext();
+
+        context.setViewedMovieIds(
+
+                viewLogRepository
+                        .findByUser_Id(user.getId())
                         .stream()
                         .map(v -> v.getTmdb().getId())
                         .collect(Collectors.toSet())
         );
 
-        ctx.setWatchlistMovieIds(
-                watchlistRepository.findByUser_Id(user.getId())
+        context.setWatchlistMovieIds(
+
+                watchlistRepository
+                        .findByUser_Id(user.getId())
                         .stream()
                         .map(w -> w.getTmdb().getId())
                         .collect(Collectors.toSet())
         );
 
-        ctx.setAddedMovieIds(new HashSet<>());
-
-        return ctx;
+        return context;
     }
 
-    private Integer findTopGenre(Map<Integer, Long> map) {
-        return map.entrySet()
+    // ================================
+// DTO
+// ================================
+
+    private RecommendationDto toDto(
+            RecommendationCandidate candidate) {
+
+        RecommendationDto dto =
+                new RecommendationDto();
+
+        dto.setMovieId(
+                candidate.getMovie().getId());
+
+        dto.setTitle(
+                candidate.getMovie().getTitle());
+
+        dto.setPosterPath(
+                candidate.getMovie().getPosterPath());
+
+        dto.setScore(
+                candidate.getScore());
+
+        dto.setReasons(
+                new ArrayList<>(candidate.getReasons()));
+
+        dto.setSources(
+                candidate.getSources()
+                        .stream()
+                        .map(Enum::name)
+                        .toList());
+
+        return dto;
+    }
+
+//
+// ================================
+// FAVORITE GENRE
+// ================================
+
+    private Integer findFavoriteGenreId(
+            Map<Integer, Long> genreFrequency) {
+
+        return genreFrequency.entrySet()
                 .stream()
                 .max(Map.Entry.comparingByValue())
                 .map(Map.Entry::getKey)
                 .orElse(null);
     }
 
+//
+// ================================
+// CURRENT USER
+// ================================
+
     private User getCurrentUser() {
 
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        var authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
 
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+        if (authentication == null ||
+                !authentication.isAuthenticated()) {
+
+            throw new ResourceNotFoundException(
+                    "User not logged in");
+        }
+
+        String email =
+                authentication.getName();
+
+        return userRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found: " + email));
     }
 }
