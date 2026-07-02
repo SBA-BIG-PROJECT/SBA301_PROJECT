@@ -1786,6 +1786,13 @@
   letter-spacing: 0.01em;
 }
 
+.ai-chat-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-chat-header__new,
 .ai-chat-header__close {
   display: flex;
   align-items: center;
@@ -1800,12 +1807,19 @@
   transition: all 0.2s;
 }
 
+.ai-chat-header__new:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
 .ai-chat-header__close:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.ai-chat-header__new svg,
 .ai-chat-header__close svg {
   width: 14px;
   height: 14px;
@@ -1908,29 +1922,73 @@
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: all 0.2s;
+  transition: all 0.25s ease;
   cursor: pointer;
+  animation: ai-card-enter 0.4s ease-out both;
+}
+
+.ai-movie-card:nth-child(1) { animation-delay: 0.05s; }
+.ai-movie-card:nth-child(2) { animation-delay: 0.12s; }
+.ai-movie-card:nth-child(3) { animation-delay: 0.19s; }
+.ai-movie-card:nth-child(4) { animation-delay: 0.26s; }
+.ai-movie-card:nth-child(5) { animation-delay: 0.33s; }
+.ai-movie-card:nth-child(6) { animation-delay: 0.40s; }
+
+@keyframes ai-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .ai-movie-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(139, 92, 246, 0.3);
-  transform: translateX(2px);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(139, 92, 246, 0.35);
+  transform: translateX(3px);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.12);
 }
 
 .ai-movie-card__poster {
-  width: 60px;
-  height: 85px;
-  min-width: 60px;
-  border-radius: 8px;
+  width: 64px;
+  height: 92px;
+  min-width: 64px;
+  border-radius: 10px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
+  position: relative;
 }
 
 .ai-movie-card__poster img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.ai-movie-card:hover .ai-movie-card__poster img {
+  transform: scale(1.05);
+}
+
+.ai-movie-card__premium {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .ai-movie-card__poster-placeholder {
@@ -1962,6 +2020,51 @@
   overflow: hidden;
 }
 
+.ai-movie-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ai-movie-card__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fbbf24;
+}
+
+.ai-movie-card__rating svg {
+  width: 11px;
+  height: 11px;
+  fill: #fbbf24;
+}
+
+.ai-movie-card__year {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.ai-movie-card__genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ai-movie-card__genre-tag {
+  padding: 1px 7px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  white-space: nowrap;
+}
+
 .ai-movie-card__reason {
   font-size: 11px;
   color: #9ca3af;
@@ -1971,6 +2074,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.4;
+  font-style: italic;
 }
 
 .ai-movie-card__watch {
@@ -1999,6 +2103,48 @@
 .ai-movie-card__watch svg {
   width: 10px;
   height: 10px;
+}
+
+/* Skeleton loading for movie cards */
+.ai-movie-card--loading {
+  pointer-events: none;
+}
+
+.ai-skeleton {
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: ai-shimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.ai-skeleton--poster {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+}
+
+.ai-skeleton--title {
+  height: 14px;
+  width: 75%;
+  margin-bottom: 2px;
+}
+
+.ai-skeleton--text {
+  height: 10px;
+  width: 100%;
+}
+
+.ai-skeleton--short {
+  width: 55%;
+}
+
+@keyframes ai-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* Suggestion chips */

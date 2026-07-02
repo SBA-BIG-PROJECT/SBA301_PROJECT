@@ -1,36 +1,194 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { chatService, authService } from '../services'
+import { chatService, authService, movieService } from '../services'
 import logo from '../assets/logo.svg'
+import noPoster from '../assets/No-Poster.svg'
 
-const TMDB_IMG = 'https://image.tmdb.org/t/p/w200'
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w300'
 
-const SUGGESTIONS = [
+/**
+ * Detect if browser language is Vietnamese
+ */
+const isVietnamese = () => {
+  const lang = navigator.language || navigator.userLanguage || ''
+  return lang.startsWith('vi')
+}
+
+const SUGGESTIONS_VI = [
   'Gợi ý phim đang hot 🔥',
   'Tìm phim hành động hay',
   'Hôm nay nên xem gì?',
   'Phim hài nhẹ nhàng cho cuối tuần',
 ]
 
+const SUGGESTIONS_EN = [
+  'Trending movies right now 🔥',
+  'Find great action movies',
+  'What should I watch today?',
+  'Light comedy for the weekend',
+]
+
+const WELCOME_VI =
+  'Xin chào! 👋 Tôi là trợ lý AI của SBA Movies. Tôi có thể giúp bạn tìm kiếm phim, gợi ý phim theo thể loại, diễn viên, hay xu hướng. Bạn muốn xem gì hôm nay?'
+const WELCOME_EN =
+  "Hi there! 👋 I'm the SBA Movies AI assistant. I can help you find movies, recommend by genre, actor, or trending. What would you like to watch today?"
+
+const LOGIN_VI = 'Vui lòng đăng nhập để sử dụng trợ lý AI! 🔐'
+const LOGIN_EN = 'Please log in to use the AI assistant! 🔐'
+
+const ERROR_VI = 'Xin lỗi, đã có lỗi xảy ra. Hãy thử lại sau nhé! 🙏'
+const ERROR_EN = 'Sorry, something went wrong. Please try again later! 🙏'
+
+const FALLBACK_VI =
+  'Xin lỗi, tôi không thể xử lý yêu cầu này. Hãy thử lại nhé! 🙏'
+const FALLBACK_EN =
+  "Sorry, I couldn't process that request. Please try again! 🙏"
+
+const PLACEHOLDER_VI = 'Hỏi gì đó về phim...'
+const PLACEHOLDER_EN = 'Ask me anything about movies...'
+
 /**
- * Parse AI response text to extract movie IDs marked as [MOVIE_ID:123]
- * and clean the text for display.
+ * Parse AI response to extract structured movie data from [AI_MOVIES]...[/AI_MOVIES] block
+ * and also fallback to the old [MOVIE_ID:xxx] format for backward compatibility.
  */
 const parseAiResponse = (text) => {
-  if (!text) return { cleanText: '', movieIds: [] }
+  if (!text) return { cleanText: '', movies: [] }
 
-  const movieIdRegex = /\[MOVIE_ID:(\d+)\]/g
-  const movieIds = []
-  let match
+  // Try structured JSON format: [AI_MOVIES]...[/AI_MOVIES]
+  const structuredRegex = /\[AI_MOVIES\]\s*([\s\S]*?)\s*\[\/AI_MOVIES\]/
+  const structuredMatch = structuredRegex.exec(text)
 
-  while ((match = movieIdRegex.exec(text)) !== null) {
-    movieIds.push(parseInt(match[1], 10))
+  if (structuredMatch) {
+    try {
+      const moviesJson = JSON.parse(structuredMatch[1].trim())
+      const cleanText = text
+        .replace(/\[AI_MOVIES\][\s\S]*?\[\/AI_MOVIES\]/, '')
+        .trim()
+      return {
+        cleanText,
+        movies: moviesJson.map((m) => ({
+          id: m.id,
+          reason: m.reason || '',
+        })),
+      }
+    } catch (e) {
+      console.warn('Failed to parse AI_MOVIES JSON:', e)
+    }
   }
 
-  // Remove the [MOVIE_ID:xxx] markers from displayed text
+  // Fallback: old [MOVIE_ID:xxx] format
+  const movieIdRegex = /\[MOVIE_ID:(\d+)\]/g
+  const movies = []
+  let match
+  while ((match = movieIdRegex.exec(text)) !== null) {
+    movies.push({ id: parseInt(match[1], 10), reason: '' })
+  }
   const cleanText = text.replace(/\s*\[MOVIE_ID:\d+\]/g, '').trim()
+  return { cleanText, movies }
+}
 
-  return { cleanText, movieIds }
+/**
+ * MovieRecommendationCard - A beautiful card showing a recommended movie
+ */
+const MovieRecommendationCard = ({ movieId, reason, detail, isLoading, onWatch }) => {
+  if (isLoading) {
+    return (
+      <div className="ai-movie-card ai-movie-card--loading">
+        <div className="ai-movie-card__poster">
+          <div className="ai-skeleton ai-skeleton--poster" />
+        </div>
+        <div className="ai-movie-card__info">
+          <div className="ai-skeleton ai-skeleton--title" />
+          <div className="ai-skeleton ai-skeleton--text" />
+          <div className="ai-skeleton ai-skeleton--text ai-skeleton--short" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!detail) return null
+
+  const posterSrc = detail.posterPath
+    ? detail.posterPath.startsWith('http')
+      ? detail.posterPath
+      : `${TMDB_IMG}${detail.posterPath.startsWith('/') ? '' : '/'}${detail.posterPath}`
+    : noPoster
+
+  const rating =
+    detail.voteAverage ?? detail.vote_average ?? detail.rating
+  const ratingNum = rating != null ? Number(rating) : null
+
+  const releaseYear = detail.releaseDate ?? detail.release_date ?? detail.releaseYear
+  const year = releaseYear
+    ? String(releaseYear).includes('-')
+      ? String(releaseYear).split('-')[0]
+      : String(releaseYear).substring(0, 4)
+    : null
+
+  const genres = detail.genres || detail.movieGenres || []
+  const genreNames = genres
+    .map((g) => g.name || g.genre?.name || g)
+    .filter(Boolean)
+    .slice(0, 3)
+
+  const isPremium = detail.isPremium || detail.is_premium
+
+  return (
+    <div className="ai-movie-card" onClick={() => onWatch(movieId)}>
+      <div className="ai-movie-card__poster">
+        <img src={posterSrc} alt={detail.title} loading="lazy" />
+        {isPremium && (
+          <span className="ai-movie-card__premium">
+            <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 9, height: 9 }}>
+              <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
+            </svg>
+            Premium
+          </span>
+        )}
+      </div>
+      <div className="ai-movie-card__info">
+        <h4 className="ai-movie-card__title">{detail.title}</h4>
+
+        <div className="ai-movie-card__meta">
+          {ratingNum != null && !isNaN(ratingNum) && (
+            <span className="ai-movie-card__rating">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              {ratingNum.toFixed(1)}
+            </span>
+          )}
+          {year && <span className="ai-movie-card__year">{year}</span>}
+        </div>
+
+        {genreNames.length > 0 && (
+          <div className="ai-movie-card__genres">
+            {genreNames.map((name, i) => (
+              <span className="ai-movie-card__genre-tag" key={i}>
+                {name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {reason && <p className="ai-movie-card__reason">{reason}</p>}
+
+        <button
+          className="ai-movie-card__watch"
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onWatch(movieId)
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          {isVietnamese() ? 'Xem ngay' : 'Watch now'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 const AIChatbot = ({ isOpen, onClose }) => {
@@ -38,10 +196,12 @@ const AIChatbot = ({ isOpen, onClose }) => {
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId, setSessionId] = useState(null)
+  const [movieCache, setMovieCache] = useState({}) // Cache: { movieId: { data, loading, error } }
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const navigate = useNavigate()
   const isLoggedIn = authService.isAuthenticated()
+  const isVi = isVietnamese()
 
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -69,31 +229,134 @@ const AIChatbot = ({ isOpen, onClose }) => {
     return () => window.removeEventListener('keydown', onKey)
   }, [isOpen, onClose])
 
-  // Create session & show welcome when opened
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome',
-          type: 'ai',
-          text: 'Xin chào! 👋 Tôi là trợ lý AI của SBA Movies. Tôi có thể giúp bạn tìm kiếm phim, gợi ý phim theo thể loại, diễn viên, hay xu hướng. Bạn muốn xem gì hôm nay?',
-          movieIds: [],
-        },
-      ])
+  /**
+   * Fetch movie details for an array of movie objects [{id, reason}]
+   * and cache them in state.
+   */
+  const fetchMovieDetails = useCallback(
+    async (movieItems) => {
+      const idsToFetch = movieItems
+        .map((m) => m.id)
+        .filter((id) => !movieCache[id])
 
-      // Create a new chat session if logged in
-      if (isLoggedIn && !sessionId) {
-        chatService
-          .createSession()
-          .then((res) => {
-            setSessionId(res.data.id)
+      if (idsToFetch.length === 0) return
+
+      // Set loading state for each movie
+      setMovieCache((prev) => {
+        const next = { ...prev }
+        idsToFetch.forEach((id) => {
+          next[id] = { data: null, loading: true, error: false }
+        })
+        return next
+      })
+
+      // Fetch all in parallel
+      const results = await Promise.allSettled(
+        idsToFetch.map((id) => movieService.getMovieDetail(id))
+      )
+
+      setMovieCache((prev) => {
+        const next = { ...prev }
+        results.forEach((result, index) => {
+          const id = idsToFetch[index]
+          if (result.status === 'fulfilled') {
+            next[id] = { data: result.value, loading: false, error: false }
+          } else {
+            next[id] = { data: null, loading: false, error: true }
+          }
+        })
+        return next
+      })
+    },
+    [movieCache]
+  )
+
+  // Load session & messages when opened
+  useEffect(() => {
+    if (!isOpen) return
+
+    // If we already have messages loaded, just focus input
+    if (messages.length > 0) return
+
+    // If we have an existing session, reload messages from backend
+    if (isLoggedIn && sessionId) {
+      chatService
+        .getSession(sessionId)
+        .then((res) => {
+          const history = res.data?.messages || []
+          const loadedMessages = [
+            {
+              id: 'welcome',
+              type: 'ai',
+              text: isVi ? WELCOME_VI : WELCOME_EN,
+              movies: [],
+            },
+          ]
+
+          const allMovieItems = []
+
+          history.forEach((msg, idx) => {
+            if (msg.role === 'USER') {
+              loadedMessages.push({
+                id: `hist-user-${idx}`,
+                type: 'user',
+                text: msg.content,
+                movies: [],
+              })
+            } else if (msg.role === 'ASSISTANT') {
+              const { cleanText, movies } = parseAiResponse(msg.content)
+              loadedMessages.push({
+                id: `hist-ai-${idx}`,
+                type: 'ai',
+                text: cleanText || msg.content,
+                movies,
+              })
+              if (movies.length > 0) {
+                allMovieItems.push(...movies)
+              }
+            }
           })
-          .catch((err) => {
-            console.error('Failed to create chat session:', err)
-          })
-      }
+
+          setMessages(loadedMessages)
+
+          // Fetch movie details for all recommended movies in history
+          if (allMovieItems.length > 0) {
+            fetchMovieDetails(allMovieItems)
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load chat history:', err)
+          // Session might be invalid, start fresh
+          setSessionId(null)
+          showWelcomeAndCreateSession()
+        })
+    } else {
+      // No existing session, show welcome and create new one
+      showWelcomeAndCreateSession()
     }
-  }, [isOpen, messages.length, isLoggedIn, sessionId])
+  }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const showWelcomeAndCreateSession = () => {
+    setMessages([
+      {
+        id: 'welcome',
+        type: 'ai',
+        text: isVi ? WELCOME_VI : WELCOME_EN,
+        movies: [],
+      },
+    ])
+
+    if (isLoggedIn) {
+      chatService
+        .createSession()
+        .then((res) => {
+          setSessionId(res.data.id)
+        })
+        .catch((err) => {
+          console.error('Failed to create chat session:', err)
+        })
+    }
+  }
 
   const handleSend = async (overrideText) => {
     const trimmed = (overrideText || inputValue).trim()
@@ -102,12 +365,12 @@ const AIChatbot = ({ isOpen, onClose }) => {
     if (!isLoggedIn) {
       setMessages((prev) => [
         ...prev,
-        { id: Date.now(), type: 'user', text: trimmed, movieIds: [] },
+        { id: Date.now(), type: 'user', text: trimmed, movies: [] },
         {
           id: Date.now() + 1,
           type: 'ai',
-          text: 'Vui lòng đăng nhập để sử dụng trợ lý AI! 🔐',
-          movieIds: [],
+          text: isVi ? LOGIN_VI : LOGIN_EN,
+          movies: [],
         },
       ])
       setInputValue('')
@@ -115,7 +378,7 @@ const AIChatbot = ({ isOpen, onClose }) => {
     }
 
     // Add user message
-    const userMsg = { id: Date.now(), type: 'user', text: trimmed, movieIds: [] }
+    const userMsg = { id: Date.now(), type: 'user', text: trimmed, movies: [] }
     setMessages((prev) => [...prev, userMsg])
     setInputValue('')
     setIsLoading(true)
@@ -133,16 +396,21 @@ const AIChatbot = ({ isOpen, onClose }) => {
       const response = await chatService.sendMessage(currentSessionId, trimmed)
       const aiContent = response.data?.content || response.data?.text || ''
 
-      const { cleanText, movieIds } = parseAiResponse(aiContent)
+      const { cleanText, movies } = parseAiResponse(aiContent)
 
       const aiMsg = {
         id: Date.now() + 1,
         type: 'ai',
-        text: cleanText || 'Xin lỗi, tôi không thể xử lý yêu cầu này. Hãy thử lại nhé! 🙏',
-        movieIds,
+        text: cleanText || (isVi ? FALLBACK_VI : FALLBACK_EN),
+        movies,
       }
 
       setMessages((prev) => [...prev, aiMsg])
+
+      // Fetch movie details for recommended movies
+      if (movies.length > 0) {
+        fetchMovieDetails(movies)
+      }
     } catch (error) {
       console.error('AI Chat error:', error)
       setMessages((prev) => [
@@ -150,8 +418,8 @@ const AIChatbot = ({ isOpen, onClose }) => {
         {
           id: Date.now() + 1,
           type: 'ai',
-          text: 'Xin lỗi, đã có lỗi xảy ra. Hãy thử lại sau nhé! 🙏',
-          movieIds: [],
+          text: isVi ? ERROR_VI : ERROR_EN,
+          movies: [],
         },
       ])
     } finally {
@@ -175,14 +443,22 @@ const AIChatbot = ({ isOpen, onClose }) => {
     navigate(`/movie/${movieId}`)
   }
 
-  // Reset session when panel is closed
+  // Close panel without losing session/messages
   const handleClose = () => {
-    setMessages([])
-    setSessionId(null)
     onClose()
   }
 
+  // Explicitly start a new chat (reset everything)
+  const handleNewChat = () => {
+    setMessages([])
+    setSessionId(null)
+    setMovieCache({})
+    showWelcomeAndCreateSession()
+  }
+
   if (!isOpen) return null
+
+  const suggestions = isVi ? SUGGESTIONS_VI : SUGGESTIONS_EN
 
   return (
     <div className="ai-chat-panel">
@@ -199,17 +475,31 @@ const AIChatbot = ({ isOpen, onClose }) => {
             <span className="ai-chat-header__title">SBA Movies AI</span>
             <span className="ai-chat-header__badge">GPT-4o</span>
           </div>
-          <button
-            className="ai-chat-header__close"
-            onClick={handleClose}
-            type="button"
-            aria-label="Close chat"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <div className="ai-chat-header__actions">
+            <button
+              className="ai-chat-header__new"
+              onClick={handleNewChat}
+              type="button"
+              aria-label="New chat"
+              title={isVi ? 'Cuộc trò chuyện mới' : 'New chat'}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+            <button
+              className="ai-chat-header__close"
+              onClick={handleClose}
+              type="button"
+              aria-label="Close chat"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Messages */}
@@ -230,29 +520,29 @@ const AIChatbot = ({ isOpen, onClose }) => {
               <div className="ai-msg__content">
                 <p className="ai-msg__text">{msg.text}</p>
 
-                {/* Movie ID Links - rendered as quick-access buttons */}
-                {msg.movieIds && msg.movieIds.length > 0 && (
-                  <div className="ai-movie-id-list">
-                    {msg.movieIds.map((movieId) => (
-                      <button
-                        className="ai-movie-id-btn"
-                        key={movieId}
-                        type="button"
-                        onClick={() => handleWatchNow(movieId)}
-                      >
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                          <polygon points="5 3 19 12 5 21 5 3" />
-                        </svg>
-                        Xem phim #{movieId}
-                      </button>
-                    ))}
+                {/* Movie Recommendation Cards */}
+                {msg.movies && msg.movies.length > 0 && (
+                  <div className="ai-movie-list">
+                    {msg.movies.map((movie) => {
+                      const cached = movieCache[movie.id]
+                      return (
+                        <MovieRecommendationCard
+                          key={movie.id}
+                          movieId={movie.id}
+                          reason={movie.reason}
+                          detail={cached?.data}
+                          isLoading={!cached || cached.loading}
+                          onWatch={handleWatchNow}
+                        />
+                      )
+                    })}
                   </div>
                 )}
 
                 {/* Suggestion chips (only on welcome) */}
                 {msg.id === 'welcome' && (
                   <div className="ai-suggestions">
-                    {SUGGESTIONS.map((s, i) => (
+                    {suggestions.map((s, i) => (
                       <button
                         key={i}
                         className="ai-suggestion-chip"
@@ -295,7 +585,7 @@ const AIChatbot = ({ isOpen, onClose }) => {
             ref={inputRef}
             className="ai-chat-input"
             type="text"
-            placeholder="Hỏi gì đó về phim..."
+            placeholder={isVi ? PLACEHOLDER_VI : PLACEHOLDER_EN}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
