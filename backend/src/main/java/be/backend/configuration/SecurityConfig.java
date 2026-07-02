@@ -46,21 +46,20 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout",
-                                "/api/v1/movies/**",          // Public movie browsing
-                                "/api/v1/genres/**",          // Public genre list
+                                "/api/v1/movies/**", // Public movie browsing
+                                "/api/v1/genres/**", // Public genre list
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/api/v1/payments/webhook",
                                 "/api/v1/payments/*/status" // Payment webhook
                         ).permitAll()
-                        
+
                         // Admin endpoints - require ADMIN role
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        
+
                         // All other endpoints - require authentication (USER or ADMIN)
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

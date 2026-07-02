@@ -38,7 +38,7 @@ public class MovieSearchTools {
 
         log.info("[AI Tool] searchMoviesByTitle called with keyword: {}", keyword);
 
-        Page<Movie> movies = movieRepository.searchByKeyword(keyword, PageRequest.of(0, 6));
+        Page<Movie> movies = movieRepository.searchByKeyword(keyword, PageRequest.of(0, 10));
 
         if (movies.isEmpty()) {
             return "No movies found matching '" + keyword + "'.";
@@ -68,13 +68,76 @@ public class MovieSearchTools {
         }
 
         Page<Movie> movies = movieRepository.findActiveByGenre(
-                matchedGenre.getId(), PageRequest.of(0, 6));
+                matchedGenre.getId(), PageRequest.of(0, 10));
 
         if (movies.isEmpty()) {
             return "No movies found for genre '" + matchedGenre.getName() + "'.";
         }
 
         return "Genre: " + matchedGenre.getName() + "\n" +
+                movies.getContent().stream()
+                        .map(m -> formatMovie(m))
+                        .collect(Collectors.joining("\n---\n"));
+    }
+
+    @Tool(description = "Search movies that match MULTIPLE genres at once. Use this when the user wants a combination like 'action anime' (Action + Animation), 'romantic comedy' (Romance + Comedy), 'sci-fi horror' (Science Fiction + Horror), etc. This finds movies that belong to ALL specified genres.")
+    public String searchMoviesByMultipleGenres(
+            @ToolParam(description = "Comma-separated genre names, e.g. 'Animation,Action' or 'Romance,Comedy' or 'Horror,Thriller'") String genreNames) {
+
+        log.info("[AI Tool] searchMoviesByMultipleGenres called with genres: {}", genreNames);
+
+        List<Genre> allGenres = genreRepository.findAll();
+        String[] requestedGenres = genreNames.split(",");
+        List<Genre> matchedGenres = new java.util.ArrayList<>();
+
+        for (String name : requestedGenres) {
+            String trimmed = name.trim();
+            Genre found = allGenres.stream()
+                    .filter(g -> g.getName().toLowerCase().contains(trimmed.toLowerCase()))
+                    .findFirst()
+                    .orElse(null);
+            if (found != null) {
+                matchedGenres.add(found);
+            }
+        }
+
+        if (matchedGenres.isEmpty()) {
+            return "No matching genres found. Available genres: " +
+                    allGenres.stream().map(Genre::getName).collect(Collectors.joining(", "));
+        }
+
+        if (matchedGenres.size() < requestedGenres.length) {
+            String foundNames = matchedGenres.stream().map(Genre::getName).collect(Collectors.joining(", "));
+            String available = allGenres.stream().map(Genre::getName).collect(Collectors.joining(", "));
+            log.warn("Only matched {} of {} genres: {}", matchedGenres.size(), requestedGenres.length, foundNames);
+        }
+
+        List<Integer> genreIds = matchedGenres.stream().map(Genre::getId).toList();
+        Page<Movie> movies = movieRepository.findActiveByMultipleGenres(
+                genreIds, genreIds.size(), PageRequest.of(0, 10));
+
+        String genreLabel = matchedGenres.stream().map(Genre::getName).collect(Collectors.joining(" + "));
+
+        if (movies.isEmpty()) {
+            // Fallback: try each genre individually and report
+            StringBuilder sb = new StringBuilder();
+            sb.append("No movies found matching ALL genres: ").append(genreLabel).append(".\n");
+            sb.append("Here are movies for each genre individually:\n");
+            for (Genre g : matchedGenres) {
+                Page<Movie> genreMovies = movieRepository.findActiveByGenre(g.getId(), PageRequest.of(0, 5));
+                sb.append("\n--- ").append(g.getName()).append(" ---\n");
+                if (genreMovies.isEmpty()) {
+                    sb.append("No movies found.\n");
+                } else {
+                    sb.append(genreMovies.getContent().stream()
+                            .map(m -> formatMovie(m))
+                            .collect(Collectors.joining("\n")));
+                }
+            }
+            return sb.toString();
+        }
+
+        return "Genres: " + genreLabel + " (" + movies.getTotalElements() + " movies found)\n" +
                 movies.getContent().stream()
                         .map(m -> formatMovie(m))
                         .collect(Collectors.joining("\n---\n"));
@@ -87,7 +150,7 @@ public class MovieSearchTools {
 
         Instant thirtyDaysAgo = Instant.now().minus(30, ChronoUnit.DAYS);
         Page<Integer> trendingIds = viewLogRepository.findTrendingMovieIds(
-                thirtyDaysAgo, PageRequest.of(0, 6));
+                thirtyDaysAgo, PageRequest.of(0, 10));
 
         if (trendingIds.isEmpty()) {
             return "No trending data available right now.";
@@ -107,7 +170,7 @@ public class MovieSearchTools {
         log.info("[AI Tool] searchMoviesByPerson called with person: {}", personName);
 
         Page<Movie> movies = movieRepository.searchByFilters(
-                null, personName, personName, PageRequest.of(0, 6));
+                null, personName, personName, PageRequest.of(0, 10));
 
         if (movies.isEmpty()) {
             return "No movies found with actor/director '" + personName + "'.";
@@ -139,6 +202,12 @@ public class MovieSearchTools {
         }
         if (m.getVoteAverage() != null) {
             sb.append(" | Rating: ").append(String.format("%.1f", m.getVoteAverage()));
+        }
+        if (m.getReleaseDate() != null) {
+            sb.append(" | ReleaseDate: ").append(m.getReleaseDate());
+        }
+        if (m.getIsPremium() != null && m.getIsPremium()) {
+            sb.append(" | Premium: true");
         }
         if (m.getOverview() != null && !m.getOverview().isEmpty()) {
             String overview = m.getOverview().length() > 150

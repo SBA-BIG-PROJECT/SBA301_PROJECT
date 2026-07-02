@@ -62,6 +62,18 @@ public interface MovieRepository extends JpaRepository<Movie, Integer> {
     Page<Movie> findActiveByGenre(@Param("genreId") Integer genreId, Pageable pageable);
 
     @Query("""
+        SELECT m FROM Movie m
+        WHERE m.isActive = true
+          AND (
+            SELECT COUNT(DISTINCT mg.genre.id) FROM MovieGenre mg
+            WHERE mg.tmdb = m AND mg.genre.id IN :genreIds
+          ) = :genreCount
+        """)
+    Page<Movie> findActiveByMultipleGenres(@Param("genreIds") List<Integer> genreIds,
+                                           @Param("genreCount") long genreCount,
+                                           Pageable pageable);
+
+    @Query("""
         SELECT m.id, 
                (SELECT COUNT(v) FROM ViewLog v WHERE v.tmdb.id = m.id),
                (SELECT COUNT(r) FROM Review r WHERE r.tmdb.id = m.id),
