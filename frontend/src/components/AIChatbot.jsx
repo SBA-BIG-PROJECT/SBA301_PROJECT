@@ -201,7 +201,16 @@ const AIChatbot = ({ isOpen, onClose }) => {
   const inputRef = useRef(null)
   const navigate = useNavigate()
   const isLoggedIn = authService.isAuthenticated()
+  const currentUser = authService.getCurrentUser()
+  const currentUserId = currentUser?.id
   const isVi = isVietnamese()
+
+  // Reset chat when user account changes
+  useEffect(() => {
+    setMessages([])
+    setSessionId(null)
+    setMovieCache({})
+  }, [currentUserId])
 
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -326,7 +335,7 @@ const AIChatbot = ({ isOpen, onClose }) => {
         })
         .catch((err) => {
           console.error('Failed to load chat history:', err)
-          // Session might be invalid, start fresh
+          // Session might be invalid or belong to another user, start fresh
           setSessionId(null)
           showWelcomeAndCreateSession()
         })
@@ -334,7 +343,7 @@ const AIChatbot = ({ isOpen, onClose }) => {
       // No existing session, show welcome and create new one
       showWelcomeAndCreateSession()
     }
-  }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, currentUserId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const showWelcomeAndCreateSession = () => {
     setMessages([
