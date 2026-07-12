@@ -8,4 +8,6 @@ public interface JwtService {
     Date extractExpiration(String token);
     boolean isTokenValid(String token, UserDetails userDetails);
     long getExpirationMillis();
+    String generatePlayToken(Integer movieId);
+    Integer verifyPlayToken(String token);
 }
