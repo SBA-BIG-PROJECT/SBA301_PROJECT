@@ -26,4 +26,5 @@ public interface MovieService {
     AdminMovieDto setMoviePremium(Integer tmdbId, boolean isPremium);
     void refreshAllMovieCategories();
     void refreshMovieCategories(Integer tmdbId);
+    String resolveEmbedUrl(String playToken);
 }

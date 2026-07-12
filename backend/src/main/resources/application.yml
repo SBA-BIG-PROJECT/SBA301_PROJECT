@@ -41,6 +41,7 @@ jwt:
   secret-key: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION}
+  play-expiration: 180000
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
@@ -60,3 +61,7 @@ storage:
     allowed-types: image/jpeg,image/jpg,image/png,image/gif,image/webp
     allowed-extensions: jpg,jpeg,png,gif,webp
     max-file-size: 5242880
+
+app:
+  aes-secret: ${AES_SECRET}
+  frontend-origin: ${FRONTEND_ORIGIN}

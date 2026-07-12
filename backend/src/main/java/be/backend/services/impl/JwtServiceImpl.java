@@ -22,6 +22,9 @@ public class JwtServiceImpl implements JwtService {
     @Value("${jwt.expiration}")
     private long jwtExpiration;
 
+    @Value("${jwt.play-expiration}")
+    private long playExpiration;
+
     @Override
     public String generateToken(UserDetails userDetails) {
         Date now = new Date();
@@ -33,6 +36,31 @@ public class JwtServiceImpl implements JwtService {
                 .expiration(new Date(now.getTime() + jwtExpiration))
                 .signWith(getSignInKey())
                 .compact();
+    }
+
+    @Override
+    public String generatePlayToken(Integer movieId) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(String.valueOf(movieId))
+                .claim("type", "play")
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + playExpiration))
+                .signWith(getSignInKey())
+                .compact();
+    }
+
+    @Override
+    public Integer verifyPlayToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            if (!"play".equals(claims.get("type", String.class))) {
+                return null;
+            }
+            return Integer.valueOf(claims.getSubject());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override

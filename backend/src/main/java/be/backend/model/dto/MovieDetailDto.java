@@ -23,4 +23,5 @@ public class MovieDetailDto {
     private List<CastMemberDto> cast;
     private Boolean requiresPremium;
     private Boolean isLocked;
+    private String playToken;
 }

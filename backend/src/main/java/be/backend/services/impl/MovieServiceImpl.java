@@ -1,6 +1,6 @@
 package be.backend.services.impl;
 
-import be.backend.entity.Category;
+import be.backend.configuration.CryptoConfig;
 import be.backend.entity.Genre;
 import be.backend.entity.Movie;
 import be.backend.entity.MovieCategory;
@@ -22,10 +22,9 @@ import be.backend.repository.GenreRepository;
 import be.backend.repository.MovieCategoryRepository;
 import be.backend.repository.MovieGenreRepository;
 import be.backend.repository.MovieRepository;
-import be.backend.repository.ReviewRepository;
 import be.backend.repository.UserRepository;
 import be.backend.repository.ViewLogRepository;
-import be.backend.repository.WatchlistRepository;
+import be.backend.services.JwtService;
 import be.backend.services.MovieService;
 import be.backend.services.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -42,12 +41,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -55,7 +55,24 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MovieServiceImpl implements MovieService {
 
+    // ----- Business constants -----
     private static final int MAX_PREMIUM_MOVIES = 10;
+    private static final int TRENDING_WINDOW_DAYS = 7;
+    private static final int NOW_PLAYING_WINDOW_DAYS = 60;
+    private static final double TOP_RATED_MIN_RATING = 8.0;
+    private static final int TOP_RATED_MIN_VOTES = 5;
+    private static final int TRENDING_SCAN_SIZE = 50;
+
+    // ----- Stats row column indices (from findMovieStatsBatch) -----
+    private static final int STAT_VIEWS = 1;
+    private static final int STAT_REVIEWS = 2;
+    private static final int STAT_WATCHLIST = 3;
+    private static final int STAT_RATING = 4;
+
+    private static final Pattern YT_PATTERN = Pattern.compile(
+            "(?:youtube\\.com/(?:watch\\?v=|embed/)|youtu\\.be/)([\\w-]{11})");
+    private static final String YT_EMBED_PREFIX = "https://www.youtube-nocookie.com/embed/";
+    private static final String YT_EMBED_SUFFIX = "?rel=0&modestbranding=1";
 
     private final MovieRepository movieRepository;
     private final MovieMapper movieMapper;
@@ -65,10 +82,11 @@ public class MovieServiceImpl implements MovieService {
     private final MovieGenreRepository movieGenreRepository;
     private final MovieCategoryRepository movieCategoryRepository;
     private final UserRepository userRepository;
-    private final ReviewRepository reviewRepository;
-    private final WatchlistRepository watchlistRepository;
     private final NotificationService notificationService;
+    private final JwtService jwtService;
+    private final CryptoConfig crypto;
 
+    // ================================================================ Public
 
     @Override
     @Transactional(readOnly = true)
@@ -78,7 +96,7 @@ public class MovieServiceImpl implements MovieService {
         Page<Movie> result;
         if (genreId != null) {
             result = movieRepository.findActiveByGenre(genreId, pageable);
-        } else if (search != null && !search.isBlank()) {
+        } else if (hasText(search)) {
             result = movieRepository.searchByKeyword(search.trim(), pageable);
         } else {
             result = movieRepository.findByIsActiveTrue(pageable);
@@ -94,24 +112,16 @@ public class MovieServiceImpl implements MovieService {
                 .orElseThrow(() -> new ResourceNotFoundException("Movie not found with id=" + id));
 
         MovieDetailDto dto = movieMapper.toDetailDto(movie);
+        dto.setTrailerUrl(null); // link thật không bao giờ ra ngoài
 
-        // Lock upcoming — releaseDate là LocalDate
-        boolean isUpcoming = movie.getMovieCategories().stream()
-                .anyMatch(mc -> "upcoming".equals(mc.getCategory().getCategoryId()));
-        boolean upcomingLocked = isUpcoming
-                && movie.getReleaseDate() != null
-                && movie.getReleaseDate().isAfter(Instant.now());
-
-        dto.setIsLocked(upcomingLocked);
-        if (upcomingLocked) dto.setTrailerUrl(null);
-
-        // Lock premium
         boolean requiresPremium = Boolean.TRUE.equals(movie.getIsPremium());
         dto.setRequiresPremium(requiresPremium);
 
-        if (requiresPremium && !currentUserHasActivePremium()) {
-            dto.setTrailerUrl(null);
-            dto.setIsLocked(true);
+        boolean locked = isUpcomingLocked(movie) || (requiresPremium && !currentUserHasActivePremium());
+        dto.setIsLocked(locked);
+
+        if (!locked && movie.getTrailerUrl() != null) {
+            dto.setPlayToken(jwtService.generatePlayToken(movie.getId()));
         }
 
         return dto;
@@ -121,21 +131,36 @@ public class MovieServiceImpl implements MovieService {
     @Transactional(readOnly = true)
     public PageResponse<TrendingMovieDto> getTrendingMovies(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Instant fromDate = Instant.now().minus(7, ChronoUnit.DAYS);
+        Instant fromDate = Instant.now().minus(TRENDING_WINDOW_DAYS, ChronoUnit.DAYS);
 
-        Page<Integer> movieIds = viewLogRepository.findTrendingMovieIds(fromDate, pageable);
+        Page<Integer> movieIdsPage = viewLogRepository.findTrendingMovieIds(fromDate, pageable);
+        List<Integer> ids = movieIdsPage.getContent();
 
-        List<TrendingMovieDto> content = movieIds.getContent().stream()
-                .map(movieRepository::findById)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+        Map<Integer, Movie> byId = movieRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Movie::getId, m -> m));
+
+        List<TrendingMovieDto> content = ids.stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
                 .map(this::toTrendingDto)
                 .toList();
 
-        return PageResponse.from(new PageImpl<>(content, pageable, movieIds.getTotalElements()));
+        return PageResponse.from(new PageImpl<>(content, pageable, movieIdsPage.getTotalElements()));
     }
 
-    // ---------------------------------------------------------------- Admin
+    @Override
+    @Transactional(readOnly = true)
+    public String resolveEmbedUrl(String playToken) {
+        Integer movieId = jwtService.verifyPlayToken(playToken);
+        if (movieId == null) return null;
+
+        Movie movie = movieRepository.findByIdAndIsActiveTrue(movieId).orElse(null);
+        if (movie == null || movie.getTrailerUrl() == null) return null;
+
+        return toEmbedUrl(crypto.decrypt(movie.getTrailerUrl()));
+    }
+
+    // ================================================================ Admin
 
     @Override
     @Transactional(readOnly = true)
@@ -143,7 +168,7 @@ public class MovieServiceImpl implements MovieService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "addedAt"));
 
         Page<Movie> moviePage;
-        if (search != null && !search.isBlank()) {
+        if (hasText(search)) {
             moviePage = movieRepository.searchByKeyword(search.trim(), pageable);
         } else if (isActive != null) {
             moviePage = isActive
@@ -178,7 +203,7 @@ public class MovieServiceImpl implements MovieService {
         movie.setPosterPath(request.getPosterPath());
         movie.setBackdropPath(request.getBackdropPath());
         movie.setReleaseDate(request.getReleaseDate());
-        movie.setTrailerUrl(request.getTrailerUrl());
+        movie.setTrailerUrl(encryptUrl(request.getTrailerUrl()));
         movie.setIsActive(true);
         movie.setIsPremium(false);
         movie.setAddedAt(Instant.now());
@@ -190,16 +215,8 @@ public class MovieServiceImpl implements MovieService {
             addGenresToMovie(saved, request.getGenreIds());
         }
 
-        refreshMovieCategories(saved, false); // Not trending initially unless forced
-        // gửi notification cho tất cả user
-        List<User> users = userRepository.findAll();
-
-        for (User user : users) {
-            notificationService.createNewMovieNotification(
-                    user,
-                    saved.getTitle()
-            );
-        }
+        refreshMovieCategories(saved, false);
+        notifyAllUsersNewMovie(saved.getTitle());
 
         log.info("Admin created movie: {} (id={})", saved.getTitle(), saved.getId());
         return toAdminMovieDto(saved, fetchSingleStats(saved.getId()));
@@ -215,7 +232,7 @@ public class MovieServiceImpl implements MovieService {
         if (request.getPosterPath() != null)   movie.setPosterPath(request.getPosterPath());
         if (request.getBackdropPath() != null) movie.setBackdropPath(request.getBackdropPath());
         if (request.getReleaseDate() != null)  movie.setReleaseDate(request.getReleaseDate());
-        if (request.getTrailerUrl() != null)   movie.setTrailerUrl(request.getTrailerUrl());
+        if (request.getTrailerUrl() != null)   movie.setTrailerUrl(encryptUrl(request.getTrailerUrl()));
         if (request.getIsActive() != null)     movie.setIsActive(request.getIsActive());
 
         if (request.getGenreIds() != null) {
@@ -270,84 +287,22 @@ public class MovieServiceImpl implements MovieService {
     @Override
     @Transactional
     public void refreshAllMovieCategories() {
-        Pageable pageable = PageRequest.of(0, 50);
-        Instant sevenDaysAgo = Instant.now().minus(7, ChronoUnit.DAYS);
-        List<Integer> trendingIds = viewLogRepository.findTrendingMovieIds(sevenDaysAgo, pageable).getContent();
-
+        List<Integer> trendingIds = fetchTrendingIds();
         List<Movie> activeMovies = movieRepository.findByIsActiveTrue(Pageable.unpaged()).getContent();
+
         for (Movie movie : activeMovies) {
-            boolean isTrending = trendingIds.contains(movie.getId());
-            refreshMovieCategories(movie, isTrending);
+            refreshMovieCategories(movie, trendingIds.contains(movie.getId()));
         }
         movieRepository.saveAll(activeMovies);
-        log.info("Admin manually or cron refreshed all movie categories");
+        log.info("Refreshed categories for {} active movies", activeMovies.size());
     }
 
     @Override
     @Transactional
     public void refreshMovieCategories(Integer tmdbId) {
         Movie movie = findMovieById(tmdbId);
-        
-        Instant sevenDaysAgo = Instant.now().minus(7, ChronoUnit.DAYS);
-        List<Integer> trendingIds = viewLogRepository.findTrendingMovieIds(sevenDaysAgo, PageRequest.of(0, 50)).getContent();
-        boolean isTrending = trendingIds.contains(movie.getId());
-        
-        refreshMovieCategories(movie, isTrending);
+        refreshMovieCategories(movie, fetchTrendingIds().contains(movie.getId()));
         movieRepository.save(movie);
-    }
-    
-    private void refreshMovieCategories(Movie movie, boolean isTrending) {
-        if (!movie.getMovieCategories().isEmpty()) {
-            movieCategoryRepository.deleteByMovieId(movie.getId());
-            movieCategoryRepository.flush();
-            movie.getMovieCategories().clear();
-        }
-
-        Instant now = Instant.now();
-        Instant sixtyDaysAgo = now.minus(60, ChronoUnit.DAYS);
-
-        // 1. upcoming: releaseDate > now
-        if (movie.getReleaseDate() != null && movie.getReleaseDate().isAfter(now)) {
-            addCategoryToMovie(movie, "upcoming");
-        }
-
-        // 2. now_playing: releaseDate <= now AND releaseDate >= 60 days ago
-        if (movie.getReleaseDate() != null && !movie.getReleaseDate().isAfter(now) && movie.getReleaseDate().isAfter(sixtyDaysAgo)) {
-            addCategoryToMovie(movie, "now_playing");
-        }
-
-        // 3. top_rated: TMDB rating >= 8.0 or internal rating >= 8.0
-        double rating = 0.0;
-        int count = 0;
-        if (movie.getVoteAverage() != null && movie.getVoteAverage() > 0) {
-            rating = movie.getVoteAverage();
-            count = movie.getVoteCount() != null ? movie.getVoteCount() : 0;
-        } else {
-            Object[] stats = fetchSingleStats(movie.getId());
-            if (stats != null) {
-                count = stats[2] != null ? ((Number) stats[2]).intValue() : 0;
-                rating = stats[4] != null ? ((Number) stats[4]).doubleValue() : 0.0;
-            }
-        }
-
-        if (rating >= 8.0 && count >= 5) {
-            addCategoryToMovie(movie, "top_rated");
-        }
-
-        // 4. trending
-        if (isTrending) {
-            addCategoryToMovie(movie, "trending");
-        }
-    }
-
-    private void addCategoryToMovie(Movie movie, String categoryId) {
-        categoryRepository.findById(categoryId).ifPresent(category -> {
-            MovieCategory mc = new MovieCategory();
-            mc.setTmdb(movie);
-            mc.setCategory(category);
-            mc = movieCategoryRepository.save(mc);
-            movie.getMovieCategories().add(mc);
-        });
     }
 
     @Override
@@ -363,7 +318,73 @@ public class MovieServiceImpl implements MovieService {
         return toAdminMovieDto(saved, fetchSingleStats(saved.getId()));
     }
 
-    // ---------------------------------------------------------------- Helpers
+    // ================================================================ Category logic
+
+    private void refreshMovieCategories(Movie movie, boolean isTrending) {
+        if (!movie.getMovieCategories().isEmpty()) {
+            movieCategoryRepository.deleteByMovieId(movie.getId());
+            movieCategoryRepository.flush();
+            movie.getMovieCategories().clear();
+        }
+
+        Instant now = Instant.now();
+        Instant nowPlayingSince = now.minus(NOW_PLAYING_WINDOW_DAYS, ChronoUnit.DAYS);
+        Instant releaseDate = movie.getReleaseDate();
+
+
+        if (releaseDate != null && releaseDate.isAfter(now)) {
+            addCategoryToMovie(movie, "upcoming");
+        }
+        if (releaseDate != null && !releaseDate.isAfter(now) && releaseDate.isAfter(nowPlayingSince)) {
+            addCategoryToMovie(movie, "now_playing");
+        }
+        if (qualifiesTopRated(movie)) {
+            addCategoryToMovie(movie, "top_rated");
+        }
+        if (isTrending) {
+            addCategoryToMovie(movie, "trending");
+        }
+    }
+
+    private boolean qualifiesTopRated(Movie movie) {
+        double rating;
+        int count;
+        if (movie.getVoteAverage() != null && movie.getVoteAverage() > 0) {
+            rating = movie.getVoteAverage();
+            count = movie.getVoteCount() != null ? movie.getVoteCount() : 0;
+        } else {
+            Object[] stats = fetchSingleStats(movie.getId());
+            count = statInt(stats, STAT_REVIEWS);
+            rating = statDouble(stats, STAT_RATING);
+        }
+        return rating >= TOP_RATED_MIN_RATING && count >= TOP_RATED_MIN_VOTES;
+    }
+
+    private void addCategoryToMovie(Movie movie, String categoryId) {
+        categoryRepository.findById(categoryId).ifPresent(category -> {
+            MovieCategory mc = new MovieCategory();
+            mc.setTmdb(movie);
+            mc.setCategory(category);
+            movie.getMovieCategories().add(movieCategoryRepository.save(mc));
+        });
+    }
+
+    private List<Integer> fetchTrendingIds() {
+        Instant since = Instant.now().minus(TRENDING_WINDOW_DAYS, ChronoUnit.DAYS);
+        return viewLogRepository
+                .findTrendingMovieIds(since, PageRequest.of(0, TRENDING_SCAN_SIZE))
+                .getContent();
+    }
+
+    // ================================================================ Locking
+
+    private boolean isUpcomingLocked(Movie movie) {
+        boolean isUpcoming = movie.getMovieCategories().stream()
+                .anyMatch(mc -> "upcoming".equals(mc.getCategory().getCategoryId()));
+        return isUpcoming
+                && movie.getReleaseDate() != null
+                && movie.getReleaseDate().isAfter(Instant.now());
+    }
 
     private boolean currentUserHasActivePremium() {
         User user = getCurrentUserOrNull();
@@ -372,6 +393,8 @@ public class MovieServiceImpl implements MovieService {
                 && user.getPremiumExpiresAt() != null
                 && user.getPremiumExpiresAt().isAfter(Instant.now());
     }
+
+    // ================================================================ Mapping
 
     private TrendingMovieDto toTrendingDto(Movie movie) {
         TrendingMovieDto dto = new TrendingMovieDto();
@@ -393,7 +416,7 @@ public class MovieServiceImpl implements MovieService {
         dto.setReleaseDate(movie.getReleaseDate());
         dto.setVoteAverage(movie.getVoteAverage());
         dto.setVoteCount(movie.getVoteCount());
-        dto.setTrailerUrl(movie.getTrailerUrl());
+        dto.setTrailerUrl(decryptUrl(movie.getTrailerUrl())); // admin thấy link thật
         dto.setAddedAt(movie.getAddedAt());
         dto.setIsActive(movie.getIsActive());
         dto.setIsPremium(movie.getIsPremium());
@@ -411,22 +434,26 @@ public class MovieServiceImpl implements MovieService {
                 .map(mc -> new CategoryDto(mc.getCategory().getCategoryId(), mc.getCategory().getName()))
                 .collect(Collectors.toList()));
 
-        if (stats != null) {
-            dto.setTotalViews(((Number) stats[1]).longValue());
-            dto.setTotalReviews(((Number) stats[2]).longValue());
-            dto.setTotalWatchlist(((Number) stats[3]).longValue());
-            dto.setAverageRating(stats[4] != null
-                    ? Math.round(((Number) stats[4]).doubleValue() * 10.0) / 10.0
-                    : 0.0);
-        } else {
+        applyStats(dto, stats);
+        return dto;
+    }
+
+    private void applyStats(AdminMovieDto dto, Object[] stats) {
+        if (stats == null) {
             dto.setTotalViews(0L);
             dto.setTotalReviews(0L);
             dto.setTotalWatchlist(0L);
             dto.setAverageRating(0.0);
+            return;
         }
-
-        return dto;
+        dto.setTotalViews((long) statInt(stats, STAT_VIEWS));
+        dto.setTotalReviews((long) statInt(stats, STAT_REVIEWS));
+        dto.setTotalWatchlist((long) statInt(stats, STAT_WATCHLIST));
+        double rating = statDouble(stats, STAT_RATING);
+        dto.setAverageRating(Math.round(rating * 10.0) / 10.0);
     }
+
+    // ================================================================ Stats helpers
 
     private Map<Integer, Object[]> fetchStatsMap(Page<Movie> moviePage) {
         List<Integer> ids = moviePage.getContent().stream().map(Movie::getId).toList();
@@ -442,6 +469,37 @@ public class MovieServiceImpl implements MovieService {
         return stats.isEmpty() ? null : stats.get(0);
     }
 
+    private int statInt(Object[] stats, int index) {
+        return (stats != null && stats[index] != null) ? ((Number) stats[index]).intValue() : 0;
+    }
+
+    private double statDouble(Object[] stats, int index) {
+        return (stats != null && stats[index] != null) ? ((Number) stats[index]).doubleValue() : 0.0;
+    }
+
+    // ================================================================ URL / crypto helpers
+
+    private String encryptUrl(String url) {
+        return url != null ? crypto.encrypt(url) : null;
+    }
+
+    private String decryptUrl(String stored) {
+        return stored != null ? crypto.decrypt(stored) : null;
+    }
+
+    private String toEmbedUrl(String url) {
+        Matcher m = YT_PATTERN.matcher(url);
+        return m.find() ? YT_EMBED_PREFIX + m.group(1) + YT_EMBED_SUFFIX : url;
+    }
+
+    // ================================================================ Misc helpers
+
+    private void notifyAllUsersNewMovie(String title) {
+        for (User user : userRepository.findAll()) {
+            notificationService.createNewMovieNotification(user, title);
+        }
+    }
+
     private void addGenresToMovie(Movie movie, List<Integer> genreIds) {
         for (Integer genreId : genreIds) {
             Genre genre = genreRepository.findById(genreId)
@@ -449,12 +507,9 @@ public class MovieServiceImpl implements MovieService {
             MovieGenre mg = new MovieGenre();
             mg.setTmdb(movie);
             mg.setGenre(genre);
-            mg = movieGenreRepository.save(mg);
-            movie.getMovieGenres().add(mg);
+            movie.getMovieGenres().add(movieGenreRepository.save(mg));
         }
     }
-
-
 
     private Movie findMovieById(Integer tmdbId) {
         return movieRepository.findById(tmdbId)
@@ -472,11 +527,16 @@ public class MovieServiceImpl implements MovieService {
 
     private User getCurrentUserOrNull() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()
-                || "anonymousUser".equals(auth.getPrincipal())) return null;
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return null;
+        }
         if (auth.getPrincipal() instanceof UserDetails ud) {
             return userRepository.findByEmail(ud.getUsername()).orElse(null);
         }
         return null;
+    }
+
+    private boolean hasText(String s) {
+        return s != null && !s.isBlank();
     }
 }
