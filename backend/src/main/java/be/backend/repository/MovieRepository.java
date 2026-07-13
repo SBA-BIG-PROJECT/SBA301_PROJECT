@@ -15,6 +15,7 @@ import java.util.Optional;
 public interface MovieRepository extends JpaRepository<Movie, Integer>, JpaSpecificationExecutor<Movie> {
 
     Page<Movie> findByIsActiveTrue(Pageable pageable);
+    Page<Movie> findByIsActiveFalse(Pageable pageable);
     long countByIsActiveTrue();
 
     @EntityGraph(attributePaths = {
