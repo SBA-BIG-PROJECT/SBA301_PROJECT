@@ -23,22 +23,47 @@ const StatCard = ({ icon, label, value }) => (
   </div>
 )
 
-const InputField = ({ label, id, type = 'text', value, onChange, placeholder, error, hint }) => (
-  <div className="up-field">
-    <label htmlFor={id} className="up-field__label">{label}</label>
-    <input
-      id={id}
-      type={type}
-      className={`up-field__input ${error ? 'up-field__input--error' : ''}`}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      autoComplete="off"
-    />
-    {error && <p className="up-field__error">{error}</p>}
-    {hint && !error && <p className="up-field__hint">{hint}</p>}
-  </div>
-)
+const InputField = ({ label, id, type = 'text', value, onChange, placeholder, error, hint }) => {
+  const [showPassword, setShowPassword] = useState(false)
+  const isPassword = type === 'password'
+
+  return (
+    <div className="up-field">
+      <label htmlFor={id} className="up-field__label">{label}</label>
+      <div className={isPassword ? 'relative' : ''}>
+        <input
+          id={id}
+          type={isPassword ? (showPassword ? 'text' : 'password') : type}
+          className={`up-field__input ${error ? 'up-field__input--error' : ''} ${isPassword ? 'pr-10' : ''}`}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          autoComplete="off"
+        />
+        {isPassword && (
+          <button
+            type="button"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-light-200 hover:text-white transition-colors cursor-pointer"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            )}
+          </button>
+        )}
+      </div>
+      {error && <p className="up-field__error">{error}</p>}
+      {hint && !error && <p className="up-field__hint">{hint}</p>}
+    </div>
+  )
+}
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
@@ -80,6 +105,7 @@ const UserProfile = ({ onClose }) => {
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteError, setDeleteError] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [showDeletePassword, setShowDeletePassword] = useState(false)
 
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -503,19 +529,37 @@ const UserProfile = ({ onClose }) => {
             <div className="up-confirm-modal">
               <h3>⚠️ Confirm account deletion</h3>
               <p>This action cannot be undone. Enter password to confirm:</p>
-              <input
-                type="password"
-                className="up-field__input"
-                placeholder="Your password"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  type={showDeletePassword ? 'text' : 'password'}
+                  className="up-field__input pr-10"
+                  placeholder="Your password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-light-200 hover:text-white transition-colors cursor-pointer"
+                  onClick={() => setShowDeletePassword(!showDeletePassword)}
+                >
+                  {showDeletePassword ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
               {deleteError && <p className="up-field__error">{deleteError}</p>}
               <div className="up-form__actions">
                 <button className="up-btn up-btn--danger" onClick={handleDeleteAccount} disabled={deleteLoading}>
                   {deleteLoading ? 'Deleting...' : 'Confirm deletion'}
                 </button>
-                <button className="up-btn up-btn--ghost" onClick={() => { setShowDeleteModal(false); setDeletePassword(''); setDeleteError('') }}>
+                <button className="up-btn up-btn--ghost" onClick={() => { setShowDeleteModal(false); setDeletePassword(''); setDeleteError(''); setShowDeletePassword(false); }}>
                   Cancel
                 </button>
               </div>

@@ -30,10 +30,12 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config
+    const isAuthRequest = originalRequest.url?.includes('/auth/login') || 
+                          originalRequest.url?.includes('/auth/register') ||
+                          originalRequest.url?.includes('/auth/refresh')
 
-    // If token expired (401) or forbidden (403) and not retried
-    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
+    // If token expired (401) or forbidden (403), not retried, and is not an auth request
+    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry && !isAuthRequest) {
       originalRequest._retry = true
 
       try {

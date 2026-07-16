@@ -97,6 +97,8 @@ const Detail = () => {
     }
   }, [id, isInWatchlist])
 
+
+
   const handleWatchlistToggle = async () => {
     try {
       if (inWatchlist) {
