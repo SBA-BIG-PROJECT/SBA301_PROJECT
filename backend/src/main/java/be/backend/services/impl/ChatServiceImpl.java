@@ -11,11 +11,13 @@ import be.backend.model.request.ChatMessageRequest;
 import be.backend.repository.UserRepository;
 import be.backend.repository.mongo.ChatMessageRepository;
 import be.backend.repository.mongo.ChatSessionRepository;
+import be.backend.services.AiDomainGuard;
 import be.backend.services.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +37,8 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMessageRepository messageRepository;
 
     private final UserRepository userRepository;
+
+    private final AiDomainGuard aiDomainGuard;
 
     @Override
     public ChatSessionDto createSession() {
@@ -145,6 +149,33 @@ public class ChatServiceImpl implements ChatService {
 
         String userContent =
                 request.getMessage().trim();
+
+        if (aiDomainGuard.isClearlyOutOfDomain(userContent)) {
+
+            String refusal =
+                    "Xin lỗi, tôi chỉ hỗ trợ các nội dung liên quan đến "
+                            + "phim ảnh. Bạn có thể hỏi tôi về phim, diễn viên, "
+                            + "đạo diễn hoặc gợi ý phim nhé 🎬";
+
+            chatMemory.add(
+                    sessionId,
+                    new UserMessage(userContent)
+            );
+
+            chatMemory.add(
+                    sessionId,
+                    new AssistantMessage(refusal)
+            );
+
+            ChatMessageDto dto =
+                    new ChatMessageDto();
+
+            dto.setRole("ASSISTANT");
+            dto.setContent(refusal);
+            dto.setSentAt(Instant.now());
+
+            return dto;
+        }
 
         /*
          * Đặt title từ câu hỏi đầu tiên.
