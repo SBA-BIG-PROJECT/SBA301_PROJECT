@@ -46,6 +46,88 @@ const FALLBACK_EN =
 
 const PLACEHOLDER_VI = 'Hỏi gì đó về phim...'
 const PLACEHOLDER_EN = 'Ask me anything about movies...'
+const MOVIE_SUMMARY_VI = 'Mình đã tìm thấy một số phim phù hợp, bạn xem nhanh ở các thẻ bên dưới nhé.'
+const MOVIE_SUMMARY_EN = 'I found some suitable movies. Please check the cards below.'
+
+const normalizeTitle = (text = '') =>
+  text
+    .toLowerCase()
+    .replace(/\*+/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const getMovieCacheKey = (movie = {}) => {
+  if (movie.id) return `id:${movie.id}`
+  const title = normalizeTitle(movie.title || '')
+  const poster = movie.posterUrl || ''
+  return `link:${title}|${poster}`
+}
+
+const parseStructuredMoviesPayload = (rawPayload = '') => {
+  if (!rawPayload.trim()) return []
+
+  const candidates = []
+  candidates.push(rawPayload.trim())
+
+  // Support fenced JSON payload:
+  // ```json
+  // [...]
+  // ```
+  const fencedMatch = /```(?:json)?\s*([\s\S]*?)```/i.exec(rawPayload)
+  if (fencedMatch?.[1]) {
+    candidates.push(fencedMatch[1].trim())
+  }
+
+  // Support payload mixed with prose by extracting first JSON-like block.
+  const bracketedMatch = /([\[{][\s\S]*[\]}])/.exec(rawPayload)
+  if (bracketedMatch?.[1]) {
+    candidates.push(bracketedMatch[1].trim())
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate)
+      const movies = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed?.movies)
+          ? parsed.movies
+          : []
+      if (movies.length > 0) return movies
+    } catch {
+      // Continue trying next candidate format.
+    }
+  }
+
+  return []
+}
+
+const cleanupMarkdownText = (text = '') =>
+  text
+    .replace(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g, '')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1')
+    .replace(/\*\*/g, '')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+const buildCompactMessage = (text, hasMovies) => {
+  const cleaned = cleanupMarkdownText(text)
+  if (!hasMovies) return cleaned
+
+  const lines = cleaned
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const skipLineRegex =
+    /^(\d+\.|[-*]\s+|đạo diễn\s*:|diễn viên\s*:|thể loại\s*:|nội dung\s*:|điểm đánh giá\s*:|đánh giá\s*:|ngày phát hành\s*:|show detail|director\s*:|cast\s*:|genre\s*:|overview\s*:|rating\s*:|release date\s*:)/i
+
+  const concise = lines.find((line) => !skipLineRegex.test(line))
+  if (concise) return concise
+
+  return isVietnamese() ? MOVIE_SUMMARY_VI : MOVIE_SUMMARY_EN
+}
 
 /**
  * Parse AI response to extract structured movie data from [AI_MOVIES]...[/AI_MOVIES] block
@@ -55,17 +137,20 @@ const parseAiResponse = (text) => {
   if (!text) return { cleanText: '', movies: [] }
 
   // Try structured JSON format: [AI_MOVIES]...[/AI_MOVIES]
-  const structuredRegex = /\[AI_MOVIES\]\s*([\s\S]*?)\s*\[\/AI_MOVIES\]/
+  // Also accepts missing closing tag by capturing until end of message.
+  const structuredRegex = /\[AI_MOVIES\]\s*([\s\S]*?)(?:\s*\[\/AI_MOVIES\]|$)/
   const structuredMatch = structuredRegex.exec(text)
 
   if (structuredMatch) {
     try {
-      const moviesJson = JSON.parse(structuredMatch[1].trim())
+      const moviesJson = parseStructuredMoviesPayload(structuredMatch[1])
+
       const cleanText = text
-        .replace(/\[AI_MOVIES\][\s\S]*?\[\/AI_MOVIES\]/, '')
+        .replace(/\[AI_MOVIES\][\s\S]*?(?:\[\/AI_MOVIES\]|$)/, '')
         .trim()
+      const compactText = buildCompactMessage(cleanText, moviesJson.length > 0)
       return {
-        cleanText,
+        cleanText: compactText,
         movies: moviesJson.map((m) => ({
           id: m.id,
           reason: m.reason || '',
@@ -84,13 +169,125 @@ const parseAiResponse = (text) => {
     movies.push({ id: parseInt(match[1], 10), reason: '' })
   }
   const cleanText = text.replace(/\s*\[MOVIE_ID:\d+\]/g, '').trim()
-  return { cleanText, movies }
+
+  // Fallback: numbered markdown list format.
+  // Example:
+  // 1. **Movie Title** ...
+  // ![Movie Title](https://...jpg)
+  const numberedTitleRegex = /(?:^|\n)\s*\d+\.\s+\*\*(.+?)\*\*/g
+  const imageRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
+
+  const numberedTitles = []
+  let titleMatch
+  while ((titleMatch = numberedTitleRegex.exec(cleanText)) !== null) {
+    const title = titleMatch[1]?.trim()
+    if (title) numberedTitles.push(title)
+  }
+
+  const postersByAlt = []
+  let imageMatch
+  while ((imageMatch = imageRegex.exec(cleanText)) !== null) {
+    postersByAlt.push({
+      alt: imageMatch[1]?.trim() || '',
+      url: imageMatch[2]?.trim() || '',
+    })
+  }
+
+  const matchPosterForTitle = (title) => {
+    const normalizedTitle = normalizeTitle(title)
+    const exact = postersByAlt.find((p) => normalizeTitle(p.alt) === normalizedTitle)
+    if (exact?.url) return exact.url
+
+    const contains = postersByAlt.find((p) => {
+      const normalizedAlt = normalizeTitle(p.alt)
+      return normalizedAlt && (normalizedAlt.includes(normalizedTitle) || normalizedTitle.includes(normalizedAlt))
+    })
+    if (contains?.url) return contains.url
+
+    return ''
+  }
+
+  const numberedMovies = numberedTitles.map((title) => ({
+    id: null,
+    title,
+    posterUrl: matchPosterForTitle(title),
+    reason: '',
+  }))
+
+  if (numberedMovies.length > 0) {
+    const movieMap = new Map()
+    numberedMovies.forEach((movie) => {
+      const key = normalizeTitle(movie.title)
+      if (!key || movieMap.has(key)) return
+      movieMap.set(key, movie)
+    })
+
+    const cleanedTextWithoutPosterImages = cleanText
+      .replace(imageRegex, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+
+    return {
+      cleanText: buildCompactMessage(cleanedTextWithoutPosterImages, true),
+      movies: Array.from(movieMap.values()),
+    }
+  }
+
+  // Fallback: markdown links in AI plain-text response, e.g. [Movie Name](poster-url)
+  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g
+  const linkMovies = []
+  let linkMatch
+  while ((linkMatch = linkRegex.exec(cleanText)) !== null) {
+    // Ignore image markdown links like ![Poster](...)
+    if (linkMatch.index > 0 && cleanText[linkMatch.index - 1] === '!') continue
+
+    const title = linkMatch[1]?.trim()
+    const url = linkMatch[2]?.trim()
+    if (title) {
+      linkMovies.push({
+        id: null,
+        title,
+        posterUrl: url,
+        reason: '',
+      })
+    }
+  }
+
+  if (movies.length > 0 || linkMovies.length === 0) {
+    return { cleanText: buildCompactMessage(cleanText, movies.length > 0), movies }
+  }
+
+  const movieMap = new Map()
+  linkMovies.forEach((movie) => {
+    const key = normalizeTitle(movie.title)
+    if (!key || movieMap.has(key)) return
+    movieMap.set(key, movie)
+  })
+
+  const cleanedTextWithoutLinks = cleanText
+    .replace(linkRegex, '$1')
+    .replace(/\|\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+  return {
+    cleanText: buildCompactMessage(cleanedTextWithoutLinks, true),
+    movies: Array.from(movieMap.values()),
+  }
 }
 
 /**
  * MovieRecommendationCard - A beautiful card showing a recommended movie
  */
-const MovieRecommendationCard = ({ movieId, reason, detail, isLoading, onWatch }) => {
+const MovieRecommendationCard = ({
+  movieId,
+  reason,
+  detail,
+  fallbackTitle,
+  fallbackPoster,
+  isLoading,
+  onWatch,
+}) => {
   if (isLoading) {
     return (
       <div className="ai-movie-card ai-movie-card--loading">
@@ -106,37 +303,45 @@ const MovieRecommendationCard = ({ movieId, reason, detail, isLoading, onWatch }
     )
   }
 
-  if (!detail) return null
+  if (!detail && !fallbackTitle && !fallbackPoster) return null
 
-  const posterSrc = detail.posterPath
+  const posterSrc = detail?.posterPath
     ? detail.posterPath.startsWith('http')
       ? detail.posterPath
       : `${TMDB_IMG}${detail.posterPath.startsWith('/') ? '' : '/'}${detail.posterPath}`
-    : noPoster
+    : (fallbackPoster || noPoster)
 
   const rating =
-    detail.voteAverage ?? detail.vote_average ?? detail.rating
+    detail?.voteAverage ?? detail?.vote_average ?? detail?.rating
   const ratingNum = rating != null ? Number(rating) : null
 
-  const releaseYear = detail.releaseDate ?? detail.release_date ?? detail.releaseYear
+  const releaseYear = detail?.releaseDate ?? detail?.release_date ?? detail?.releaseYear
   const year = releaseYear
     ? String(releaseYear).includes('-')
       ? String(releaseYear).split('-')[0]
       : String(releaseYear).substring(0, 4)
     : null
 
-  const genres = detail.genres || detail.movieGenres || []
+  const genres = detail?.genres || detail?.movieGenres || []
   const genreNames = genres
     .map((g) => g.name || g.genre?.name || g)
     .filter(Boolean)
     .slice(0, 3)
 
-  const isPremium = detail.isPremium || detail.is_premium
+  const isPremium = detail?.isPremium || detail?.is_premium
+
+  const title = detail?.title || fallbackTitle || (isVietnamese() ? 'Phim đề xuất' : 'Recommended movie')
+  const canShowDetail = Boolean(movieId)
 
   return (
-    <div className="ai-movie-card" onClick={() => onWatch(movieId)}>
+    <div
+      className="ai-movie-card"
+      onClick={() => {
+        if (canShowDetail) onWatch(movieId)
+      }}
+    >
       <div className="ai-movie-card__poster">
-        <img src={posterSrc} alt={detail.title} loading="lazy" />
+        <img src={posterSrc} alt={title} loading="lazy" />
         {isPremium && (
           <span className="ai-movie-card__premium">
             <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 9, height: 9 }}>
@@ -147,7 +352,7 @@ const MovieRecommendationCard = ({ movieId, reason, detail, isLoading, onWatch }
         )}
       </div>
       <div className="ai-movie-card__info">
-        <h4 className="ai-movie-card__title">{detail.title}</h4>
+        <h4 className="ai-movie-card__title">{title}</h4>
 
         <div className="ai-movie-card__meta">
           {ratingNum != null && !isNaN(ratingNum) && (
@@ -176,15 +381,16 @@ const MovieRecommendationCard = ({ movieId, reason, detail, isLoading, onWatch }
         <button
           className="ai-movie-card__watch"
           type="button"
+          disabled={!canShowDetail}
           onClick={(e) => {
             e.stopPropagation()
-            onWatch(movieId)
+            if (canShowDetail) onWatch(movieId)
           }}
         >
           <svg viewBox="0 0 24 24" fill="currentColor">
             <polygon points="5 3 19 12 5 21 5 3" />
           </svg>
-          {isVietnamese() ? 'Xem ngay' : 'Watch now'}
+          {isVietnamese() ? 'Xem chi tiết' : 'Show detail'}
         </button>
       </div>
     </div>
@@ -244,34 +450,73 @@ const AIChatbot = ({ isOpen, onClose }) => {
    */
   const fetchMovieDetails = useCallback(
     async (movieItems) => {
-      const idsToFetch = movieItems
-        .map((m) => m.id)
-        .filter((id) => !movieCache[id])
+      const itemsToFetch = movieItems.filter((movie) => {
+        const key = getMovieCacheKey(movie)
+        return !movieCache[key] && (movie.id || movie.title)
+      })
 
-      if (idsToFetch.length === 0) return
+      if (itemsToFetch.length === 0) return
 
       // Set loading state for each movie
       setMovieCache((prev) => {
         const next = { ...prev }
-        idsToFetch.forEach((id) => {
-          next[id] = { data: null, loading: true, error: false }
+        itemsToFetch.forEach((movie) => {
+          next[getMovieCacheKey(movie)] = {
+            data: null,
+            loading: true,
+            error: false,
+            resolvedId: movie.id || null,
+          }
         })
         return next
       })
 
       // Fetch all in parallel
       const results = await Promise.allSettled(
-        idsToFetch.map((id) => movieService.getMovieDetail(id))
+        itemsToFetch.map(async (movie) => {
+          const key = getMovieCacheKey(movie)
+
+          if (movie.id) {
+            const detail = await movieService.getMovieDetail(movie.id)
+            return { key, detail, resolvedId: movie.id, movie }
+          }
+
+          const searchResponse = await movieService.searchMovies(movie.title, 0, 5)
+          const list = searchResponse?.content || searchResponse?.items || []
+          const normalizedTarget = normalizeTitle(movie.title)
+
+          const matched =
+            list.find((item) => normalizeTitle(item?.title || item?.name || '') === normalizedTarget) ||
+            list[0]
+
+          if (!matched?.id) {
+            throw new Error('No matching movie found')
+          }
+
+          const detail = await movieService.getMovieDetail(matched.id)
+          return { key, detail, resolvedId: matched.id, movie }
+        })
       )
 
       setMovieCache((prev) => {
         const next = { ...prev }
         results.forEach((result, index) => {
-          const id = idsToFetch[index]
+          const movie = itemsToFetch[index]
+          const key = getMovieCacheKey(movie)
           if (result.status === 'fulfilled') {
-            next[id] = { data: result.value, loading: false, error: false }
+            next[key] = {
+              data: result.value.detail,
+              loading: false,
+              error: false,
+              resolvedId: result.value.resolvedId,
+            }
           } else {
-            next[id] = { data: null, loading: false, error: true }
+            next[key] = {
+              data: null,
+              loading: false,
+              error: true,
+              resolvedId: movie.id || null,
+            }
           }
         })
         return next
@@ -533,13 +778,16 @@ const AIChatbot = ({ isOpen, onClose }) => {
                 {msg.movies && msg.movies.length > 0 && (
                   <div className="ai-movie-list">
                     {msg.movies.map((movie) => {
-                      const cached = movieCache[movie.id]
+                      const cacheKey = getMovieCacheKey(movie)
+                      const cached = movieCache[cacheKey]
                       return (
                         <MovieRecommendationCard
-                          key={movie.id}
-                          movieId={movie.id}
+                          key={`${cacheKey}-${movie.id || movie.title}`}
+                          movieId={movie.id || cached?.resolvedId}
                           reason={movie.reason}
                           detail={cached?.data}
+                          fallbackTitle={movie.title}
+                          fallbackPoster={movie.posterUrl}
                           isLoading={!cached || cached.loading}
                           onWatch={handleWatchNow}
                         />
