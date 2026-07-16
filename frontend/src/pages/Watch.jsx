@@ -63,15 +63,17 @@ const Watch = () => {
         if (movieData?.playToken) {
           try {
             const resolvedUrl = await movieService.resolvePlayToken(movieData.playToken)
-            setEmbedUrl(resolvedUrl)
+            if (resolvedUrl) {
+              setEmbedUrl(resolvedUrl)
+            } else {
+              setErrorMessage('Trailer not available for this movie.')
+            }
           } catch (tokenError) {
             console.error('Failed to resolve play token:', tokenError)
-            if (movieData?.trailerUrl) {
-              setEmbedUrl(movieData.trailerUrl.includes('http') ? movieData.trailerUrl : `https://www.youtube.com/embed/${extractVideoID(movieData.trailerUrl)}`)
-            }
+            setErrorMessage('Failed to load trailer. Please try again.')
           }
-        } else if (movieData?.trailerUrl) {
-          setEmbedUrl(movieData.trailerUrl.includes('http') ? movieData.trailerUrl : `https://www.youtube.com/embed/${extractVideoID(movieData.trailerUrl)}`)
+        } else {
+          setErrorMessage('Trailer not available for this movie.')
         }
         
         // Add to history when loaded
@@ -190,11 +192,10 @@ const Watch = () => {
         <div className="watch__player">
           <iframe
             className="watch__frame"
-            src={embedUrl ? `${embedUrl}&origin=${window.location.origin}` : ''}
+            src={embedUrl}
             title={movie?.title || 'Movie'}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
-            sandbox="allow-scripts allow-same-origin allow-presentation"
           />
         </div>
       ) : (

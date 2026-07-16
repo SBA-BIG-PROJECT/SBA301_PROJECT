@@ -165,11 +165,7 @@ const movieService = {
    * @returns {Promise<string>} embedUrl
    */
   async resolvePlayToken(token) {
-    const baseURL = apiClient.defaults.baseURL || ''
-    const streamBaseURL = baseURL.endsWith('/v1') ? baseURL.slice(0, -3) : baseURL
-
     const response = await apiClient.get('/stream/play', {
-      baseURL: streamBaseURL,
       params: { token }
     })
     return response.data?.embedUrl
