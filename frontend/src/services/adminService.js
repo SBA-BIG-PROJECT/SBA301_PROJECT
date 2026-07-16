@@ -26,11 +26,12 @@ const adminService = {
 
   // === User Management ===
   // Backend: UserController @RequestMapping("/api/v1/admin/users")
-  getAllUsers: async (page = 0, size = 20, search, role, isPremium) => {
+  getAllUsers: async (page = 0, size = 20, search, role, isPremium, isActive) => {
     const params = { page, size };
     if (search) params.search = search;
     if (role) params.role = role;
     if (isPremium !== undefined) params.isPremium = isPremium;
+    if (isActive !== undefined) params.isActive = isActive;
     
     const response = await api.get('/admin/users', { params });
     return response.data;
@@ -48,6 +49,21 @@ const adminService = {
   
   deleteUser: async (userId) => {
     const response = await api.delete(`/admin/users/${userId}`);
+    return response.data;
+  },
+
+  restoreUser: async (userId) => {
+    const response = await api.put(`/admin/users/${userId}/restore`);
+    return response.data;
+  },
+
+  banUser: async (userId, data) => {
+    const response = await api.put(`/admin/users/${userId}/ban`, data);
+    return response.data;
+  },
+
+  unbanUser: async (userId) => {
+    const response = await api.put(`/admin/users/${userId}/unban`);
     return response.data;
   },
   

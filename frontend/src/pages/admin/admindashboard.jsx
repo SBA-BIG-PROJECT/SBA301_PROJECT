@@ -160,16 +160,10 @@ const AdminDashboard = () => {
             {/* Main Content Wrapper */}
             <div className="flex-1 flex flex-col md:ml-64 relative min-h-screen">
                 {/* TopNavBar */}
-                <header className="flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-50 bg-[#0F172A] border-b border-[#334155] shadow-sm h-16">
+                <header className="flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-50 bg-[#0F172A] border-b border-[#334155] shadow-sm h-16 md:hidden">
                     <div className="flex items-center md:hidden gap-[16px]">
                         <span className="material-symbols-outlined text-[#f8fafc] cursor-pointer">menu</span>
                         <span className="text-[24px] leading-[32px] font-bold text-[#E50914]">CineAdmin</span>
-                    </div>
-                    <div className="hidden md:flex items-center flex-1 max-w-md ml-[24px]">
-                        <div className="relative w-full">
-                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]">search</span>
-                            <input className="w-full bg-[#1E293B] border border-[#334155] rounded-lg pl-10 pr-4 py-2 text-[14px] leading-[20px] text-[#f8fafc] focus:outline-none focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914]/50 transition-all" placeholder="Search..." type="text" />
-                        </div>
                     </div>
                     <div className="flex items-center gap-[16px] ml-auto">
                         <button className="text-[#94a3b8] hover:text-[#E50914] transition-colors cursor-pointer active:opacity-80">
@@ -315,12 +309,12 @@ const AdminDashboard = () => {
                                         </div>
                                     </div>
                                     
-                                    <div className="flex-1 w-full bg-[#0F172A] rounded-lg border border-[#334155]/50 relative overflow-hidden flex items-center justify-center p-4">
+                                    <div className="w-full h-[280px] bg-[#0F172A] rounded-lg border border-[#334155]/50 relative p-4 flex items-center justify-center">
                                         {loadingRevenue ? (
                                             <div className="text-[#94a3b8]">Loading chart data...</div>
                                         ) : (
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart data={revenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                <BarChart data={revenueData} margin={{ top: 10, right: 10, left: -10, bottom: 15 }}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                                                     <XAxis 
                                                         dataKey="date" 
@@ -335,7 +329,7 @@ const AdminDashboard = () => {
                                                         fontSize={12} 
                                                         tickLine={false} 
                                                         axisLine={false}
-                                                        width={80}
+                                                        width={70}
                                                         tickFormatter={(val) => formatCurrency(val)}
                                                     />
                                                     <Tooltip 

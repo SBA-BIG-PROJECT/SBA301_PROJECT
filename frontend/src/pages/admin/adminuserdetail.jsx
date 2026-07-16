@@ -4,6 +4,7 @@ import AdminTaskbar from './admintaskbar.jsx';
 import { adminService } from '../../services';
 import Spinner from '../../components/Spinner.jsx';
 import { useToast, ToastContainer } from '../../components/Toast.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 
 const AdminUserDetail = () => {
     const { id } = useParams();
@@ -19,6 +20,36 @@ const AdminUserDetail = () => {
     const [editFullName, setEditFullName] = useState('');
     const [editAdminNotes, setEditAdminNotes] = useState('');
     const [saving, setSaving] = useState(false);
+
+    // Ban Modal States
+    const [isBanModalOpen, setIsBanModalOpen] = useState(false);
+    const [banReason, setBanReason] = useState('');
+
+    // Custom Confirm Modal States
+    const [confirmConfig, setConfirmConfig] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => {},
+        type: 'danger'
+    });
+
+    const requestConfirm = (title, message, onConfirm, type = 'danger') => {
+        setConfirmConfig({
+            isOpen: true,
+            title,
+            message,
+            onConfirm: () => {
+                onConfirm();
+                closeConfirm();
+            },
+            type
+        });
+    };
+
+    const closeConfirm = () => {
+        setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     const fetchUserDetail = async () => {
         try {
@@ -53,35 +84,81 @@ const AdminUserDetail = () => {
         fetchUserDetail();
     }, [id]);
 
-    const handleRoleChange = async () => {
-        if (!user) return;
-        const newRole = user.role === 'ADMIN' ? 'USER' : 'ADMIN';
-        if (window.confirm(`Are you sure you want to change role to ${newRole}?`)) {
-            try {
-                await adminService.changeUserRole(id, newRole);
-                setUser(prev => ({ ...prev, role: newRole }));
-            } catch (err) {
-                showToast('error', 'Failed to change user role.');
-            }
+
+    const handleBan = () => {
+        setBanReason('');
+        setIsBanModalOpen(true);
+    };
+
+    const handleConfirmBan = async (e) => {
+        e.preventDefault();
+        if (!banReason.trim()) {
+            showToast('error', 'Please enter a ban reason.');
+            return;
+        }
+        try {
+            await adminService.banUser(id, { banReason });
+            showToast('success', 'User banned successfully.');
+            setIsBanModalOpen(false);
+            await fetchUserDetail();
+        } catch (err) {
+            console.error('Error banning user:', err);
+            showToast('error', 'Failed to ban user.');
         }
     };
 
-    const handleToggleDisable = async () => {
-        if (!user) return;
-        const action = user.isActive ? 'disable' : 'enable';
-        if (window.confirm(`Are you sure you want to ${action} this account?`)) {
-            try {
-                if (user.isActive) {
-                    await adminService.deleteUser(id);
-                } else {
-                    // Update user to active via updateUser if backend supports it, otherwise reload
-                    await adminService.updateUser(id, { isActive: true });
+    const handleUnban = () => {
+        requestConfirm(
+            'Unban User',
+            'Are you sure you want to unban this user?',
+            async () => {
+                try {
+                    await adminService.unbanUser(id);
+                    showToast('success', 'User unbanned successfully.');
+                    await fetchUserDetail();
+                } catch (err) {
+                    console.error('Error unbanning user:', err);
+                    showToast('error', 'Failed to unban user.');
                 }
-                await fetchUserDetail();
-            } catch (err) {
-                showToast('error', `Cannot ${action === 'disable' ? 'disable' : 'activate'} account.`);
-            }
-        }
+            },
+            'success'
+        );
+    };
+
+    const handleDelete = () => {
+        requestConfirm(
+            'Delete User',
+            'Are you sure you want to delete (deactivate) this user account?',
+            async () => {
+                try {
+                    await adminService.deleteUser(id);
+                    showToast('success', 'User deleted successfully.');
+                    await fetchUserDetail();
+                } catch (err) {
+                    console.error('Error deleting user:', err);
+                    showToast('error', 'Failed to delete user.');
+                }
+            },
+            'danger'
+        );
+    };
+
+    const handleRestore = () => {
+        requestConfirm(
+            'Restore User',
+            'Are you sure you want to restore this user account?',
+            async () => {
+                try {
+                    await adminService.restoreUser(id);
+                    showToast('success', 'User restored successfully.');
+                    await fetchUserDetail();
+                } catch (err) {
+                    console.error('Error restoring user:', err);
+                    showToast('error', 'Failed to restore user.');
+                }
+            },
+            'warning'
+        );
     };
 
     const handleSaveChanges = async () => {
@@ -185,7 +262,9 @@ const AdminUserDetail = () => {
                                     <h2 className="text-[24px] md:text-[32px] font-bold text-[#f8fafc] m-0">{user.fullName || 'Unknown User'}</h2>
                                     {user.isPremium && <span className="px-[8px] py-[4px] rounded bg-[#7bd0ff]/20 border border-[#7bd0ff] text-[#7bd0ff] text-[12px] uppercase tracking-wider font-medium">Premium</span>}
                                     {user.role === 'ADMIN' && <span className="px-[8px] py-[4px] rounded bg-[#e50914]/20 border border-[#e50914] text-[#e50914] text-[12px] uppercase tracking-wider font-medium">Admin</span>}
-                                    {!user.isActive && <span className="px-[8px] py-[4px] rounded bg-red-500/20 border border-red-500 text-red-400 text-[12px] uppercase tracking-wider font-medium">Disabled</span>}
+                                    {user.isActive && <span className="px-[8px] py-[4px] rounded bg-green-500/20 border border-green-500 text-green-400 text-[12px] uppercase tracking-wider font-medium">Active</span>}
+                                    {user.bannedAt && <span className="px-[8px] py-[4px] rounded bg-amber-500/20 border border-amber-500 text-amber-400 text-[12px] uppercase tracking-wider font-medium" title={`Reason: ${user.bannedReason}`}>Banned</span>}
+                                    {user.deletedAt && <span className="px-[8px] py-[4px] rounded bg-red-500/20 border border-red-500 text-red-400 text-[12px] uppercase tracking-wider font-medium">Deleted</span>}
                                 </div>
                                 <p className="text-[14px] text-[#94A3B8] mb-[4px]">{user.email}</p>
                                 <p className="text-[12px] text-[#94A3B8] uppercase opacity-70 font-medium">Joined {new Date(user.createdAt).toLocaleDateString()}</p>
@@ -193,14 +272,30 @@ const AdminUserDetail = () => {
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-[16px] w-full md:w-auto relative z-10 border-t border-[#334155] md:border-t-0 pt-[24px] md:pt-0">
-                            <button onClick={handleRoleChange} className="px-[24px] py-[16px] rounded-lg border border-[#334155] text-[#f8fafc] bg-transparent hover:bg-[#334155] text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px]">
-                                <span className="material-symbols-outlined text-[18px]">manage_accounts</span>
-                                Change Role
-                            </button>
-                            <button onClick={handleToggleDisable} className="px-[24px] py-[16px] rounded-lg border border-transparent bg-[#E50914] text-white hover:brightness-110 active:brightness-90 text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px] shadow-[0_4px_14px_rgba(229,9,20,0.2)]">
-                                <span className="material-symbols-outlined text-[18px]">block</span>
-                                {user.isActive ? 'Disable Account' : 'Enable Account'}
-                            </button>
+                            {user.isActive && (
+                                <>
+                                    <button onClick={handleBan} className="px-[24px] py-[16px] rounded-lg border border-transparent bg-amber-500 text-white hover:brightness-110 active:brightness-90 text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px] shadow-[0_4px_14px_rgba(245,158,11,0.2)]">
+                                        <span className="material-symbols-outlined text-[18px]">block</span>
+                                        Ban Account
+                                    </button>
+                                    <button onClick={handleDelete} className="px-[24px] py-[16px] rounded-lg border border-transparent bg-[#E50914] text-white hover:brightness-110 active:brightness-90 text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px] shadow-[0_4px_14px_rgba(229,9,20,0.2)]">
+                                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                                        Delete Account
+                                    </button>
+                                </>
+                            )}
+                            {user.bannedAt && (
+                                <button onClick={handleUnban} className="px-[24px] py-[16px] rounded-lg border border-transparent bg-green-600 text-white hover:brightness-110 active:brightness-90 text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px] shadow-[0_4px_14px_rgba(22,163,74,0.2)]">
+                                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                                    Unban Account
+                                </button>
+                            )}
+                            {user.deletedAt && (
+                                <button onClick={handleRestore} className="px-[24px] py-[16px] rounded-lg border border-transparent bg-green-600 text-white hover:brightness-110 active:brightness-90 text-[12px] uppercase tracking-wider font-medium transition-all flex items-center justify-center gap-[8px] shadow-[0_4px_14px_rgba(22,163,74,0.2)]">
+                                    <span className="material-symbols-outlined text-[18px]">restore</span>
+                                    Restore Account
+                                </button>
+                            )}
                         </div>
                     </section>
 
@@ -481,6 +576,76 @@ const AdminUserDetail = () => {
                     </section>
                 </div>
             </main>
+
+            {/* Ban User Modal */}
+            {isBanModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-[#1E293B] border border-[#334155] rounded-xl w-full max-w-md shadow-[0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden">
+                        {/* Header */}
+                        <div className="flex justify-between items-center px-6 py-4 border-b border-[#334155]">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2 font-['Inter']">
+                                <span className="material-symbols-outlined text-[#E50914]">gavel</span>
+                                Ban User Account
+                            </h3>
+                            <button 
+                                onClick={() => setIsBanModalOpen(false)} 
+                                className="text-[#94A3B8] hover:text-white transition-colors"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        {/* Form */}
+                        <form onSubmit={handleConfirmBan} className="p-6 space-y-4 font-['Inter']">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">User ID</label>
+                                <input 
+                                    type="text" 
+                                    value={`USR-${id}`} 
+                                    disabled 
+                                    className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-[#94A3B8] cursor-not-allowed text-sm focus:outline-none"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">Ban Reason</label>
+                                <textarea 
+                                    rows="3" 
+                                    value={banReason} 
+                                    onChange={(e) => setBanReason(e.target.value)}
+                                    required
+                                    className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-white focus:outline-none focus:border-[#E50914] transition-colors resize-none text-sm"
+                                    placeholder="Enter the reason for banning this user..."
+                                />
+                            </div>
+
+                            {/* Footer Actions */}
+                            <div className="flex justify-end gap-3 pt-4 border-t border-[#334155]">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setIsBanModalOpen(false)}
+                                    className="px-4 py-2 rounded-lg border border-[#334155] text-[#94A3B8] hover:text-white hover:bg-[#334155] transition-all text-sm font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    className="px-5 py-2 rounded-lg bg-[#E50914] text-white hover:brightness-110 active:brightness-90 transition-all font-medium text-sm flex items-center gap-1 shadow-lg shadow-[#E50914]/20"
+                                >
+                                    Confirm Ban
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            <ConfirmModal
+                isOpen={confirmConfig.isOpen}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                onConfirm={confirmConfig.onConfirm}
+                onCancel={closeConfirm}
+                type={confirmConfig.type}
+            />
         </div>
     );
 };

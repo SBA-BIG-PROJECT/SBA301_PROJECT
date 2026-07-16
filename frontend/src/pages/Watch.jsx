@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import Spinner from '../components/Spinner.jsx'
 import { movieService, reviewService } from '../services'
@@ -24,6 +24,17 @@ const Watch = () => {
   
   // Related movies
   const [relatedMovies, setRelatedMovies] = useState([])
+
+  // Custom Player States & Refs
+  const playerWrapperRef = useRef(null)
+  const [player, setPlayer] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolume] = useState(50)
+  const [isMuted, setIsMuted] = useState(false)
+  const [controlsVisible, setControlsVisible] = useState(true)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   
   const { addToHistory } = useHistory()
   const { isAuthenticated, user } = useAuth()
@@ -116,6 +127,186 @@ const Watch = () => {
     };
   }, [showToast]);
 
+  // --- Load YouTube IFrame API ---
+  useEffect(() => {
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+  }, []);
+
+  // --- Initialize YT Player ---
+  useEffect(() => {
+    if (!embedUrl) return;
+    const videoId = extractVideoID(embedUrl);
+    if (!videoId) return;
+
+    let ytPlayer;
+
+    const initPlayer = () => {
+      ytPlayer = new window.YT.Player('yt-player', {
+        videoId: videoId,
+        playerVars: {
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          rel: 0,
+          showinfo: 0,
+          iv_load_policy: 3,
+        },
+        events: {
+          onReady: (event) => {
+            setPlayer(event.target);
+            setDuration(event.target.getDuration());
+            event.target.setVolume(volume);
+          },
+          onStateChange: (event) => {
+            setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              setDuration(event.target.getDuration());
+            }
+          }
+        }
+      });
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      const previousCallback = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (previousCallback) previousCallback();
+        initPlayer();
+      };
+    }
+
+    return () => {
+      if (ytPlayer && ytPlayer.destroy) {
+        ytPlayer.destroy();
+      }
+      setPlayer(null);
+      setIsPlaying(false);
+    };
+  }, [embedUrl]);
+
+  // --- Track Time Progress ---
+  useEffect(() => {
+    let interval;
+    if (isPlaying && player) {
+      interval = setInterval(() => {
+        setCurrentTime(player.getCurrentTime());
+      }, 250);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, player]);
+
+  // --- Auto-Hide Controls ---
+  useEffect(() => {
+    if (!isPlaying) {
+      setControlsVisible(true);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      setControlsVisible(false);
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, [isPlaying, currentTime]);
+
+  const handleMouseMove = () => {
+    setControlsVisible(true);
+  };
+
+  // --- Fullscreen change listener ---
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  // --- Player Event Handlers ---
+  const handlePlayPause = () => {
+    if (!player) return;
+    if (isPlaying) {
+      player.pauseVideo();
+    } else {
+      player.playVideo();
+    }
+  };
+
+  const handleSeek = (e) => {
+    if (!player) return;
+    const time = parseFloat(e.target.value);
+    player.seekTo(time, true);
+    setCurrentTime(time);
+  };
+
+  const handleVolumeChange = (e) => {
+    if (!player) return;
+    const val = parseInt(e.target.value);
+    setVolume(val);
+    player.setVolume(val);
+    if (val === 0) {
+      player.mute();
+      setIsMuted(true);
+    } else {
+      player.unMute();
+      setIsMuted(false);
+    }
+  };
+
+  const handleToggleMute = () => {
+    if (!player) return;
+    if (isMuted) {
+      player.unMute();
+      player.setVolume(volume || 50);
+      setIsMuted(false);
+    } else {
+      player.mute();
+      setIsMuted(true);
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    const element = playerWrapperRef.current;
+    if (!element) return;
+
+    if (!document.fullscreenElement) {
+      if (element.requestFullscreen) {
+        element.requestFullscreen();
+      } else if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      } else if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  const formatTime = (seconds) => {
+    if (isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
   const handleCommentSubmit = async (e) => {
     e.preventDefault()
     if (!newComment.trim()) return
@@ -189,14 +380,94 @@ const Watch = () => {
           </p>
         </div>
       ) : embedUrl ? (
-        <div className="watch__player">
-          <iframe
-            className="watch__frame"
-            src={embedUrl}
-            title={movie?.title || 'Movie'}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-          />
+        <div 
+          ref={playerWrapperRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => isPlaying && setControlsVisible(false)}
+          className="watch__player relative group overflow-hidden bg-black rounded-3xl border border-white/10 select-none w-full aspect-video"
+        >
+          {/* Lớp phủ trong suốt chặn mọi tương tác chuột trực tiếp vào iframe của YouTube */}
+          <div 
+            onClick={handlePlayPause}
+            className="absolute inset-0 z-10 bg-transparent cursor-pointer"
+          ></div>
+
+          {/* Vùng trình phát của YouTube API (chặn tất cả chuột) */}
+          <div 
+            id="yt-player" 
+            className="w-full h-full pointer-events-none"
+          ></div>
+
+          {/* Bộ điều khiển phát phim tùy chỉnh */}
+          <div 
+            className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/75 to-transparent p-6 flex flex-col gap-4 transition-opacity duration-300 ${
+              controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            {/* Thanh tua thời gian (Seek Bar) */}
+            <div className="flex items-center w-full">
+              <input
+                type="range"
+                min={0}
+                max={duration || 100}
+                value={currentTime}
+                onChange={handleSeek}
+                className="w-full h-1 bg-white/20 accent-[#E50914] rounded-lg appearance-none cursor-pointer hover:h-1.5 transition-all outline-none"
+              />
+            </div>
+
+            {/* Các nút bấm điều khiển */}
+            <div className="flex items-center justify-between w-full text-white">
+              {/* Nút bên trái */}
+              <div className="flex items-center gap-6">
+                <button 
+                  onClick={handlePlayPause} 
+                  className="focus:outline-none hover:text-[#E50914] transition-colors flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[32px] leading-none">
+                    {isPlaying ? 'pause' : 'play_arrow'}
+                  </span>
+                </button>
+
+                <span className="text-xs font-semibold text-gray-300 font-mono tracking-wider">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+              </div>
+
+              {/* Nút bên phải */}
+              <div className="flex items-center gap-6">
+                {/* Âm lượng */}
+                <div className="flex items-center gap-2 group/volume">
+                  <button 
+                    onClick={handleToggleMute} 
+                    className="focus:outline-none hover:text-[#E50914] transition-colors flex items-center justify-center"
+                  >
+                    <span className="material-symbols-outlined text-[22px] leading-none">
+                      {isMuted || volume === 0 ? 'volume_off' : volume < 50 ? 'volume_down' : 'volume_up'}
+                    </span>
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="w-0 overflow-hidden group-hover/volume:w-20 h-1 bg-white/20 accent-white rounded-lg appearance-none cursor-pointer transition-all duration-300 outline-none"
+                  />
+                </div>
+
+                {/* Toàn màn hình */}
+                <button 
+                  onClick={handleToggleFullscreen} 
+                  className="focus:outline-none hover:text-[#E50914] transition-colors flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[22px] leading-none">
+                    {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <p className="search-results__empty">

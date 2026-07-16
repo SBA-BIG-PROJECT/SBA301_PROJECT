@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import AdminTaskbar from './admintaskbar.jsx';
 import { adminService } from '../../services';
 import { useToast, ToastContainer } from '../../components/Toast.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 
 const AdminUser = () => {
     const { toasts, showToast, closeToast } = useToast();
@@ -17,6 +18,38 @@ const AdminUser = () => {
     const [search, setSearch] = useState('');
     const [role, setRole] = useState('all');
     const [premiumStatus, setPremiumStatus] = useState('all');
+    const [accountStatus, setAccountStatus] = useState('all');
+
+    // Ban Modal States
+    const [isBanModalOpen, setIsBanModalOpen] = useState(false);
+    const [banUserId, setBanUserId] = useState(null);
+    const [banReason, setBanReason] = useState('');
+
+    // Custom Confirm Modal States
+    const [confirmConfig, setConfirmConfig] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => {},
+        type: 'danger'
+    });
+
+    const requestConfirm = (title, message, onConfirm, type = 'danger') => {
+        setConfirmConfig({
+            isOpen: true,
+            title,
+            message,
+            onConfirm: () => {
+                onConfirm();
+                closeConfirm();
+            },
+            type
+        });
+    };
+
+    const closeConfirm = () => {
+        setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     // Edit User Modal States
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -75,8 +108,9 @@ const AdminUser = () => {
             const searchParam = search ? search : undefined;
             const roleParam = role !== 'all' ? role.toUpperCase() : undefined;
             const premiumParam = premiumStatus !== 'all' ? (premiumStatus === 'active') : undefined;
+            const activeParam = accountStatus === 'all' ? undefined : (accountStatus === 'active');
             
-            const data = await adminService.getAllUsers(page, size, searchParam, roleParam, premiumParam);
+            const data = await adminService.getAllUsers(page, size, searchParam, roleParam, premiumParam, activeParam);
             setUsers(data.content || []);
             setTotalPages(data.totalPages || 0);
             setTotalElements(data.totalElements || 0);
@@ -96,34 +130,100 @@ const AdminUser = () => {
         fetchUsers();
     };
 
-    const handleToggleBlock = async (userId, isActive) => {
-        const action = isActive ? 'disable' : 'enable';
-        if (window.confirm(`Are you sure you want to ${action} this user?`)) {
-            try {
-                if (isActive) {
-                    await adminService.deleteUser(userId);
-                } else {
-                    await adminService.updateUser(userId, { isActive: true });
-                }
-                fetchUsers();
-            } catch (err) {
-                console.error(`Error ${action}ing user`, err);
-                showToast('error', `Cannot ${action === 'disable' ? 'disable' : 'activate'} account.`);
-            }
+    const handleBan = (userId) => {
+        setBanUserId(userId);
+        setBanReason('');
+        setIsBanModalOpen(true);
+    };
+
+    const handleConfirmBan = async (e) => {
+        e.preventDefault();
+        if (!banReason.trim()) {
+            showToast('error', 'Please enter a ban reason.');
+            return;
+        }
+        try {
+            await adminService.banUser(banUserId, { banReason });
+            showToast('success', 'User banned successfully.');
+            setIsBanModalOpen(false);
+            fetchUsers();
+        } catch (err) {
+            console.error('Error banning user:', err);
+            showToast('error', 'Failed to ban user.');
         }
     };
 
-    const handleChangeRole = async (userId, currentRole) => {
+    const handleUnban = (userId) => {
+        requestConfirm(
+            'Unban User',
+            'Are you sure you want to unban this user?',
+            async () => {
+                try {
+                    await adminService.unbanUser(userId);
+                    showToast('success', 'User unbanned successfully.');
+                    fetchUsers();
+                } catch (err) {
+                    console.error('Error unbanning user:', err);
+                    showToast('error', 'Failed to unban user.');
+                }
+            },
+            'success'
+        );
+    };
+
+    const handleDelete = (userId) => {
+        requestConfirm(
+            'Delete User',
+            'Are you sure you want to delete (deactivate) this user account?',
+            async () => {
+                try {
+                    await adminService.deleteUser(userId);
+                    showToast('success', 'User deleted successfully.');
+                    fetchUsers();
+                } catch (err) {
+                    console.error('Error deleting user:', err);
+                    showToast('error', 'Failed to delete user.');
+                }
+            },
+            'danger'
+        );
+    };
+
+    const handleRestore = (userId) => {
+        requestConfirm(
+            'Restore User',
+            'Are you sure you want to restore this user account?',
+            async () => {
+                try {
+                    await adminService.restoreUser(userId);
+                    showToast('success', 'User restored successfully.');
+                    fetchUsers();
+                } catch (err) {
+                    console.error('Error restoring user:', err);
+                    showToast('error', 'Failed to restore user.');
+                }
+            },
+            'warning'
+        );
+    };
+
+    const handleChangeRole = (userId, currentRole) => {
         const newRole = currentRole === 'ADMIN' ? 'USER' : 'ADMIN';
-        if (window.confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
-            try {
-                await adminService.changeUserRole(userId, newRole);
-                fetchUsers();
-            } catch (err) {
-                console.error('Error changing user role', err);
-                showToast('error', 'Failed to change user role.');
-            }
-        }
+        requestConfirm(
+            'Change Role',
+            `Are you sure you want to change this user's role to ${newRole}?`,
+            async () => {
+                try {
+                    await adminService.changeUserRole(userId, newRole);
+                    showToast('success', 'User role changed successfully.');
+                    fetchUsers();
+                } catch (err) {
+                    console.error('Error changing user role', err);
+                    showToast('error', 'Failed to change user role.');
+                }
+            },
+            'info'
+        );
     };
 
     const handleOpenEditModal = (user) => {
@@ -208,7 +308,7 @@ const AdminUser = () => {
                 <main className="flex-1 p-[16px] md:p-[24px] space-y-[48px]">
                     {/* Filters & Search Section */}
                     <section className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col md:flex-row gap-[24px] items-end">
-                        <div className="w-full md:w-1/3 flex flex-col gap-[4px]">
+                        <div className="w-full md:w-1/4 flex flex-col gap-[4px]">
                             <label className="text-[12px] leading-[16px] tracking-[0.05em] font-medium text-[#e9bcb6] uppercase tracking-wider">Search Users</label>
                             <div className="relative">
                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#e9bcb6]">search</span>
@@ -221,7 +321,7 @@ const AdminUser = () => {
                                 />
                             </div>
                         </div>
-                        <div className="w-full md:w-1/4 flex flex-col gap-[4px]">
+                        <div className="w-full md:w-1/6 flex flex-col gap-[4px]">
                             <label className="text-[12px] leading-[16px] tracking-[0.05em] font-medium text-[#e9bcb6] uppercase tracking-wider">Role</label>
                             <div className="relative">
                                 <select
@@ -235,7 +335,7 @@ const AdminUser = () => {
                                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#e9bcb6] pointer-events-none">arrow_drop_down</span>
                             </div>
                         </div>
-                        <div className="w-full md:w-1/4 flex flex-col gap-[4px]">
+                        <div className="w-full md:w-1/6 flex flex-col gap-[4px]">
                             <label className="text-[12px] leading-[16px] tracking-[0.05em] font-medium text-[#e9bcb6] uppercase tracking-wider">Premium Status</label>
                             <div className="relative">
                                 <select
@@ -245,6 +345,20 @@ const AdminUser = () => {
                                     <option value="all">Any Status</option>
                                     <option value="active">Active Premium</option>
                                     <option value="none">Free Tier</option>
+                                </select>
+                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#e9bcb6] pointer-events-none">arrow_drop_down</span>
+                            </div>
+                        </div>
+                        <div className="w-full md:w-1/6 flex flex-col gap-[4px]">
+                            <label className="text-[12px] leading-[16px] tracking-[0.05em] font-medium text-[#e9bcb6] uppercase tracking-wider">Account Status</label>
+                            <div className="relative">
+                                <select
+                                    value={accountStatus}
+                                    onChange={(e) => setAccountStatus(e.target.value)}
+                                    className="w-full bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-4 appearance-none text-[#ffdad5] text-[14px] leading-[20px] focus:outline-none focus:border-[#e50914] focus:ring-2 focus:ring-[#e50914]/15 transition-all">
+                                    <option value="all">All</option>
+                                    <option value="active">Active Only</option>
+                                    <option value="inactive">Banned / Deleted</option>
                                 </select>
                                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#e9bcb6] pointer-events-none">arrow_drop_down</span>
                             </div>
@@ -328,8 +442,10 @@ const AdminUser = () => {
                                                 </td>
                                                 <td className="p-[16px]">
                                                     <span className="inline-flex items-center gap-1">
-                                                        <span className={`w-2 h-2 rounded-full ${user.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                                        <span className="text-[12px] leading-[16px] tracking-[0.05em] font-medium text-[#e9bcb6]">{user.isActive ? 'Active' : 'Disabled'}</span>
+                                                        <span className={`w-2 h-2 rounded-full ${user.isActive ? 'bg-green-500' : user.bannedAt ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+                                                        <span className="text-[12px] leading-[16px] tracking-[0.05em] font-medium text-[#e9bcb6]">
+                                                            {user.isActive ? 'Active' : user.bannedAt ? 'Banned' : 'Deleted'}
+                                                        </span>
                                                     </span>
                                                 </td>
                                                 <td className="p-[16px] text-right">
@@ -340,19 +456,42 @@ const AdminUser = () => {
                                                         <button onClick={() => handleOpenEditModal(user)} className="p-1.5 text-[#e9bcb6] hover:text-white hover:bg-[#334155] rounded transition-colors" title="Edit User">
                                                             <span className="material-symbols-outlined text-sm">edit</span>
                                                         </button>
-                                                        <button 
-                                                            onClick={() => handleToggleBlock(user.id, user.isActive)} 
-                                                            className={`p-1.5 rounded transition-colors ${
-                                                                user.isActive 
-                                                                    ? 'text-[#ffb4ab] hover:text-white hover:bg-[#ffb4ab]/20' 
-                                                                    : 'text-green-400 hover:text-white hover:bg-green-400/20'
-                                                            }`}
-                                                            title={user.isActive ? "Disable" : "Enable"}
-                                                        >
-                                                            <span className="material-symbols-outlined text-sm">
-                                                                {user.isActive ? 'block' : 'check_circle'}
-                                                            </span>
-                                                        </button>
+                                                        {user.isActive && (
+                                                            <>
+                                                                <button 
+                                                                    onClick={() => handleBan(user.id)} 
+                                                                    className="p-1.5 rounded text-amber-400 hover:text-white hover:bg-amber-400/20 transition-colors"
+                                                                    title="Ban User"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-sm">block</span>
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleDelete(user.id)} 
+                                                                    className="p-1.5 rounded text-[#ffb4ab] hover:text-white hover:bg-[#ffb4ab]/20 transition-colors"
+                                                                    title="Delete User"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        {user.bannedAt && (
+                                                            <button 
+                                                                onClick={() => handleUnban(user.id)} 
+                                                                className="p-1.5 rounded text-green-400 hover:text-white hover:bg-green-400/20 transition-colors"
+                                                                title="Unban User"
+                                                            >
+                                                                <span className="material-symbols-outlined text-sm">check_circle</span>
+                                                            </button>
+                                                        )}
+                                                        {user.deletedAt && (
+                                                            <button 
+                                                                onClick={() => handleRestore(user.id)} 
+                                                                className="p-1.5 rounded text-green-400 hover:text-white hover:bg-green-400/20 transition-colors"
+                                                                title="Restore User"
+                                                            >
+                                                                <span className="material-symbols-outlined text-sm">restore</span>
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -470,14 +609,12 @@ const AdminUser = () => {
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">Status</label>
-                                    <select 
-                                        value={editUserForm.isActive ? 'active' : 'disabled'} 
-                                        onChange={(e) => setEditUserForm(prev => ({ ...prev, isActive: e.target.value === 'active' }))}
-                                        className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-white focus:outline-none focus:border-[#E50914] transition-colors text-sm text-[#ffdad5]"
-                                    >
-                                        <option value="active" className="bg-[#1E293B] text-white">Active</option>
-                                        <option value="disabled" className="bg-[#1E293B] text-white">Disabled</option>
-                                    </select>
+                                    <input 
+                                        type="text" 
+                                        value={editUserForm.isActive ? 'Active' : 'Disabled (Banned/Deleted)'} 
+                                        disabled 
+                                        className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-[#94A3B8] cursor-not-allowed text-sm focus:outline-none"
+                                    />
                                 </div>
                             </div>
 
@@ -513,6 +650,76 @@ const AdminUser = () => {
                     </div>
                 </div>
             )}
+
+            {/* Ban User Modal */}
+            {isBanModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-[#1E293B] border border-[#334155] rounded-xl w-full max-w-md shadow-[0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden">
+                        {/* Header */}
+                        <div className="flex justify-between items-center px-6 py-4 border-b border-[#334155]">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2 font-['Inter']">
+                                <span className="material-symbols-outlined text-[#E50914]">gavel</span>
+                                Ban User Account
+                            </h3>
+                            <button 
+                                onClick={() => setIsBanModalOpen(false)} 
+                                className="text-[#94A3B8] hover:text-white transition-colors"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        {/* Form */}
+                        <form onSubmit={handleConfirmBan} className="p-6 space-y-4 font-['Inter']">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">User ID</label>
+                                <input 
+                                    type="text" 
+                                    value={`USR-${banUserId}`} 
+                                    disabled 
+                                    className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-[#94A3B8] cursor-not-allowed text-sm focus:outline-none"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs uppercase tracking-wider font-semibold text-[#94A3B8]">Ban Reason</label>
+                                <textarea 
+                                    rows="3" 
+                                    value={banReason} 
+                                    onChange={(e) => setBanReason(e.target.value)}
+                                    required
+                                    className="bg-[#0F172A] border border-[#334155] rounded-lg py-2 px-3 text-white focus:outline-none focus:border-[#E50914] transition-colors resize-none text-sm"
+                                    placeholder="Enter the reason for banning this user..."
+                                />
+                            </div>
+
+                            {/* Footer Actions */}
+                            <div className="flex justify-end gap-3 pt-4 border-t border-[#334155]">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setIsBanModalOpen(false)}
+                                    className="px-4 py-2 rounded-lg border border-[#334155] text-[#94A3B8] hover:text-white hover:bg-[#334155] transition-all text-sm font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    className="px-5 py-2 rounded-lg bg-[#E50914] text-white hover:brightness-110 active:brightness-90 transition-all font-medium text-sm flex items-center gap-1 shadow-lg shadow-[#E50914]/20"
+                                >
+                                    Confirm Ban
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            <ConfirmModal
+                isOpen={confirmConfig.isOpen}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                onConfirm={confirmConfig.onConfirm}
+                onCancel={closeConfirm}
+                type={confirmConfig.type}
+            />
         </div>
     );
 };

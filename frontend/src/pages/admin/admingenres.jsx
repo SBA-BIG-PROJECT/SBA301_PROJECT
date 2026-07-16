@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminTaskbar from './admintaskbar.jsx';
 import { adminService } from '../../services';
 import { useToast, ToastContainer } from '../../components/Toast.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 
 const AdminGenres = () => {
   const { toasts, showToast, closeToast } = useToast();
@@ -17,6 +18,32 @@ const AdminGenres = () => {
   // Form states
   const [newGenreName, setNewGenreName] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
+
+  // Custom Confirm Modal States
+  const [confirmConfig, setConfirmConfig] = useState({
+      isOpen: false,
+      title: '',
+      message: '',
+      onConfirm: () => {},
+      type: 'danger'
+  });
+
+  const requestConfirm = (title, message, onConfirm, type = 'danger') => {
+      setConfirmConfig({
+          isOpen: true,
+          title,
+          message,
+          onConfirm: () => {
+              onConfirm();
+              closeConfirm();
+          },
+          type
+      });
+  };
+
+  const closeConfirm = () => {
+      setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   const fetchData = async () => {
     try {
@@ -69,28 +96,40 @@ const AdminGenres = () => {
     }
   };
 
-  const handleDeleteGenre = async (id) => {
-    if (window.confirm('Are you sure you want to delete this genre?')) {
-      try {
-        await adminService.deleteGenre(id);
-        setGenres(genres.filter(g => g.id !== id));
-      } catch (err) {
-        console.error('Error deleting genre:', err);
-        showToast('error', 'Failed to delete genre.');
-      }
-    }
+  const handleDeleteGenre = (id) => {
+    requestConfirm(
+      'Delete Genre',
+      'Are you sure you want to delete this genre?',
+      async () => {
+        try {
+          await adminService.deleteGenre(id);
+          setGenres(genres.filter(g => g.id !== id));
+          showToast('success', 'Genre deleted successfully.');
+        } catch (err) {
+          console.error('Error deleting genre:', err);
+          showToast('error', 'Failed to delete genre.');
+        }
+      },
+      'danger'
+    );
   };
 
-  const handleDeleteCategory = async (id) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
-      try {
-        await adminService.deleteCategory(id);
-        setCategories(categories.filter(c => c.id !== id));
-      } catch (err) {
-        console.error('Error deleting category:', err);
-        showToast('error', 'Failed to delete category.');
-      }
-    }
+  const handleDeleteCategory = (id) => {
+    requestConfirm(
+      'Delete Category',
+      'Are you sure you want to delete this category?',
+      async () => {
+        try {
+          await adminService.deleteCategory(id);
+          setCategories(categories.filter(c => c.id !== id));
+          showToast('success', 'Category deleted successfully.');
+        } catch (err) {
+          console.error('Error deleting category:', err);
+          showToast('error', 'Failed to delete category.');
+        }
+      },
+      'danger'
+    );
   };
 
   return (
@@ -386,6 +425,14 @@ const AdminGenres = () => {
         </div>
       )}
 
+      <ConfirmModal
+          isOpen={confirmConfig.isOpen}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          onConfirm={confirmConfig.onConfirm}
+          onCancel={closeConfirm}
+          type={confirmConfig.type}
+      />
     </div>
   );
 };
