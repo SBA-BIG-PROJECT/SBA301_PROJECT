@@ -11,7 +11,7 @@ const Watch = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [movie, setMovie] = useState(null)
-  const [embedUrl, setEmbedUrl] = useState('')
+  const [trailerKey, setTrailerKey] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   
@@ -59,19 +59,9 @@ const Watch = () => {
         setReviews(reviewsData.content || [])
         setRelatedMovies(relatedData.content || relatedData || [])
         
-        // Try resolving the playToken if available
-        if (movieData?.playToken) {
-          try {
-            const resolvedUrl = await movieService.resolvePlayToken(movieData.playToken)
-            setEmbedUrl(resolvedUrl)
-          } catch (tokenError) {
-            console.error('Failed to resolve play token:', tokenError)
-            if (movieData?.trailerUrl) {
-              setEmbedUrl(movieData.trailerUrl.includes('http') ? movieData.trailerUrl : `https://www.youtube.com/embed/${extractVideoID(movieData.trailerUrl)}`)
-            }
-          }
-        } else if (movieData?.trailerUrl) {
-          setEmbedUrl(movieData.trailerUrl.includes('http') ? movieData.trailerUrl : `https://www.youtube.com/embed/${extractVideoID(movieData.trailerUrl)}`)
+        // Get trailerKey from backend trailerUrl
+        if (movieData?.trailerUrl) {
+          setTrailerKey(extractVideoID(movieData.trailerUrl))
         }
         
         // Add to history when loaded
@@ -120,7 +110,10 @@ const Watch = () => {
     }
   }
 
-
+  // Keep embed link or wrap it
+  const embedUrl = trailerKey
+    ? (trailerKey.includes('http') ? trailerKey : `https://www.youtube.com/embed/${trailerKey}`)
+    : ''
 
   return (
     <section className="watch">
@@ -169,7 +162,7 @@ const Watch = () => {
             This movie will be available on {new Date(movie.releaseDate).toLocaleString('en-US')}
           </p>
         </div>
-      ) : embedUrl ? (
+      ) : trailerKey ? (
         <div className="watch__player">
           <iframe
             className="watch__frame"

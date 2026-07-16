@@ -21,7 +21,6 @@ const Detail = () => {
   const [checkingWatchlist, setCheckingWatchlist] = useState(true)
   const [inWatchlist, setInWatchlist] = useState(false)
   const [showTrailer, setShowTrailer] = useState(false)
-  const [trailerEmbedUrl, setTrailerEmbedUrl] = useState('')
   const [relatedMovies, setRelatedMovies] = useState([])
   const [reviews, setReviews] = useState([])
   const navigate = useNavigate()
@@ -98,26 +97,7 @@ const Detail = () => {
     }
   }, [id, isInWatchlist])
 
-  const handleWatchTrailer = async () => {
-    if (trailerEmbedUrl) {
-      setShowTrailer(true)
-      return
-    }
-    
-    if (!movie?.playToken) {
-      showToast('Trailer not available or premium content.', 'error')
-      return
-    }
-    
-    try {
-      const url = await movieService.resolvePlayToken(movie.playToken)
-      setTrailerEmbedUrl(url)
-      setShowTrailer(true)
-    } catch (e) {
-      console.error('Failed to resolve trailer URL', e)
-      showToast('Failed to load trailer. Please try again.', 'error')
-    }
-  }
+
 
   const handleWatchlistToggle = async () => {
     try {
@@ -268,7 +248,7 @@ const Detail = () => {
               <button
                 className="btn btn--secondary flex items-center gap-2 bg-gray-600 hover:bg-gray-700 bg-opacity-70"
                 type="button"
-                onClick={handleWatchTrailer}
+                onClick={() => setShowTrailer(true)}
               >
                 Watch Trailer
               </button>
@@ -295,7 +275,7 @@ const Detail = () => {
         </div>
       </div>
 
-      {showTrailer && trailerEmbedUrl && (
+      {showTrailer && movie?.trailerUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
           <div className="relative w-full max-w-5xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl">
             <button 
@@ -306,7 +286,7 @@ const Detail = () => {
             </button>
             <iframe
               className="w-full h-full"
-              src={trailerEmbedUrl.includes('http') ? trailerEmbedUrl : `https://www.youtube.com/embed/${trailerEmbedUrl}?autoplay=1`}
+              src={extractVideoID(movie.trailerUrl).includes('http') ? extractVideoID(movie.trailerUrl) : `https://www.youtube.com/embed/${extractVideoID(movie.trailerUrl)}?autoplay=1`}
               title="Trailer"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen

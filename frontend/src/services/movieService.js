@@ -156,23 +156,6 @@ const movieService = {
       console.warn('Failed to load reviews')
       return { content: [] }
     }
-  },
-
-  /**
-   * Resolve movie embed URL from play token
-   * GET /api/stream/play?token={token}
-   * @param {string} token - playToken
-   * @returns {Promise<string>} embedUrl
-   */
-  async resolvePlayToken(token) {
-    const baseURL = apiClient.defaults.baseURL || ''
-    const streamBaseURL = baseURL.endsWith('/v1') ? baseURL.slice(0, -3) : baseURL
-    
-    const response = await apiClient.get('/stream/play', {
-      baseURL: streamBaseURL,
-      params: { token }
-    })
-    return response.data?.embedUrl
   }
 }
 
