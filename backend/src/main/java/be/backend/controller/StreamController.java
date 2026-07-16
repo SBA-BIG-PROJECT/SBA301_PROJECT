@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/stream")
+@RequestMapping("/api/v1/stream")
 @RequiredArgsConstructor
 public class StreamController {
 

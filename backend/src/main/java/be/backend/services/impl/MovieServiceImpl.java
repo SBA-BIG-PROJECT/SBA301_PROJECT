@@ -117,7 +117,12 @@ public class MovieServiceImpl implements MovieService {
         boolean requiresPremium = Boolean.TRUE.equals(movie.getIsPremium());
         dto.setRequiresPremium(requiresPremium);
 
-        boolean locked = isUpcomingLocked(movie) || (requiresPremium && !currentUserHasActivePremium());
+        boolean loggedIn = getCurrentUserOrNull() != null;
+        dto.setRequiresLogin(!loggedIn);                    // để FE biết lý do
+
+        boolean locked = !loggedIn
+                || isUpcomingLocked(movie)
+                || (requiresPremium && !currentUserHasActivePremium());
         dto.setIsLocked(locked);
 
         if (!locked && movie.getTrailerUrl() != null) {
@@ -126,7 +131,6 @@ public class MovieServiceImpl implements MovieService {
 
         return dto;
     }
-
     @Override
     @Transactional(readOnly = true)
     public PageResponse<TrendingMovieDto> getTrendingMovies(int page, int size) {

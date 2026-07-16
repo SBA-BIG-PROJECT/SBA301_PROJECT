@@ -47,7 +47,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout",
                                 "/api/v1/movies/**", // Public movie browsing
-                                "/api/v1/genres/**", // Public genre list
+                                "/api/v1/genres/**",
+                                "/api/v1/stream/play",// Public genre list
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
