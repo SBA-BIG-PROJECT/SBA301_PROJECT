@@ -161,7 +161,12 @@ public class MovieServiceImpl implements MovieService {
         Movie movie = movieRepository.findByIdAndIsActiveTrue(movieId).orElse(null);
         if (movie == null || movie.getTrailerUrl() == null) return null;
 
-        return toEmbedUrl(crypto.decrypt(movie.getTrailerUrl()));
+        try {
+            return toEmbedUrl(crypto.decrypt(movie.getTrailerUrl()));
+        } catch (Exception e) {
+            log.warn("Không giải mã được trailer_url cho movie {}: {}", movieId, e.getMessage());
+            return null;
+        }
     }
 
     // ================================================================ Admin
@@ -420,7 +425,11 @@ public class MovieServiceImpl implements MovieService {
         dto.setReleaseDate(movie.getReleaseDate());
         dto.setVoteAverage(movie.getVoteAverage());
         dto.setVoteCount(movie.getVoteCount());
-        dto.setTrailerUrl(decryptUrl(movie.getTrailerUrl())); // admin thấy link thật
+        String decryptedTrailer = decryptUrl(movie.getTrailerUrl());
+        if (movie.getTrailerUrl() != null && decryptedTrailer == null) {
+            log.warn("DECRYPT FAIL: movie {} ({}) - trailer_url không giải mã được", movie.getId(), movie.getTitle());
+        }
+        dto.setTrailerUrl(decryptedTrailer);
         dto.setAddedAt(movie.getAddedAt());
         dto.setIsActive(movie.getIsActive());
         dto.setIsPremium(movie.getIsPremium());
@@ -488,7 +497,13 @@ public class MovieServiceImpl implements MovieService {
     }
 
     private String decryptUrl(String stored) {
-        return stored != null ? crypto.decrypt(stored) : null;
+        if (stored == null) return null;
+        try {
+            return crypto.decrypt(stored);
+        } catch (Exception e) {
+            log.warn("Không giải mã được trailer_url, dữ liệu hỏng: {}", e.getMessage());
+            return null;
+        }
     }
 
     private String toEmbedUrl(String url) {
@@ -545,5 +560,51 @@ public class MovieServiceImpl implements MovieService {
 
     private boolean hasText(String s) {
         return s != null && !s.isBlank();
+    }
+
+    // ================================================================ Diagnostics
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> diagnoseAllMovies() {
+        List<Movie> movies = movieRepository.findAll();
+        List<Map<String, Object>> results = new java.util.ArrayList<>();
+
+        for (Movie movie : movies) {
+            Map<String, Object> info = new java.util.LinkedHashMap<>();
+            info.put("id", movie.getId());
+            info.put("title", movie.getTitle());
+
+            if (movie.getTrailerUrl() == null || movie.getTrailerUrl().isBlank()) {
+                info.put("status", "NO_URL");
+                info.put("message", "trailer_url is null/empty in DB");
+                results.add(info);
+                continue;
+            }
+
+            String decrypted;
+            try {
+                decrypted = crypto.decrypt(movie.getTrailerUrl());
+            } catch (Exception e) {
+                info.put("status", "DECRYPT_FAIL");
+                info.put("message", e.getMessage());
+                results.add(info);
+                continue;
+            }
+
+            if (!YT_PATTERN.matcher(decrypted).find()) {
+                info.put("status", "NOT_YOUTUBE");
+                info.put("decryptedPreview", decrypted.substring(0, Math.min(decrypted.length(), 80)));
+                results.add(info);
+                continue;
+            }
+
+            String embedUrl = toEmbedUrl(decrypted);
+            info.put("status", "OK");
+            info.put("embedUrl", embedUrl);
+            results.add(info);
+        }
+
+        return results;
     }
 }
