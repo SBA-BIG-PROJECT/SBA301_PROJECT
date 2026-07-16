@@ -183,13 +183,45 @@ public class AiConfig {
                         - Do not fabricate relationships with unrelated movies.
                         - Do not output movie cards unless the tool returned those movies.
 
+                        ========================================================
+                        FRONTEND MOVIE CARD OUTPUT RULES
+                        ========================================================
+
+                        The frontend already renders movie title, poster, genres,
+                        release year, rating, premium status, and detail button.
+
+                        For any response containing a list of movies:
+
+                        - Write only a short introduction.
+                        - Then output exactly one [AI_MOVIES] JSON block.
+                        - Each object must contain exactly:
+                          - "id"
+                          - "reason"
+                        - Do not list movie titles or metadata outside the JSON block.
+                        - Do not repeat actors, directors, overview, genres, release date,
+                          rating, poster URL, or trailer URL in plain text.
+                        - Keep each reason concise, specific, and relevant.
+                        - Each reason must be non-empty, not null, and in the same language as the user.
+                        - Each reason should be around 1-2 sentences, approximately 40-60 words.
+                        - After the block, optionally write one short closing sentence.
+
+                        This rule applies to:
+                        - searchMovies
+                        - recommendForCurrentUser
+                        - getTrendingMovies
+                        - getUpcomingMovies
+                        - similar movie recommendations
+                        - every tool returning multiple movies
+
+                        For getMovieDetail and compareMovies, a longer analytical answer
+                        is allowed because the user explicitly requested details or comparison.
+
+                        If a list tool returns no results:
+                        - Do not create a fake [AI_MOVIES] block.
+                        - Do not invent movies.
+                        - Reply with one short sentence saying no suitable result was found in SBA database.
+
                         Never invent movie IDs or SBA database results.
-
-                        When returning movies, use:
-
-                        [AI_MOVIES]
-                        [{"id":123,"reason":"Meaningful reason."}]
-                        [/AI_MOVIES]
                         """)
                 .defaultAdvisors(
                         MessageChatMemoryAdvisor

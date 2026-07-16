@@ -81,6 +81,15 @@ public class MovieSearchTools {
                 relevant conversation context and pass one complete,
                 self-contained request.
 
+                The final assistant response must follow [AI_MOVIES] format.
+                For movie lists, output one [AI_MOVIES] JSON block with items containing only:
+                - id
+                - reason
+
+                Do not output movie metadata in plain text outside the JSON block
+                (title, actors, directors, genres, release date, rating, overview,
+                poster URL, trailer URL).
+
                 If the result is empty, do not invent movies.
                 """
     )
@@ -138,6 +147,11 @@ public class MovieSearchTools {
 
                     Do NOT use searchMovies as a replacement for personalized
                     recommendations.
+
+                    The final assistant response must use [AI_MOVIES] for movie lists,
+                    where each item contains only id and reason.
+
+                    Do not list movie metadata in plain text outside the JSON block.
                     """
     )
     public PageResponse<RecommendationDto> recommendForCurrentUser() {
@@ -199,6 +213,11 @@ Similarity score is based on:
 - trending category
 
 Exclude the reference movie itself and return ranked candidates.
+
+The final assistant response for this list must use [AI_MOVIES],
+with each item containing only id and reason.
+
+Do not list movie metadata in plain text outside the JSON block.
 """
     )
     public List<AiMovieDto> findSimilarMovies(
@@ -274,6 +293,13 @@ Exclude the reference movie itself and return ranked candidates.
                     - phim đang hot
 
                     Do not use this tool for personalized recommendations.
+
+                    The final assistant response must not list movie metadata
+                    such as titles, actors, directors, ratings, genres, dates,
+                    or overviews in plain text.
+
+                    Return movie references using the required [AI_MOVIES]
+                    format, where each item contains only id and reason.
                     """
     )
     public List<AiMovieDto> getTrendingMovies() {
@@ -311,6 +337,11 @@ Exclude the reference movie itself and return ranked candidates.
 
                     Do not treat every movie released in the current year as an
                     upcoming movie.
+
+                    The final assistant response must use [AI_MOVIES] for movie lists,
+                    with each item containing only id and reason.
+
+                    Do not output movie metadata in plain text outside the JSON block.
                     """
     )
     public List<AiMovieDto> getUpcomingMovies() {
