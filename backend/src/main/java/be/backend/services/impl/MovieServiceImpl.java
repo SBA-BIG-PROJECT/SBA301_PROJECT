@@ -489,9 +489,12 @@ public class MovieServiceImpl implements MovieService {
 
     private String toEmbedUrl(String url) {
         Matcher m = YT_PATTERN.matcher(url);
-        return m.find() ? YT_EMBED_PREFIX + m.group(1) + YT_EMBED_SUFFIX : url;
+        if (!m.find()) {
+            log.warn("trailer_url không phải link YouTube hợp lệ");
+            return null;
+        }
+        return YT_EMBED_PREFIX + m.group(1) + YT_EMBED_SUFFIX;
     }
-
     // ================================================================ Misc helpers
 
     private void notifyAllUsersNewMovie(String title) {
