@@ -1,227 +1,619 @@
 package be.backend.services.impl;
 
-import be.backend.entity.Genre;
 import be.backend.entity.Movie;
-import be.backend.entity.MovieGenre;
-import be.backend.repository.*;
+import be.backend.exception.ResourceNotFoundException;
+import be.backend.mapper.MovieIntentMapper;
+import be.backend.model.dto.AiMovieDto;
+import be.backend.model.dto.MovieSearchCriteria;
+import be.backend.model.dto.RecommendationDto;
+import be.backend.model.response.PageResponse;
+import be.backend.repository.MovieRepository;
+import be.backend.services.MovieSearchService;
+import be.backend.services.RecommendationService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Locale;
+import java.util.Set;
 
-/**
- * AI Tool functions that OpenAI can call via Function Calling.
- * These methods query the real MySQL database and return structured results
- * so the LLM can formulate natural language responses with actual movie data.
- */
-@Component
+@Service
 @RequiredArgsConstructor
-@Slf4j
+@Transactional(readOnly = true)
 public class MovieSearchTools {
 
+    private static final int DEFAULT_RESULT_SIZE = 20;
+    private static final int MAX_RESULT_SIZE = 30;
+    private static final double GOOD_RATING_THRESHOLD = 7.5;
+
+    private static final int SCORE_SHARED_GENRE = 4;
+    private static final int SCORE_SHARED_DIRECTOR = 3;
+    private static final int SCORE_SHARED_ACTOR = 2;
+    private static final int SCORE_GOOD_RATING = 1;
+    private static final int SCORE_TRENDING = 1;
+
+    private static final String CATEGORY_TRENDING = "trending";
+    private static final String CATEGORY_UPCOMING = "upcoming";
+    private static final String ROLE_ACTOR = "ACTOR";
+    private static final String ROLE_DIRECTOR = "DIRECTOR";
+
+    private final MovieSearchService movieSearchService;
+    private final RecommendationService recommendationService;
     private final MovieRepository movieRepository;
-    private final GenreRepository genreRepository;
-    private final ViewLogRepository viewLogRepository;
-    private final ReviewRepository reviewRepository;
+    private final MovieIntentMapper movieIntentMapper;
 
-    @Tool(description = "Search movies by title keyword. Use this when the user asks to find a specific movie or mentions a movie name.")
-    public String searchMoviesByTitle(
-            @ToolParam(description = "The movie title or keyword to search for") String keyword) {
+    /*
+     * =========================================================
+     * SEARCH MOVIES
+     * =========================================================
+     */
 
-        log.info("[AI Tool] searchMoviesByTitle called with keyword: {}", keyword);
+    @Tool(
+            name = "searchMovies",
+            description = """
+                Search movies using one complete natural-language request.
 
-        Page<Movie> movies = movieRepository.searchByKeyword(keyword, PageRequest.of(0, 10));
+                Use this tool for:
+                - movie titles
+                - actor or director names
+                - franchises
+                - adaptations
+                - genres
+                - moods
+                - release years
+                - ratings
+                - combined conditions
 
-        if (movies.isEmpty()) {
-            return "No movies found matching '" + keyword + "'.";
-        }
+                Examples:
+                - "Interstellar"
+                - "Chí Phèo"
+                - "Tom Cruise"
+                - "Phim của Victory Vũ"
+                - "Có phim nào liên quan đến Chí Phèo không?"
+                - "Top 5 anime hành động sau năm 2020 điểm trên 8"
 
-        return movies.getContent().stream()
-                .map(m -> formatMovie(m))
-                .collect(Collectors.joining("\n---\n"));
+                For follow-up messages, combine the current request with
+                relevant conversation context and pass one complete,
+                self-contained request.
+
+                If the result is empty, do not invent movies.
+                """
+    )
+    public List<AiMovieDto> searchMoviesByIntent(
+            @ToolParam(
+                    description = """
+                        Complete self-contained movie search request,
+                        including relevant previous conversation context.
+                        """
+            )
+            String request) {
+
+        MovieSearchCriteria criteria =
+                movieIntentMapper.map(request);
+
+        criteria.setActive(true);
+
+        normalizePaging(criteria);
+
+        return movieSearchService
+                .searchMovies(criteria)
+                .getContent();
     }
 
-    @Tool(description = "Search movies by genre name. Use this when the user asks for movies of a specific genre like 'Action', 'Comedy', 'Horror', 'Romance', 'Drama', 'Sci-Fi', 'Thriller', 'Animation'.")
-    public String searchMoviesByGenre(
-            @ToolParam(description = "The genre name, e.g. 'Action', 'Comedy', 'Horror', 'Romance', 'Drama', 'Science Fiction', 'Thriller', 'Animation'") String genreName) {
+    /*
+     * =========================================================
+     * PERSONALIZED RECOMMENDATION
+     * =========================================================
+     */
 
-        log.info("[AI Tool] searchMoviesByGenre called with genre: {}", genreName);
+    @Tool(
+            name = "recommendForCurrentUser",
+            description = """
+                    Return personalized movie recommendations for the currently
+                    authenticated user.
 
-        // Find genre by name (case-insensitive partial match)
-        List<Genre> allGenres = genreRepository.findAll();
-        Genre matchedGenre = allGenres.stream()
-                .filter(g -> g.getName().toLowerCase().contains(genreName.toLowerCase()))
-                .findFirst()
-                .orElse(null);
+                    Use this tool when the user asks for recommendations without
+                    providing specific search filters.
 
-        if (matchedGenre == null) {
-            return "Genre '" + genreName + "' not found. Available genres: " +
-                    allGenres.stream().map(Genre::getName).collect(Collectors.joining(", "));
-        }
+                    Example requests:
+                    - "Gợi ý phim cho tôi"
+                    - "Tôi nên xem gì?"
+                    - "Có phim nào hợp gu tôi không?"
+                    - "Recommend something for me"
+                    - "What should I watch?"
 
-        Page<Movie> movies = movieRepository.findActiveByGenre(
-                matchedGenre.getId(), PageRequest.of(0, 10));
+                    Recommendations are calculated in real time from the user's:
+                    - viewing history
+                    - watchlist
+                    - highly rated movies
+                    - preferred genres
+                    - preferred actors or directors
+                    - similar users' viewing behavior
+                    - trending movies
 
-        if (movies.isEmpty()) {
-            return "No movies found for genre '" + matchedGenre.getName() + "'.";
-        }
+                    Do NOT use searchMovies as a replacement for personalized
+                    recommendations.
+                    """
+    )
+    public PageResponse<RecommendationDto> recommendForCurrentUser() {
 
-        return "Genre: " + matchedGenre.getName() + "\n" +
-                movies.getContent().stream()
-                        .map(m -> formatMovie(m))
-                        .collect(Collectors.joining("\n---\n"));
+        return recommendationService.getRecommendations(
+                0,
+                DEFAULT_RESULT_SIZE
+        );
     }
 
-    @Tool(description = "Search movies that match MULTIPLE genres at once. Use this when the user wants a combination like 'action anime' (Action + Animation), 'romantic comedy' (Romance + Comedy), 'sci-fi horror' (Science Fiction + Horror), etc. This finds movies that belong to ALL specified genres.")
-    public String searchMoviesByMultipleGenres(
-            @ToolParam(description = "Comma-separated genre names, e.g. 'Animation,Action' or 'Romance,Comedy' or 'Horror,Thriller'") String genreNames) {
+    /*
+     * =========================================================
+     * MOVIE DETAIL
+     * =========================================================
+     */
 
-        log.info("[AI Tool] searchMoviesByMultipleGenres called with genres: {}", genreNames);
+    @Tool(
+            name = "getMovieDetail",
+            description = """
+Get detailed information about one movie.
 
-        List<Genre> allGenres = genreRepository.findAll();
-        String[] requestedGenres = genreNames.split(",");
-        List<Genre> matchedGenres = new java.util.ArrayList<>();
+Use when the user asks:
 
-        for (String name : requestedGenres) {
-            String trimmed = name.trim();
-            Genre found = allGenres.stream()
-                    .filter(g -> g.getName().toLowerCase().contains(trimmed.toLowerCase()))
-                    .findFirst()
-                    .orElse(null);
-            if (found != null) {
-                matchedGenres.add(found);
-            }
-        }
+- movie overview
+- plot
+- cast
+- director
+- rating
+- premium
+- release date
 
-        if (matchedGenres.isEmpty()) {
-            return "No matching genres found. Available genres: " +
-                    allGenres.stream().map(Genre::getName).collect(Collectors.joining(", "));
-        }
+Input should be the movie title.
+"""
+    )
+    public AiMovieDto getMovieDetail(
 
-        if (matchedGenres.size() < requestedGenres.length) {
-            String foundNames = matchedGenres.stream().map(Genre::getName).collect(Collectors.joining(", "));
-            String available = allGenres.stream().map(Genre::getName).collect(Collectors.joining(", "));
-            log.warn("Only matched {} of {} genres: {}", matchedGenres.size(), requestedGenres.length, foundNames);
-        }
+            @ToolParam(
+                    description = "Movie title."
+            )
+            String title
+    ) {
 
-        List<Integer> genreIds = matchedGenres.stream().map(Genre::getId).toList();
-        Page<Movie> movies = movieRepository.findActiveByMultipleGenres(
-                genreIds, genreIds.size(), PageRequest.of(0, 10));
+        Movie movie = resolveMovieByTitle(title);
 
-        String genreLabel = matchedGenres.stream().map(Genre::getName).collect(Collectors.joining(" + "));
+        return toDto(movie);
 
-        if (movies.isEmpty()) {
-            // Fallback: try each genre individually and report
-            StringBuilder sb = new StringBuilder();
-            sb.append("No movies found matching ALL genres: ").append(genreLabel).append(".\n");
-            sb.append("Here are movies for each genre individually:\n");
-            for (Genre g : matchedGenres) {
-                Page<Movie> genreMovies = movieRepository.findActiveByGenre(g.getId(), PageRequest.of(0, 5));
-                sb.append("\n--- ").append(g.getName()).append(" ---\n");
-                if (genreMovies.isEmpty()) {
-                    sb.append("No movies found.\n");
-                } else {
-                    sb.append(genreMovies.getContent().stream()
-                            .map(m -> formatMovie(m))
-                            .collect(Collectors.joining("\n")));
-                }
-            }
-            return sb.toString();
-        }
-
-        return "Genres: " + genreLabel + " (" + movies.getTotalElements() + " movies found)\n" +
-                movies.getContent().stream()
-                        .map(m -> formatMovie(m))
-                        .collect(Collectors.joining("\n---\n"));
     }
 
-    @Tool(description = "Get trending/popular movies that are most watched recently. Use this when the user asks for trending, popular, hot, or top movies.")
-    public String getTrendingMovies() {
+    @Tool(
+            name = "findSimilarMovies",
+            description = """
+Return movies similar to a given reference movie title.
 
-        log.info("[AI Tool] getTrendingMovies called");
+Similarity score is based on:
+- shared genre
+- shared director
+- shared actor
+- good rating
+- trending category
 
-        Instant thirtyDaysAgo = Instant.now().minus(30, ChronoUnit.DAYS);
-        Page<Integer> trendingIds = viewLogRepository.findTrendingMovieIds(
-                thirtyDaysAgo, PageRequest.of(0, 10));
+Exclude the reference movie itself and return ranked candidates.
+"""
+    )
+    public List<AiMovieDto> findSimilarMovies(
 
-        if (trendingIds.isEmpty()) {
-            return "No trending data available right now.";
-        }
+            @ToolParam(
+                    description = "Reference movie title."
+            )
+            String movieTitle
+    ) {
 
-        return trendingIds.getContent().stream()
-                .map(id -> movieRepository.findById(id).orElse(null))
-                .filter(m -> m != null && m.getIsActive())
-                .map(m -> formatMovie(m))
-                .collect(Collectors.joining("\n---\n"));
+        Movie sourceMovie = resolveMovieByTitle(movieTitle);
+
+        Set<Integer> sourceGenreIds = extractGenreIds(sourceMovie);
+        Set<Integer> sourceDirectorIds = extractPersonIdsByRole(sourceMovie, ROLE_DIRECTOR);
+        Set<Integer> sourceActorIds = extractPersonIdsByRole(sourceMovie, ROLE_ACTOR);
+
+        return movieRepository
+                .findTop200ByIsActiveTrueOrderByVoteCountDesc()
+                .stream()
+                .filter(candidate -> !candidate.getId().equals(sourceMovie.getId()))
+                .map(candidate -> new SimilarityCandidate(
+                        candidate,
+                        calculateSimilarityScore(
+                                candidate,
+                                sourceGenreIds,
+                                sourceDirectorIds,
+                                sourceActorIds
+                        )
+                ))
+                .filter(candidate -> candidate.score() > 0)
+                .sorted(
+                        Comparator
+                                .comparingInt(SimilarityCandidate::score)
+                                .reversed()
+                                .thenComparing(
+                                        similarity -> {
+                                            Double rating = similarity.movie().getVoteAverage();
+                                            return rating == null ? 0.0 : rating;
+                                        },
+                                        Comparator.reverseOrder()
+                                )
+                                .thenComparing(
+                                        similarity -> {
+                                            Integer voteCount = similarity.movie().getVoteCount();
+                                            return voteCount == null ? 0 : voteCount;
+                                        },
+                                        Comparator.reverseOrder()
+                                )
+                )
+                .limit(DEFAULT_RESULT_SIZE)
+                .map(similarity -> toDto(similarity.movie()))
+                .toList();
     }
 
-    @Tool(description = "Search movies by actor or director name. Use this when the user mentions an actor or director name.")
-    public String searchMoviesByPerson(
-            @ToolParam(description = "The actor or director name to search for") String personName) {
+    /*
+     * =========================================================
+     * TRENDING MOVIES
+     * =========================================================
+     */
 
-        log.info("[AI Tool] searchMoviesByPerson called with person: {}", personName);
+    @Tool(
+            name = "getTrendingMovies",
+            description = """
+                    Return movies categorized as currently trending in the SBA
+                    Movies database.
 
-        Page<Movie> movies = movieRepository.searchByFilters(
-                null, personName, personName, PageRequest.of(0, 10));
+                    Use this tool only when the user asks for:
+                    - trending movies
+                    - hot movies
+                    - movies popular right now
+                    - movies people are currently interested in
+                    - phim xu hướng
+                    - phim đang hot
 
-        if (movies.isEmpty()) {
-            return "No movies found with actor/director '" + personName + "'.";
-        }
+                    Do not use this tool for personalized recommendations.
+                    """
+    )
+    public List<AiMovieDto> getTrendingMovies() {
 
-        return movies.getContent().stream()
-                .map(m -> formatMovie(m))
-                .collect(Collectors.joining("\n---\n"));
+        MovieSearchCriteria criteria =
+                createCategoryCriteria(
+                        CATEGORY_TRENDING,
+                        "popular",
+                        true
+                );
+
+        return movieSearchService
+                .searchMovies(criteria)
+                .getContent();
     }
 
-    @Tool(description = "Get all available movie genres in the system. Use this when the user asks what genres are available.")
-    public String getAvailableGenres() {
+    /*
+     * =========================================================
+     * UPCOMING MOVIES
+     * =========================================================
+     */
 
-        log.info("[AI Tool] getAvailableGenres called");
+    @Tool(
+            name = "getUpcomingMovies",
+            description = """
+                    Return movies categorized as upcoming in the SBA Movies
+                    database.
 
-        List<Genre> genres = genreRepository.findAll();
+                    Use this tool when the user asks for:
+                    - upcoming movies
+                    - coming soon movies
+                    - movies that will be released soon
+                    - phim sắp chiếu
+                    - phim chuẩn bị ra mắt
 
-        return "Available genres: " +
-                genres.stream().map(Genre::getName).collect(Collectors.joining(", "));
+                    Do not treat every movie released in the current year as an
+                    upcoming movie.
+                    """
+    )
+    public List<AiMovieDto> getUpcomingMovies() {
+
+        MovieSearchCriteria criteria =
+                createCategoryCriteria(
+                        CATEGORY_UPCOMING,
+                        "release",
+                        false
+                );
+
+        return movieSearchService
+                .searchMovies(criteria)
+                .getContent();
     }
 
-    // ---- helper ----
-    private String formatMovie(Movie m) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("ID: ").append(m.getId());
-        sb.append(" | Title: ").append(m.getTitle());
-        if (m.getPosterPath() != null) {
-            sb.append(" | Poster: ").append(m.getPosterPath());
+    /*
+     * =========================================================
+     * COMPARE MOVIES
+     * =========================================================
+     */
+
+    @Tool(
+            name="compareMovies",
+            description="""
+Compare two movies.
+
+Input should be two movie titles.
+"""
+    )
+    public List<AiMovieDto> compareMovies(
+
+            @ToolParam(
+                    description = "First movie title."
+            )
+            String movie1,
+
+            @ToolParam(
+                    description = "Second movie title."
+            )
+            String movie2
+    ){
+
+        Movie first = resolveMovieByTitle(movie1);
+        Movie second = resolveMovieByTitle(movie2);
+
+        return List.of(
+                toDto(first),
+                toDto(second)
+        );
+
+    }
+
+    /*
+     * =========================================================
+     * HELPERS
+     * =========================================================
+     */
+
+    private MovieSearchCriteria createCategoryCriteria(
+            String category,
+            String sortBy,
+            boolean descending) {
+
+        MovieSearchCriteria criteria =
+                new MovieSearchCriteria();
+
+        criteria.setCategories(
+                List.of(category)
+        );
+
+        criteria.setActive(true);
+        criteria.setSortBy(sortBy);
+        criteria.setDescending(descending);
+        criteria.setPage(0);
+        criteria.setSize(DEFAULT_RESULT_SIZE);
+
+        return criteria;
+    }
+
+    private void normalizePaging(
+            MovieSearchCriteria criteria) {
+
+        if (criteria.getPage() == null ||
+                criteria.getPage() < 0) {
+
+            criteria.setPage(0);
         }
-        if (m.getVoteAverage() != null) {
-            sb.append(" | Rating: ").append(String.format("%.1f", m.getVoteAverage()));
+
+        if (criteria.getSize() == null ||
+                criteria.getSize() <= 0) {
+
+            criteria.setSize(DEFAULT_RESULT_SIZE);
         }
-        if (m.getReleaseDate() != null) {
-            sb.append(" | ReleaseDate: ").append(m.getReleaseDate());
+
+        if (criteria.getSize() > MAX_RESULT_SIZE) {
+            criteria.setSize(MAX_RESULT_SIZE);
         }
-        if (m.getIsPremium() != null && m.getIsPremium()) {
-            sb.append(" | Premium: true");
+    }
+
+    private int calculateSimilarityScore(
+            Movie candidate,
+            Set<Integer> sourceGenreIds,
+            Set<Integer> sourceDirectorIds,
+            Set<Integer> sourceActorIds
+    ) {
+
+        int score = 0;
+
+        if (hasAnyIntersection(
+                sourceGenreIds,
+                extractGenreIds(candidate)
+        )) {
+            score += SCORE_SHARED_GENRE;
         }
-        if (m.getOverview() != null && !m.getOverview().isEmpty()) {
-            String overview = m.getOverview().length() > 150
-                    ? m.getOverview().substring(0, 150) + "..."
-                    : m.getOverview();
-            sb.append(" | Overview: ").append(overview);
+
+        if (hasAnyIntersection(
+                sourceDirectorIds,
+                extractPersonIdsByRole(candidate, ROLE_DIRECTOR)
+        )) {
+            score += SCORE_SHARED_DIRECTOR;
         }
-        // Include genres
-        if (m.getMovieGenres() != null && !m.getMovieGenres().isEmpty()) {
-            sb.append(" | Genres: ").append(
-                    m.getMovieGenres().stream()
-                            .map(mg -> mg.getGenre().getName())
-                            .collect(Collectors.joining(", ")));
+
+        if (hasAnyIntersection(
+                sourceActorIds,
+                extractPersonIdsByRole(candidate, ROLE_ACTOR)
+        )) {
+            score += SCORE_SHARED_ACTOR;
         }
-        return sb.toString();
+
+        if (candidate.getVoteAverage() != null
+                && candidate.getVoteAverage() >= GOOD_RATING_THRESHOLD) {
+            score += SCORE_GOOD_RATING;
+        }
+
+        if (isTrendingMovie(candidate)) {
+            score += SCORE_TRENDING;
+        }
+
+        return score;
+    }
+
+    private Set<Integer> extractGenreIds(Movie movie) {
+
+        return movie.getMovieGenres()
+                .stream()
+                .map(movieGenre -> movieGenre.getGenre().getId())
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    private Set<Integer> extractPersonIdsByRole(
+            Movie movie,
+            String role
+    ) {
+
+        return movie.getMoviePeople()
+                .stream()
+                .filter(moviePerson -> role.equalsIgnoreCase(moviePerson.getRole()))
+                .map(moviePerson -> moviePerson.getPerson().getId())
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    private boolean hasAnyIntersection(
+            Set<Integer> source,
+            Set<Integer> candidate
+    ) {
+
+        if (source.isEmpty() || candidate.isEmpty()) {
+            return false;
+        }
+
+        Set<Integer> overlap = new HashSet<>(source);
+        overlap.retainAll(candidate);
+
+        return !overlap.isEmpty();
+    }
+
+    private boolean isTrendingMovie(Movie movie) {
+
+        return movie.getMovieCategories()
+                .stream()
+                .map(movieCategory -> movieCategory.getCategory().getName())
+                .filter(name -> name != null && !name.isBlank())
+                .map(name -> name.toLowerCase(Locale.ROOT))
+                .anyMatch(name -> name.contains(CATEGORY_TRENDING));
+    }
+
+    private Movie resolveMovieByTitle(String title) {
+
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Movie title must not be blank"
+            );
+        }
+
+        String normalizedTitle = title.trim();
+
+        return movieRepository
+                .findFirstByTitleIgnoreCaseAndIsActiveTrue(normalizedTitle)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Movie not found: " + normalizedTitle
+                        )
+                );
+    }
+
+    private Movie findMovieById(
+            Integer movieId) {
+
+        if (movieId == null) {
+            throw new IllegalArgumentException(
+                    "Movie ID must not be null"
+            );
+        }
+
+        return movieRepository
+                .findById(movieId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Movie not found: " + movieId
+                        )
+                );
+    }
+
+    private AiMovieDto toDto(
+            Movie movie) {
+
+        AiMovieDto dto =
+                new AiMovieDto();
+
+        dto.setId(movie.getId());
+        dto.setTitle(movie.getTitle());
+        dto.setOverview(movie.getOverview());
+        dto.setPosterPath(movie.getPosterPath());
+        dto.setReleaseDate(movie.getReleaseDate());
+        dto.setVoteAverage(movie.getVoteAverage());
+        dto.setVoteCount(movie.getVoteCount());
+        dto.setPremium(movie.getIsPremium());
+
+        dto.setGenres(
+                movie.getMovieGenres()
+                        .stream()
+                        .map(movieGenre ->
+                                movieGenre
+                                        .getGenre()
+                                        .getName()
+                        )
+                        .distinct()
+                        .toList()
+        );
+
+        dto.setCategories(
+                movie.getMovieCategories()
+                        .stream()
+                        .map(movieCategory ->
+                                movieCategory
+                                        .getCategory()
+                                        .getName()
+                        )
+                        .distinct()
+                        .toList()
+        );
+
+        dto.setActors(
+                movie.getMoviePeople()
+                        .stream()
+                        .filter(moviePerson ->
+                                "ACTOR".equalsIgnoreCase(
+                                        moviePerson.getRole()
+                                )
+                        )
+                        .map(moviePerson ->
+                                moviePerson
+                                        .getPerson()
+                                        .getName()
+                        )
+                        .distinct()
+                        .toList()
+        );
+
+        dto.setDirectors(
+                movie.getMoviePeople()
+                        .stream()
+                        .filter(moviePerson ->
+                                "DIRECTOR".equalsIgnoreCase(
+                                        moviePerson.getRole()
+                                )
+                        )
+                        .map(moviePerson ->
+                                moviePerson
+                                        .getPerson()
+                                        .getName()
+                        )
+                        .distinct()
+                        .toList()
+        );
+
+        return dto;
+    }
+
+    private record SimilarityCandidate(
+            Movie movie,
+            int score
+    ) {
     }
 }

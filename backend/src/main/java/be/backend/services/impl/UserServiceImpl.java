@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import be.backend.enums.UserRole;
 import be.backend.mapper.AdminUserMapper;
 import be.backend.mapper.PaymentMapper;
 import be.backend.mapper.ReviewMapper;
@@ -360,22 +359,12 @@ public class UserServiceImpl implements UserService {
         if (request.getAdminNotes() != null) {
             user.setAdminNotes(request.getAdminNotes());
         }
-
-        if (request.getIsActive() != null) {
-            if (request.getIsActive()) {
-                user.setDeletedAt(null);
-                user.setBannedAt(null);
-                user.setBannedReason(null);
-            } else {
-                user.setDeletedAt(Instant.now());
-            }
-        }
         
         User updated = userRepository.save(user);
         AdminUserDto dto = adminUserMapper.toAdminDto(updated);
         enrichUserStats(dto, updated);
         
-        log.info("Admin updated user: {} (fullName, adminNotes and/or isActive)", userId);
+        log.info("Admin updated user: {} (fullName, adminNotes)", userId);
         return dto;
     }
 
@@ -393,6 +382,76 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
         
         log.info("Admin deleted user: {}", userId);
+    }
+
+    @Override
+    @Transactional
+    public AdminUserDto restoreUserAdmin(Integer userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        
+        if (user.getDeletedAt() == null) {
+            throw new IllegalStateException("User is not deleted");
+        }
+        
+        user.setDeletedAt(null);
+        User updated = userRepository.save(user);
+        
+        AdminUserDto dto = adminUserMapper.toAdminDto(updated);
+        enrichUserStats(dto, updated);
+        
+        log.info("Admin restored user: {}", userId);
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public AdminUserDto banUserAdmin(Integer userId, String banReason) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        
+        if (UserRole.ADMIN.getValue().equals(user.getRole())) {
+            throw new IllegalStateException("Không thể ban quản trị viên");
+        }
+        
+        if (user.getDeletedAt() != null) {
+            throw new IllegalStateException("Không thể ban user đã bị xóa");
+        }
+        
+        if (user.getBannedAt() != null) {
+            throw new IllegalStateException("User đã bị ban trước đó");
+        }
+        
+        user.setBannedAt(Instant.now());
+        user.setBannedReason(banReason);
+        User updated = userRepository.save(user);
+        
+        AdminUserDto dto = adminUserMapper.toAdminDto(updated);
+        enrichUserStats(dto, updated);
+        
+        log.info("Admin banned user: {} reason: {}", userId, banReason);
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public AdminUserDto unbanUserAdmin(Integer userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        
+        if (user.getBannedAt() == null) {
+            throw new IllegalStateException("User chưa bị ban");
+        }
+        
+        user.setBannedAt(null);
+        user.setBannedReason(null);
+        User updated = userRepository.save(user);
+        
+        AdminUserDto dto = adminUserMapper.toAdminDto(updated);
+        enrichUserStats(dto, updated);
+        
+        log.info("Admin unbanned user: {}", userId);
+        return dto;
     }
 
     @Override

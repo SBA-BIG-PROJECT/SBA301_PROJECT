@@ -11,9 +11,13 @@ import be.backend.model.request.ChatMessageRequest;
 import be.backend.repository.UserRepository;
 import be.backend.repository.mongo.ChatMessageRepository;
 import be.backend.repository.mongo.ChatSessionRepository;
+import be.backend.services.AiDomainGuard;
 import be.backend.services.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -26,11 +30,15 @@ public class ChatServiceImpl implements ChatService {
 
     private final ChatClient chatClient;
 
+    private final ChatMemory chatMemory;
+
     private final ChatSessionRepository sessionRepository;
 
     private final ChatMessageRepository messageRepository;
 
     private final UserRepository userRepository;
+
+    private final AiDomainGuard aiDomainGuard;
 
     @Override
     public ChatSessionDto createSession() {
@@ -130,80 +138,110 @@ public class ChatServiceImpl implements ChatService {
         ChatSessionDocument session =
                 getSessionOwnedByCurrentUser(sessionId);
 
-        // Đặt title từ câu hỏi đầu tiên
+        if (request == null
+                || request.getMessage() == null
+                || request.getMessage().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Tin nhắn không được để trống"
+            );
+        }
+
+        String userContent =
+                request.getMessage().trim();
+
+        if (aiDomainGuard.isClearlyOutOfDomain(userContent)) {
+
+            String refusal =
+                    "Xin lỗi, tôi chỉ hỗ trợ các nội dung liên quan đến "
+                            + "phim ảnh. Bạn có thể hỏi tôi về phim, diễn viên, "
+                            + "đạo diễn hoặc gợi ý phim nhé 🎬";
+
+            chatMemory.add(
+                    sessionId,
+                    new UserMessage(userContent)
+            );
+
+            chatMemory.add(
+                    sessionId,
+                    new AssistantMessage(refusal)
+            );
+
+            ChatMessageDto dto =
+                    new ChatMessageDto();
+
+            dto.setRole("ASSISTANT");
+            dto.setContent(refusal);
+            dto.setSentAt(Instant.now());
+
+            return dto;
+        }
+
+        /*
+         * Đặt title từ câu hỏi đầu tiên.
+         */
         if ("New Chat".equals(session.getTitle())) {
 
-            String title = request.getMessage();
+            String title = userContent;
 
             if (title.length() > 40) {
                 title = title.substring(0, 40);
             }
 
             session.setTitle(title);
-
             sessionRepository.save(session);
         }
 
-        // Lưu message của user
-        ChatMessageDocument userMessage =
-                new ChatMessageDocument();
-
-        userMessage.setSessionId(sessionId);
-        userMessage.setRole("USER");
-        userMessage.setContent(request.getMessage());
-        userMessage.setSentAt(Instant.now());
-
-        messageRepository.save(userMessage);
-
-        // Lấy lịch sử chat
-        List<ChatMessageDocument> history =
-                messageRepository
-                        .findBySessionIdOrderBySentAtAsc(
-                                sessionId
-                        );
-
-        StringBuilder conversation =
-                new StringBuilder();
-
-        for (ChatMessageDocument msg : history) {
-
-            conversation.append(msg.getRole())
-                    .append(": ")
-                    .append(msg.getContent())
-                    .append("\n");
-        }
-
+        /*
+         * Không tự lưu user message tại đây.
+         *
+         * MessageChatMemoryAdvisor sẽ gọi:
+         * MongoChatMemory.add(...)
+         */
         String aiResponse =
                 chatClient.prompt()
-                        .user(conversation.toString())
+                        .user(userContent)
+                        .advisors(advisorSpec ->
+                                advisorSpec.param(
+                                        ChatMemory.CONVERSATION_ID,
+                                        sessionId
+                                )
+                        )
                         .call()
                         .content();
 
-        // Lưu phản hồi AI
-        ChatMessageDocument assistantMessage =
-                new ChatMessageDocument();
+        if (aiResponse == null
+                || aiResponse.isBlank()) {
 
-        assistantMessage.setSessionId(sessionId);
-        assistantMessage.setRole("ASSISTANT");
-        assistantMessage.setContent(aiResponse);
-        assistantMessage.setSentAt(Instant.now());
+            aiResponse =
+                    "Xin lỗi, tôi chưa thể tạo phản hồi lúc này.";
 
-        messageRepository.save(assistantMessage);
+            /*
+             * Trường hợp model trả rỗng, advisor có thể
+             * không lưu được assistant response.
+             */
+            chatMemory.add(
+                    sessionId,
+                    new AssistantMessage(aiResponse)
+            );
+        }
 
         ChatMessageDto dto =
                 new ChatMessageDto();
 
         dto.setRole("ASSISTANT");
         dto.setContent(aiResponse);
-        dto.setSentAt(assistantMessage.getSentAt());
+        dto.setSentAt(Instant.now());
 
         return dto;
     }
 
     @Override
-    public void deleteSession(String sessionId) {
+    public void deleteSession(
+            String sessionId) {
 
-        User user = getCurrentUser();
+        User user =
+                getCurrentUser();
 
         ChatSessionDocument session =
                 sessionRepository.findById(sessionId)
@@ -219,11 +257,11 @@ public class ChatServiceImpl implements ChatService {
             );
         }
 
-        List<ChatMessageDocument> messages =
-                messageRepository
-                        .findBySessionIdOrderBySentAtAsc(sessionId);
-
-        messageRepository.deleteAll(messages);
+        /*
+         * MongoChatMemory.clear() xóa toàn bộ message
+         * thuộc session trong MongoDB.
+         */
+        chatMemory.clear(sessionId);
 
         sessionRepository.delete(session);
     }

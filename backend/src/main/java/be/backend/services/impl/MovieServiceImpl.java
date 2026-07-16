@@ -173,7 +173,7 @@ public class MovieServiceImpl implements MovieService {
         } else if (isActive != null) {
             moviePage = isActive
                     ? movieRepository.findByIsActiveTrue(pageable)
-                    : movieRepository.findAll(pageable);
+                    : movieRepository.findByIsActiveFalse(pageable);
         } else {
             moviePage = movieRepository.findAll(pageable);
         }

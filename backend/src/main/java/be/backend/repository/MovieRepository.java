@@ -5,15 +5,17 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface MovieRepository extends JpaRepository<Movie, Integer> {
+public interface MovieRepository extends JpaRepository<Movie, Integer>, JpaSpecificationExecutor<Movie> {
 
     Page<Movie> findByIsActiveTrue(Pageable pageable);
+    Page<Movie> findByIsActiveFalse(Pageable pageable);
     long countByIsActiveTrue();
 
     @EntityGraph(attributePaths = {
@@ -83,4 +85,34 @@ public interface MovieRepository extends JpaRepository<Movie, Integer> {
     """)
  List<Object[]> findMovieStatsBatch(@Param("movieIds") List<Integer> movieIds);
     long countByIsPremiumTrue();
+
+    @Override
+    @EntityGraph(attributePaths = {
+            "movieGenres.genre",
+            "movieCategories.category",
+            "moviePeople.person"
+    })
+    List<Movie> findAll(org.springframework.data.jpa.domain.Specification<Movie> spec);
+
+    Optional<Movie> findFirstByTitleIgnoreCase(String title);
+
+    @EntityGraph(attributePaths = {
+            "movieGenres.genre",
+            "movieCategories.category",
+            "moviePeople.person"
+    })
+    Optional<Movie> findFirstByTitleIgnoreCaseAndIsActiveTrue(
+            String title
+    );
+
+    List<Movie> findTop5ByTitleContainingIgnoreCaseAndIsActiveTrueOrderByVoteCountDesc(
+            String title
+    );
+
+    @EntityGraph(attributePaths = {
+            "movieGenres.genre",
+            "movieCategories.category",
+            "moviePeople.person"
+    })
+    List<Movie> findTop200ByIsActiveTrueOrderByVoteCountDesc();
 }
