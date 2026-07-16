@@ -26,13 +26,14 @@ public interface ViewLogRepository extends JpaRepository<ViewLog, Integer> {
 
     List<ViewLog> findTop20ByUser_IdOrderByWatchedAtDesc(Integer userId);
 
-    @Query("""
+    @Query(value = """
        SELECT v.tmdb.id
        FROM ViewLog v
        WHERE v.watchedAt >= :startDate
        GROUP BY v.tmdb.id
        ORDER BY COUNT(v.id) DESC
-       """)
+       """,
+       countQuery = "SELECT COUNT(DISTINCT v.tmdb.id) FROM ViewLog v WHERE v.watchedAt >= :startDate")
     Page<Integer> findTrendingMovieIds(
             @Param("startDate") Instant startDate,
             Pageable pageable
