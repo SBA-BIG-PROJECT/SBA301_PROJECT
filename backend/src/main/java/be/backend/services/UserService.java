@@ -77,6 +77,9 @@ public interface UserService {
     AdminUserDetailResponse getUserDetailAdmin(Integer userId);
     AdminUserDto updateUserAdmin(Integer userId, AdminUpdateUserRequest request);
     void deleteUserAdmin(Integer userId);
+    AdminUserDto restoreUserAdmin(Integer userId);
+    AdminUserDto banUserAdmin(Integer userId, String banReason);
+    AdminUserDto unbanUserAdmin(Integer userId);
     AdminUserDto changeUserRoleAdmin(Integer userId, String newRole);
     AdminUserDto revokePremiumAdmin(Integer userId);
 }

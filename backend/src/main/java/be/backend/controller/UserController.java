@@ -2,6 +2,7 @@ package be.backend.controller;
 
 import be.backend.model.dto.AdminUserDto;
 import be.backend.model.request.AdminUpdateUserRequest;
+import be.backend.model.request.BanUserRequest;
 import be.backend.model.response.AdminUserDetailResponse;
 import be.backend.model.response.MessageResponse;
 import be.backend.model.response.PageResponse;
@@ -56,6 +57,26 @@ public class UserController {
     public ResponseEntity<MessageResponse> deleteUser(@PathVariable Integer userId) {
         userService.deleteUserAdmin(userId);
         return ResponseEntity.ok(MessageResponse.of("User deleted successfully"));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{userId}/restore")
+    public ResponseEntity<AdminUserDto> restoreUser(@PathVariable Integer userId) {
+        return ResponseEntity.ok(userService.restoreUserAdmin(userId));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{userId}/ban")
+    public ResponseEntity<AdminUserDto> banUser(
+            @PathVariable Integer userId,
+            @Valid @RequestBody BanUserRequest request) {
+        return ResponseEntity.ok(userService.banUserAdmin(userId, request.getBanReason()));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{userId}/unban")
+    public ResponseEntity<AdminUserDto> unbanUser(@PathVariable Integer userId) {
+        return ResponseEntity.ok(userService.unbanUserAdmin(userId));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
