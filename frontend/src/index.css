@@ -1894,6 +1894,8 @@
   font-size: 13px;
   line-height: 1.5;
   margin: 0;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .ai-msg--user .ai-msg__text {

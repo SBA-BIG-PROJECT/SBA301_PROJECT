@@ -1,16 +1,9 @@
 import apiClient from './api'
 
 const recommendationService = {
-  generateRecommendations: () => {
-    return apiClient.post('/recommendations/generate')
-  },
-
-  getRecommendations: () => {
-    return apiClient.get('/recommendations')
-  },
-
-  deleteRecommendation: (recommendationId) => {
-    return apiClient.delete(`/recommendations/${recommendationId}`)
+  getRecommendations: async (page = 0, size = 20) => {
+    const response = await apiClient.get(`/recommendations?page=${page}&size=${size}`)
+    return response.data
   }
 }
 
