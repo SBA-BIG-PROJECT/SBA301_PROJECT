@@ -16,7 +16,11 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -25,9 +29,18 @@ public class MovieSearchTools {
 
     private static final int DEFAULT_RESULT_SIZE = 20;
     private static final int MAX_RESULT_SIZE = 30;
+    private static final double GOOD_RATING_THRESHOLD = 7.5;
+
+    private static final int SCORE_SHARED_GENRE = 4;
+    private static final int SCORE_SHARED_DIRECTOR = 3;
+    private static final int SCORE_SHARED_ACTOR = 2;
+    private static final int SCORE_GOOD_RATING = 1;
+    private static final int SCORE_TRENDING = 1;
 
     private static final String CATEGORY_TRENDING = "trending";
     private static final String CATEGORY_UPCOMING = "upcoming";
+    private static final String ROLE_ACTOR = "ACTOR";
+    private static final String ROLE_DIRECTOR = "DIRECTOR";
 
     private final MovieSearchService movieSearchService;
     private final RecommendationService recommendationService;
@@ -43,35 +56,32 @@ public class MovieSearchTools {
     @Tool(
             name = "searchMovies",
             description = """
-                Search movies using one complete, self-contained
-                natural-language request.
+                Search movies using one complete natural-language request.
 
-                For a follow-up message, combine the current message with
-                relevant earlier conversation context before calling this tool.
+                Use this tool for:
+                - movie titles
+                - actor or director names
+                - franchises
+                - adaptations
+                - genres
+                - moods
+                - release years
+                - ratings
+                - combined conditions
 
-                Example:
+                Examples:
+                - "Interstellar"
+                - "Chí Phèo"
+                - "Tom Cruise"
+                - "Phim của Victory Vũ"
+                - "Có phim nào liên quan đến Chí Phèo không?"
+                - "Top 5 anime hành động sau năm 2020 điểm trên 8"
 
-                Previous user request:
-                "Cho tôi phim hack não"
+                For follow-up messages, combine the current request with
+                relevant conversation context and pass one complete,
+                self-contained request.
 
-                Current user request:
-                "Chỉ lấy phim sau 2020"
-
-                Correct tool input:
-                "Cho tôi phim hack não sau 2020"
-
-                Another example:
-
-                Previous user request:
-                "Top 10 anime hành động"
-
-                Current user request:
-                "Chỉ lấy 5 phim"
-
-                Correct tool input:
-                "Top 5 anime hành động"
-
-                Pass the complete reconstructed search request.
+                If the result is empty, do not invent movies.
                 """
     )
     public List<AiMovieDto> searchMoviesByIntent(
@@ -170,17 +180,77 @@ Input should be the movie title.
             String title
     ) {
 
-        Movie movie =
-                movieRepository
-                        .findFirstByTitleIgnoreCase(title)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Movie not found: " + title
-                                )
-                        );
+        Movie movie = resolveMovieByTitle(title);
 
         return toDto(movie);
 
+    }
+
+    @Tool(
+            name = "findSimilarMovies",
+            description = """
+Return movies similar to a given reference movie title.
+
+Similarity score is based on:
+- shared genre
+- shared director
+- shared actor
+- good rating
+- trending category
+
+Exclude the reference movie itself and return ranked candidates.
+"""
+    )
+    public List<AiMovieDto> findSimilarMovies(
+
+            @ToolParam(
+                    description = "Reference movie title."
+            )
+            String movieTitle
+    ) {
+
+        Movie sourceMovie = resolveMovieByTitle(movieTitle);
+
+        Set<Integer> sourceGenreIds = extractGenreIds(sourceMovie);
+        Set<Integer> sourceDirectorIds = extractPersonIdsByRole(sourceMovie, ROLE_DIRECTOR);
+        Set<Integer> sourceActorIds = extractPersonIdsByRole(sourceMovie, ROLE_ACTOR);
+
+        return movieRepository
+                .findTop200ByIsActiveTrueOrderByVoteCountDesc()
+                .stream()
+                .filter(candidate -> !candidate.getId().equals(sourceMovie.getId()))
+                .map(candidate -> new SimilarityCandidate(
+                        candidate,
+                        calculateSimilarityScore(
+                                candidate,
+                                sourceGenreIds,
+                                sourceDirectorIds,
+                                sourceActorIds
+                        )
+                ))
+                .filter(candidate -> candidate.score() > 0)
+                .sorted(
+                        Comparator
+                                .comparingInt(SimilarityCandidate::score)
+                                .reversed()
+                                .thenComparing(
+                                        similarity -> {
+                                            Double rating = similarity.movie().getVoteAverage();
+                                            return rating == null ? 0.0 : rating;
+                                        },
+                                        Comparator.reverseOrder()
+                                )
+                                .thenComparing(
+                                        similarity -> {
+                                            Integer voteCount = similarity.movie().getVoteCount();
+                                            return voteCount == null ? 0 : voteCount;
+                                        },
+                                        Comparator.reverseOrder()
+                                )
+                )
+                .limit(DEFAULT_RESULT_SIZE)
+                .map(similarity -> toDto(similarity.movie()))
+                .toList();
     }
 
     /*
@@ -284,15 +354,8 @@ Input should be two movie titles.
             String movie2
     ){
 
-        Movie first =
-                movieRepository
-                        .findFirstByTitleIgnoreCase(movie1)
-                        .orElseThrow();
-
-        Movie second =
-                movieRepository
-                        .findFirstByTitleIgnoreCase(movie2)
-                        .orElseThrow();
+        Movie first = resolveMovieByTitle(movie1);
+        Movie second = resolveMovieByTitle(movie2);
 
         return List.of(
                 toDto(first),
@@ -346,6 +409,112 @@ Input should be two movie titles.
         if (criteria.getSize() > MAX_RESULT_SIZE) {
             criteria.setSize(MAX_RESULT_SIZE);
         }
+    }
+
+    private int calculateSimilarityScore(
+            Movie candidate,
+            Set<Integer> sourceGenreIds,
+            Set<Integer> sourceDirectorIds,
+            Set<Integer> sourceActorIds
+    ) {
+
+        int score = 0;
+
+        if (hasAnyIntersection(
+                sourceGenreIds,
+                extractGenreIds(candidate)
+        )) {
+            score += SCORE_SHARED_GENRE;
+        }
+
+        if (hasAnyIntersection(
+                sourceDirectorIds,
+                extractPersonIdsByRole(candidate, ROLE_DIRECTOR)
+        )) {
+            score += SCORE_SHARED_DIRECTOR;
+        }
+
+        if (hasAnyIntersection(
+                sourceActorIds,
+                extractPersonIdsByRole(candidate, ROLE_ACTOR)
+        )) {
+            score += SCORE_SHARED_ACTOR;
+        }
+
+        if (candidate.getVoteAverage() != null
+                && candidate.getVoteAverage() >= GOOD_RATING_THRESHOLD) {
+            score += SCORE_GOOD_RATING;
+        }
+
+        if (isTrendingMovie(candidate)) {
+            score += SCORE_TRENDING;
+        }
+
+        return score;
+    }
+
+    private Set<Integer> extractGenreIds(Movie movie) {
+
+        return movie.getMovieGenres()
+                .stream()
+                .map(movieGenre -> movieGenre.getGenre().getId())
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    private Set<Integer> extractPersonIdsByRole(
+            Movie movie,
+            String role
+    ) {
+
+        return movie.getMoviePeople()
+                .stream()
+                .filter(moviePerson -> role.equalsIgnoreCase(moviePerson.getRole()))
+                .map(moviePerson -> moviePerson.getPerson().getId())
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    private boolean hasAnyIntersection(
+            Set<Integer> source,
+            Set<Integer> candidate
+    ) {
+
+        if (source.isEmpty() || candidate.isEmpty()) {
+            return false;
+        }
+
+        Set<Integer> overlap = new HashSet<>(source);
+        overlap.retainAll(candidate);
+
+        return !overlap.isEmpty();
+    }
+
+    private boolean isTrendingMovie(Movie movie) {
+
+        return movie.getMovieCategories()
+                .stream()
+                .map(movieCategory -> movieCategory.getCategory().getName())
+                .filter(name -> name != null && !name.isBlank())
+                .map(name -> name.toLowerCase(Locale.ROOT))
+                .anyMatch(name -> name.contains(CATEGORY_TRENDING));
+    }
+
+    private Movie resolveMovieByTitle(String title) {
+
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Movie title must not be blank"
+            );
+        }
+
+        String normalizedTitle = title.trim();
+
+        return movieRepository
+                .findFirstByTitleIgnoreCaseAndIsActiveTrue(normalizedTitle)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Movie not found: " + normalizedTitle
+                        )
+                );
     }
 
     private Movie findMovieById(
@@ -440,5 +609,11 @@ Input should be two movie titles.
         );
 
         return dto;
+    }
+
+    private record SimilarityCandidate(
+            Movie movie,
+            int score
+    ) {
     }
 }

@@ -94,4 +94,24 @@ public interface MovieRepository extends JpaRepository<Movie, Integer>, JpaSpeci
     List<Movie> findAll(org.springframework.data.jpa.domain.Specification<Movie> spec);
 
     Optional<Movie> findFirstByTitleIgnoreCase(String title);
+
+    @EntityGraph(attributePaths = {
+            "movieGenres.genre",
+            "movieCategories.category",
+            "moviePeople.person"
+    })
+    Optional<Movie> findFirstByTitleIgnoreCaseAndIsActiveTrue(
+            String title
+    );
+
+    List<Movie> findTop5ByTitleContainingIgnoreCaseAndIsActiveTrueOrderByVoteCountDesc(
+            String title
+    );
+
+    @EntityGraph(attributePaths = {
+            "movieGenres.genre",
+            "movieCategories.category",
+            "moviePeople.person"
+    })
+    List<Movie> findTop200ByIsActiveTrueOrderByVoteCountDesc();
 }
