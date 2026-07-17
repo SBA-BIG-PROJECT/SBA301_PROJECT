@@ -132,25 +132,19 @@ const AdminPayment = () => {
           </div>
         </header>
 
-        {/* TopAppBar (Desktop) */}
-        <header className="hidden md:flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-30 bg-[#0F172A] border-b border-[#334155] h-[72px]">
-          <h2 className="text-[32px] font-bold text-[#f8fafc] tracking-[-0.01em]">Payment Management</h2>
-          <div className="flex items-center gap-[24px]">
-            <div className="flex gap-[16px] text-[#94A3B8]">
-              <span className="material-symbols-outlined cursor-pointer hover:text-[#E50914] transition-colors">notifications</span>
-              <span className="material-symbols-outlined cursor-pointer hover:text-[#E50914] transition-colors">contrast</span>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-[#334155] overflow-hidden flex items-center justify-center">
-              <img alt="Administrator Avatar" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_xUHVPrLyAjP9szW1mDrsjr_Z11GiTVZEMIaZOz1nfwVSldx0sB3zmks0UNwGaYLUyCw4XdDHYx641TYwnY4O2simlv0RjK3yv3LdSk7fEqP7h_ZiNUrZnvlhS86B5Hb9f-SGcHoF2Z82wc3j7y-Mw5H2XLa5AphUNpijDeBSC2GhboGbc43gR49kLR_heF0LeHINF_-5awkz7Cy1JongvINWqRedZEpBclvh7I0nc-r6fjFEJySGZhPoRJRndIkfOS0aatn145Tb"/>
-            </div>
-          </div>
-        </header>
-
         {/* Page Content */}
         <div className="p-[24px] md:p-[48px] flex-1 flex flex-col gap-[48px]">
-          {/* Mobile Page Title */}
-          <div className="md:hidden">
-            <h2 className="text-[24px] font-bold text-[#f8fafc]">Payment Management</h2>
+          {/* Page Header */}
+          <div className="hidden md:flex justify-between items-end text-left w-full">
+            <div className="text-left">
+              <h1 className="text-[32px] leading-[40px] tracking-[-0.01em] md:text-[48px] md:leading-[1.1] md:tracking-[-0.02em] font-extrabold text-[#f8fafc] text-left">Payment Management</h1>
+              <p className="text-[16px] leading-[24px] text-[#94a3b8] mt-[4px] text-left">Monitor transaction logs, revenue streams, and premium subscription details.</p>
+            </div>
+          </div>
+          {/* Mobile Page Header */}
+          <div className="md:hidden text-left">
+            <h1 className="text-[28px] leading-[36px] font-extrabold text-[#f8fafc] text-left">Payment Management</h1>
+            <p className="text-[14px] leading-[20px] text-[#94a3b8] mt-[4px] text-left">Monitor transaction logs, revenue streams, and premium subscription details.</p>
           </div>
 
           {/* Bento Metrics Grid */}

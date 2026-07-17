@@ -195,7 +195,7 @@ const AdminUserDetail = () => {
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col md:ml-64 min-w-0 bg-[#0F172A]">
                 {/* TopNavBar */}
-                <header className="bg-[#0F172A] border-b border-[#334155] shadow-sm flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-30">
+                <header className="bg-[#0F172A] border-b border-[#334155] shadow-sm flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-30 md:hidden">
                     {/* Search Bar (on_left) */}
                     <div className="relative w-full max-w-md hidden md:block">
                         <span className="material-symbols-outlined absolute left-[16px] top-1/2 -translate-y-1/2 text-[#94A3B8]">search</span>

@@ -308,7 +308,7 @@ const AdminMovies = () => {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 md:ml-64 relative bg-[#0F172A]">
         {/* Top Header */}
-        <header className="flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-30 bg-[#0F172A] border-b border-[#334155] shadow-sm h-[72px]">
+        <header className="flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-30 bg-[#0F172A] border-b border-[#334155] shadow-sm h-[72px] md:hidden">
           <div className="flex items-center flex-1 md:hidden">
             <button className="text-[#94A3B8] p-[8px] hover:bg-[#334155] rounded-lg transition-colors">
               <span className="material-symbols-outlined">menu</span>
@@ -346,12 +346,12 @@ const AdminMovies = () => {
           <div className="max-w-[1600px] mx-auto flex flex-col gap-[24px]">
             
             {/* Title & Add Button */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-[16px]">
-              <div>
-                <h2 className="text-[32px] leading-[40px] font-bold text-[#f8fafc] tracking-[-0.01em]">Movies</h2>
-                <p className="text-[14px] leading-[20px] text-[#94A3B8] mt-[4px]">Manage your content library, update metadata, and control visibility.</p>
+            <div className="flex justify-between items-end text-left w-full">
+              <div className="text-left">
+                <h1 className="text-[32px] leading-[40px] tracking-[-0.01em] md:text-[48px] md:leading-[1.1] md:tracking-[-0.02em] font-extrabold text-[#f8fafc] text-left mx-0 max-w-none">Movies</h1>
+                <p className="text-[16px] leading-[24px] text-[#94A3B8] mt-[4px] text-left">Manage your content library, update metadata, and control visibility.</p>
               </div>
-              <button onClick={handleOpenAddModal} className="bg-[#E50914] hover:brightness-110 active:brightness-90 text-white px-[24px] py-[8px] rounded-lg flex items-center gap-[8px] transition-all shadow-md text-[14px] font-medium shrink-0 h-[40px] cursor-pointer">
+              <button onClick={handleOpenAddModal} className="bg-[#E50914] hover:brightness-110 active:brightness-90 text-white px-[24px] py-[8px] rounded-lg flex items-center gap-[8px] transition-all shadow-md text-[14px] font-medium shrink-0 h-[40px] cursor-pointer mb-[4px]">
                 <span className="material-symbols-outlined text-[20px]">add</span>
                 Add New Movie
               </button>
@@ -359,7 +359,18 @@ const AdminMovies = () => {
 
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-[16px] bg-[#1E293B] p-[16px] rounded-lg border border-[#334155] shadow-sm">
-              <div className="flex items-center gap-[8px] flex-1 min-w-[200px]">
+              <div className="relative flex-1 min-w-[260px] max-w-md group">
+                <span className="material-symbols-outlined absolute left-[8px] top-1/2 -translate-y-1/2 text-[#94A3B8] text-[20px] group-focus-within:text-[#E50914] transition-colors">search</span>
+                <input 
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                  className="w-full bg-[#0F172A] border border-[#334155] rounded-lg pl-[32px] pr-[16px] py-[8px] text-[14px] leading-[20px] text-[#f8fafc] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] transition-all" 
+                  placeholder="Search movies by title..." 
+                  type="text"
+                />
+              </div>
+              <div className="flex items-center gap-[8px] min-w-[200px]">
                 <span className="material-symbols-outlined text-[#94A3B8] text-[20px]">filter_list</span>
                 <select 
                   value={isActive}
@@ -369,7 +380,7 @@ const AdminMovies = () => {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
-                <button onClick={handleApplyFilters} className="bg-[#334155] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#475569] transition-colors ml-2">Filter</button>
+                <button onClick={handleApplyFilters} className="bg-[#E50914] hover:brightness-110 active:brightness-90 text-white px-4 py-2 rounded-lg text-sm transition-all font-medium ml-2">Apply Filters</button>
               </div>
             </div>
 

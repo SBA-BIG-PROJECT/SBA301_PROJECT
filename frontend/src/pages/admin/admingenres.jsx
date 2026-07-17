@@ -141,7 +141,7 @@ const AdminGenres = () => {
       {/* Main Content Wrapper */}
       <main className="flex-1 md:ml-64 flex flex-col min-h-screen bg-[#0F172A]">
         {/* TopNavBar */}
-        <header className="bg-[#0F172A] flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-30 shadow-sm border-b border-[#334155]">
+        <header className="bg-[#0F172A] flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-30 shadow-sm border-b border-[#334155] md:hidden">
           <div className="flex items-center gap-[16px]">
             {/* Mobile Menu Button */}
             <button className="md:hidden text-[#94A3B8] hover:text-[#f8fafc] transition-colors cursor-pointer active:opacity-80">
@@ -180,10 +180,10 @@ const AdminGenres = () => {
         {/* Page Content */}
         <div className="p-[24px] md:p-[48px] flex-1 flex flex-col gap-[48px]">
           {/* Page Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-[16px]">
-            <div>
-              <h1 className="text-[32px] font-bold text-[#f8fafc] mb-[4px]">Taxonomy Management</h1>
-              <p className="text-[14px] text-[#94A3B8]">Manage content genres and structural categories for the platform.</p>
+          <div className="flex justify-between items-end text-left w-full">
+            <div className="text-left">
+              <h1 className="text-[32px] leading-[40px] tracking-[-0.01em] md:text-[48px] md:leading-[1.1] md:tracking-[-0.02em] font-extrabold text-[#f8fafc] text-left mx-0 max-w-none">Taxonomy Management</h1>
+              <p className="text-[16px] leading-[24px] text-[#94A3B8] mt-[4px] text-left">Manage content genres and structural categories for the platform.</p>
             </div>
             <div className="flex gap-[16px]">
               <button 

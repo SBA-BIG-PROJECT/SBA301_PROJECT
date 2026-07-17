@@ -288,24 +288,15 @@ const AdminUser = () => {
                     </div>
                 </header>
 
-                {/* Desktop Header Area (Contextual) */}
-                <div className="hidden md:flex justify-between items-center w-full px-[24px] py-[16px] border-b border-[#334155] bg-[#0F172A] sticky top-0 z-30">
-                    <div>
-                        <h2 className="text-[24px] leading-[32px] font-semibold text-[#ffdad5]">User Management</h2>
-                    </div>
-                    <div className="flex items-center gap-[16px] text-[#e9bcb6]">
-                        <button className="p-2 rounded-full hover:bg-[#1E293B] transition-colors">
-                            <span className="material-symbols-outlined">notifications</span>
-                        </button>
-                        <img
-                            alt="Administrator Avatar"
-                            className="w-10 h-10 rounded-full border border-[#334155]"
-                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIoc1DnvUdS3Y0UuT0OYLbfeMNAAOq1HemaQnPxn9RAHB3YZoJI7v5vyHBWZqm9svHFHZa2ciSXsCUAmg_LkJgD7k9qJkNV-AU1B7F_D5kPviLjpHV2B1iDic5jhT7ewximBHnaHZVZNalfQHAPwoUBfrkqUYvy9d7vsuGR3NBUJeNZFHFHmleOwZTqqitIYwX-FnW7sqzy7h5539oLOaKO92LlsZWgux9oBhHdglZBVPj7y2Ss-XSTYDJL8--G1fJlPGDWY2OCmCv"
-                        />
-                    </div>
-                </div>
-
                 <main className="flex-1 p-[16px] md:p-[24px] space-y-[48px]">
+                    {/* Desktop Page Title */}
+                    <div className="hidden md:flex justify-between items-end text-left w-full">
+                        <div className="text-left">
+                            <h1 className="text-[32px] leading-[40px] tracking-[-0.01em] md:text-[48px] md:leading-[1.1] md:tracking-[-0.02em] font-extrabold text-[#f8fafc] text-left mx-0 max-w-none">User Management</h1>
+                            <p className="text-[16px] leading-[24px] text-[#94a3b8] mt-[4px] text-left">Manage user accounts, roles, premium subscriptions and ban/delete actions.</p>
+                        </div>
+                    </div>
+
                     {/* Filters & Search Section */}
                     <section className="bg-[#1E293B] border border-[#334155] rounded-xl p-[24px] flex flex-col md:flex-row gap-[24px] items-end">
                         <div className="w-full md:w-1/4 flex flex-col gap-[4px]">

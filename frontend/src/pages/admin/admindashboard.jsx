@@ -183,8 +183,8 @@ const AdminDashboard = () => {
                     {/* Page Header */}
                     <div className="flex justify-between items-end">
                         <div>
-                            <h1 className="text-[32px] leading-[40px] tracking-[-0.01em] md:text-[48px] md:leading-[1.1] md:tracking-[-0.02em] font-extrabold text-[#f8fafc]">Dashboard Overview</h1>
-                            <p className="text-[16px] leading-[24px] text-[#94a3b8] mt-[4px]">Real-time metrics and system performance.</p>
+                            <h1 className="text-[32px] leading-[40px] tracking-[-0.01em] md:text-[48px] md:leading-[1.1] md:tracking-[-0.02em] font-extrabold text-[#f8fafc] text-left mx-0 max-w-none">Dashboard Overview</h1>
+                            <p className="text-[16px] leading-[24px] text-[#94a3b8] mt-[4px] text-left">Real-time metrics and system performance.</p>
                         </div>
                         <button 
                             onClick={handleExportReport}
@@ -314,7 +314,7 @@ const AdminDashboard = () => {
                                             <div className="text-[#94a3b8]">Loading chart data...</div>
                                         ) : (
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart data={revenueData} margin={{ top: 10, right: 10, left: -10, bottom: 15 }}>
+                                                <BarChart data={revenueData} margin={{ top: 10, right: 4, left: 8, bottom: 10 }}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                                                     <XAxis 
                                                         dataKey="date" 
@@ -329,7 +329,7 @@ const AdminDashboard = () => {
                                                         fontSize={12} 
                                                         tickLine={false} 
                                                         axisLine={false}
-                                                        width={70}
+                                                        width={90}
                                                         tickFormatter={(val) => formatCurrency(val)}
                                                     />
                                                     <Tooltip 
