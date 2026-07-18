@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { movieService, watchlistService, authService } from '../services'
+import { useToast, ToastContainer } from '../components/Toast.jsx'
 import { translateGenre } from '../utils/genreTranslator.js'
 import noPoster from '../assets/No-Poster.svg'
 import heroImg from '../assets/hero-img.png'
@@ -34,7 +35,7 @@ const SkeletonCard = () => (
 )
 
 // ── Movie Card ─────────────────────────────────────────────────────────────
-const MovieCard = ({ movie, onNavigate }) => {
+const MovieCard = ({ movie, onNavigate, showToast }) => {
   const rating = getRating(movie.vote_average ?? movie.rating ?? movie.voteAverage)
   const year = getYear(movie.release_date ?? movie.releaseYear ?? movie.releaseDate)
   const poster = getPoster(movie.poster_path ?? movie.posterPath)
@@ -188,14 +189,14 @@ const MovieCard = ({ movie, onNavigate }) => {
                 onClick={async (e) => { 
                   e.stopPropagation(); 
                   if (!authService.isAuthenticated()) {
-                    alert('Please login to add to watchlist');
+                    showToast('warning', 'Please login to add to watchlist');
                     return;
                   }
                   try {
                     await watchlistService.addToWatchlist(movie.id);
-                    alert('Added to watchlist successfully!');
+                    showToast('success', 'Added to watchlist successfully!');
                   } catch (err) {
-                    alert(err.response?.data?.message || err.message || 'Error adding to watchlist');
+                    showToast('error', err.response?.data?.message || err.message || 'Error adding to watchlist');
                   }
                 }}
               >
@@ -241,6 +242,7 @@ const MovieCard = ({ movie, onNavigate }) => {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 const Home = () => {
+  const { toasts, showToast, closeToast } = useToast()
   const [movies, setMovies] = useState([])
   const [genres, setGenres] = useState([])
   const [genreMovies, setGenreMovies] = useState({})
@@ -387,14 +389,14 @@ const Home = () => {
               onClick={async () => {
                 if (!heroMovie) return;
                 if (!authService.isAuthenticated()) {
-                  alert('Please login to add to watchlist');
+                  showToast('warning', 'Please login to add to watchlist');
                   return;
                 }
                 try {
                   await watchlistService.addToWatchlist(heroMovie.id);
-                  alert('Added to watchlist successfully!');
+                  showToast('success', 'Added to watchlist successfully!');
                 } catch (err) {
-                  alert(err.response?.data?.message || err.message || 'Error adding to watchlist');
+                  showToast('error', err.response?.data?.message || err.message || 'Error adding to watchlist');
                 }
               }}
             >
@@ -450,7 +452,7 @@ const Home = () => {
             <div className="flex gap-4 overflow-x-auto pb-6 hide-scrollbar snap-x w-full" style={{ scrollBehavior: 'smooth' }}>
               {rowMovies.map((movie) => (
                 <div key={movie.id} className="snap-start shrink-0 w-[180px] sm:w-[220px] flex">
-                  <MovieCard movie={movie} onNavigate={navigate} />
+                  <MovieCard movie={movie} onNavigate={navigate} showToast={showToast} />
                 </div>
               ))}
             </div>
@@ -482,7 +484,7 @@ const Home = () => {
         ) : (
           <div className="hm-grid">
             {movies.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} onNavigate={navigate} />
+              <MovieCard key={movie.id} movie={movie} onNavigate={navigate} showToast={showToast} />
             ))}
           </div>
         )}
@@ -535,6 +537,8 @@ const Home = () => {
           </div>
         )}
       </section>
+
+      <ToastContainer toasts={toasts} onClose={closeToast} />
     </div>
   )
 }

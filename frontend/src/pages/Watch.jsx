@@ -116,7 +116,7 @@ const Watch = () => {
         (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
       ) {
         e.preventDefault();
-        showToast('Developer tools are disabled on this page.', 'warning');
+        showToast('warning', 'Developer tools are disabled on this page.');
       }
     };
     document.addEventListener('contextmenu', handleContextMenu);
@@ -321,10 +321,9 @@ const Watch = () => {
       setReviews(prev => [review, ...prev])
       setNewComment('')
       setNewRating(5.0)
-      showToast('Comment posted successfully!', 'success')
     } catch (error) {
       console.error('Failed to create review', error)
-      showToast(error.response?.data?.message || 'Failed to post comment. Please try again.', 'error')
+      showToast('error', error.response?.data?.message || 'Failed to post comment. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -500,67 +499,38 @@ const Watch = () => {
                 </Link>
               </div>
             ) : (
-              <div className="mb-8 pl-16 relative">
-                <div className="absolute left-0 top-0 w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center font-bold text-gray-300 text-lg">
+              <div className="mb-8 flex gap-4">
+                <div className="w-10 h-10 shrink-0 rounded-full bg-gray-700 flex items-center justify-center font-bold text-gray-300 text-sm mt-1">
                   {user?.username?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
-                  <div className="mb-4 flex flex-col gap-2 bg-[#242730] p-4 rounded-lg">
-                    <p className="text-sm font-medium text-gray-300">Your rating:</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => setNewRating(star)}
-                            onMouseEnter={() => setHoverRating(star)}
-                            onMouseLeave={() => setHoverRating(0)}
-                            className="focus:outline-none transition-transform hover:scale-110"
-                          >
-                            <svg 
-                              className={`w-6 h-6 ${star <= (hoverRating || newRating) ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]' : 'text-gray-600'} transition-all`} 
-                              fill="currentColor" 
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                            </svg>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-center bg-yellow-500/10 px-3 py-1 rounded-lg border border-yellow-500/20 ml-4">
-                        <span className="font-bold text-yellow-500">{newRating}</span>
-                        <span className="text-yellow-500/50 text-xs ml-1">/ 5</span>
-                      </div>
-                    </div>
-                  </div>
                 
                 <form 
-                  className="bg-[#242730] rounded-lg overflow-hidden border border-[#2a2d36]"
+                  className="flex-1 flex flex-col gap-3"
                   onSubmit={handleCommentSubmit}
                 >
+                  {/* Comment Input */}
                   <div className="relative">
                     <textarea 
-                      className="w-full bg-transparent p-4 text-gray-200 placeholder-gray-500 focus:outline-none resize-none min-h-[100px] text-sm"
-                      placeholder="Write your comment & review..."
+                      className="w-full bg-[#242730] border border-[#2a2d36] rounded-xl p-4 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-red-500/50 resize-none min-h-[80px] text-sm transition-colors"
+                      placeholder="Add a comment..."
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       maxLength={1000}
                     />
-                  </div>
-                  <div className="bg-[#1a1c22] px-4 py-3 flex items-center justify-between border-t border-[#2a2d36]">
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-400 hover:text-gray-300 transition-colors">
-                        <input type="checkbox" className="rounded bg-gray-800 border-gray-700 text-red-500 focus:ring-red-500" />
-                        Contains spoilers?
+                    
+                    <div className="absolute bottom-3 right-3 flex items-center gap-4">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-400 hover:text-gray-300 transition-colors bg-[#1a1c22] px-2 py-1 rounded-md border border-gray-800">
+                        <input type="checkbox" className="rounded bg-gray-800 border-gray-700 text-red-500 focus:ring-red-500 w-3 h-3" />
+                        Spoilers
                       </label>
+                      <button 
+                        type="submit"
+                        disabled={submitting || !newComment.trim()}
+                        className="bg-red-600 hover:bg-red-700 text-white px-5 py-1.5 rounded-full font-medium text-xs disabled:opacity-50 transition-colors shadow-lg"
+                      >
+                        {submitting ? 'Posting...' : 'Post'}
+                      </button>
                     </div>
-                    <button 
-                      type="submit"
-                      disabled={submitting || !newComment.trim()}
-                      className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-md font-medium text-sm disabled:opacity-50 transition-colors"
-                    >
-                      {submitting ? 'Submitting...' : 'Submit'}
-                    </button>
                   </div>
                 </form>
               </div>
@@ -585,19 +555,10 @@ const Watch = () => {
                     </div>
                     
                     <div className="flex-1">
-                      <div className="flex items-baseline gap-2 mb-1">
+                      <div className="flex items-baseline gap-2 mb-2">
                         <h4 className="font-bold text-gray-200 text-[15px]">{review.userName || 'Anonymous user'}</h4>
                         <span className="text-xs text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded">Lv.1 - Beginner</span>
                       </div>
-                      
-                      {review.rating && (
-                        <div className="flex items-center gap-1 text-red-500 text-xs font-bold mb-2">
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                          </svg>
-                          <span>{(Number(review.rating) / 2).toFixed(1)} Points</span>
-                        </div>
-                      )}
                       
                       <div className="text-gray-300 text-[15px] leading-relaxed whitespace-pre-wrap mb-3">
                         {review.comment}

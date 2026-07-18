@@ -125,22 +125,22 @@
   }
 
   .nav__genres-panel {
-    @apply absolute left-0 top-full mt-3 rounded-2xl border border-white/10 backdrop-blur;
-    width: 720px;
+    @apply absolute left-0 top-full mt-2 rounded-xl border border-white/10 backdrop-blur-xl;
+    width: 540px;
     max-width: 90vw;
-    max-height: 80vh;
+    max-height: 70vh;
     overflow-y: auto;
-    background: rgba(10, 8, 24, 0.97);
-    box-shadow: 0 32px 80px rgba(3, 0, 20, 0.7), 0 0 0 1px rgba(255,255,255,0.05);
+    background: rgba(15, 13, 35, 0.95);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.05);
     z-index: 60;
     overflow-x: hidden;
-    animation: zoomIn 0.18s ease-out both;
+    animation: zoomIn 0.15s ease-out both;
   }
 
   .genres-panel__head {
-    @apply flex items-center justify-between px-5 py-4;
+    @apply flex items-center justify-between px-4 py-3;
     border-bottom: 1px solid rgba(255,255,255,0.05);
-    background: transparent;
+    background: rgba(255, 255, 255, 0.02);
   }
 
   .genres-panel__head-left {
@@ -152,21 +152,21 @@
   }
 
   .genres-panel__heading {
-    @apply text-sm font-semibold text-white;
+    @apply text-sm font-semibold text-white tracking-wide;
     margin: 0;
   }
 
   .genres-panel__sub {
-    @apply text-xs text-gray-500;
+    @apply text-xs text-gray-400 mt-0.5;
     margin: 0;
   }
 
   .genres-panel__close {
-    @apply flex h-7 w-7 items-center justify-center rounded-full text-gray-400 transition hover:bg-white/10 hover:text-white;
+    @apply flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition hover:bg-white/10 hover:text-white;
   }
 
   .genres-panel__grid {
-    @apply grid gap-3 p-5;
+    @apply grid gap-2.5 p-4;
     grid-template-columns: repeat(3, 1fr);
   }
 
@@ -175,7 +175,7 @@
   }
 
   .genres-panel__empty {
-    @apply flex items-center gap-3 px-5 py-6 text-sm text-gray-400;
+    @apply flex items-center justify-center gap-3 px-5 py-8 text-sm text-gray-400;
   }
 
   .genres-panel__spinner {
@@ -184,73 +184,51 @@
     animation: spin 0.8s linear infinite;
   }
 
-  /* Genre Box Cards */
+  /* Genre Box Cards - Redesigned to be compact */
   .genre-box {
-    @apply relative flex flex-col justify-between rounded-2xl p-4 text-left transition-all duration-300 cursor-pointer overflow-hidden;
-    min-height: 110px;
-    border: none;
-    outline: none;
-  }
-
-  .genre-box::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    background: rgba(255,255,255,0.08);
-    border-radius: inherit;
-  }
-
-  .genre-box:hover::before {
-    opacity: 1;
+    @apply relative flex items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all duration-200 cursor-pointer overflow-hidden border border-white/5 bg-white/5;
   }
 
   .genre-box:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+    @apply bg-white/10 border-white/20;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   }
 
   .genre-box__name {
-    @apply text-base font-bold text-white;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    position: relative;
-    z-index: 1;
+    @apply text-sm font-medium text-gray-200 transition-colors;
+  }
+
+  .genre-box:hover .genre-box__name {
+    @apply text-white;
   }
 
   .genre-box__link {
-    @apply flex items-center gap-1 text-xs font-medium text-white/80 mt-auto pt-2;
-    position: relative;
-    z-index: 1;
-    transition: color 0.2s, gap 0.2s;
+    @apply flex items-center gap-1 text-[10px] font-medium text-gray-400 opacity-0 transition-all duration-200 uppercase tracking-wider;
+    transform: translateX(-5px);
   }
 
   .genre-box:hover .genre-box__link {
-    color: rgba(255,255,255,1);
-    gap: 6px;
+    @apply opacity-100 text-white/80;
+    transform: translateX(0);
   }
 
   .genre-box__arrow {
-    width: 14px;
-    height: 14px;
-    transition: transform 0.2s ease;
+    width: 12px;
+    height: 12px;
   }
 
-  .genre-box:hover .genre-box__arrow {
-    transform: translateX(2px);
-  }
-
-  /* Gradient variants */
-  .genre-box--violet  { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #c4b5fd 100%); }
-  .genre-box--sky     { background: linear-gradient(135deg, #0284c7 0%, #38bdf8 50%, #7dd3fc 100%); }
-  .genre-box--peach   { background: linear-gradient(135deg, #ea580c 0%, #fb923c 40%, #fdba74 100%); }
-  .genre-box--rose    { background: linear-gradient(135deg, #e11d48 0%, #fb7185 50%, #fda4af 100%); }
-  .genre-box--emerald { background: linear-gradient(135deg, #059669 0%, #34d399 50%, #6ee7b7 100%); }
-  .genre-box--amber   { background: linear-gradient(135deg, #d97706 0%, #fbbf24 50%, #fde68a 100%); }
-  .genre-box--fuchsia { background: linear-gradient(135deg, #c026d3 0%, #e879f9 50%, #f0abfc 100%); }
-  .genre-box--teal    { background: linear-gradient(135deg, #0d9488 0%, #2dd4bf 50%, #5eead4 100%); }
-  .genre-box--indigo  { background: linear-gradient(135deg, #4f46e5 0%, #818cf8 50%, #a5b4fc 100%); }
-  .genre-box--coral   { background: linear-gradient(135deg, #dc2626 0%, #f87171 40%, #fca5a5 100%); }
+  /* Gradient variants - Remove gradients for cleaner look, let them fall back to standard colors or subtle tints if needed. We'll just keep the classes empty so Header.jsx doesn't break */
+  .genre-box--violet  { }
+  .genre-box--sky     { }
+  .genre-box--peach   { }
+  .genre-box--rose    { }
+  .genre-box--emerald { }
+  .genre-box--amber   { }
+  .genre-box--fuchsia { }
+  .genre-box--teal    { }
+  .genre-box--indigo  { }
+  .genre-box--coral   { }
   .nav__menu-item:hover {
     @apply border-yellow-200/30 text-light-100;
     box-shadow: 0 0 12px rgba(255, 214, 128, 0.25);
@@ -645,7 +623,9 @@
   }
 
   .detail__content {
-    @apply relative z-10 grid gap-6 p-6 sm:p-8 lg:grid-cols-[0.7fr_1.3fr];
+    @apply relative z-10 grid gap-8 p-6 sm:p-10 lg:grid-cols-[300px_1fr] items-start;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
   .detail__poster img {
