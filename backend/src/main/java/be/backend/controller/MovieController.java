@@ -140,10 +140,4 @@ public class MovieController {
             @RequestParam boolean isPremium) {
         return ResponseEntity.ok(movieService.setMoviePremium(tmdbId, isPremium));
     }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/admin/diagnose")
-    public ResponseEntity<List<Map<String, Object>>> diagnoseAllMovies() {
-        return ResponseEntity.ok(movieService.diagnoseAllMovies());
-    }
 }

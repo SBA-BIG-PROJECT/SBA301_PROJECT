@@ -27,7 +27,7 @@ public interface PaymentService {
     PaymentStatusResponse getPaymentStatus(Integer orderCode);
 
     // --- Admin Methods ---
-    PageResponse<AdminPaymentDto> getAllPaymentsAdmin(int page, int size, String status, Integer userId, String planType);
+    PageResponse<AdminPaymentDto> getAllPaymentsAdmin(int page, int size, String status, Integer userId, String planType, String search);
     AdminPaymentDto getPaymentDetailAdmin(Integer paymentId);
     AdminPaymentDto updatePaymentStatusAdmin(Integer paymentId, String newStatus);
 }

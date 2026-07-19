@@ -182,10 +182,10 @@ public class SepayServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<AdminPaymentDto> getAllPaymentsAdmin(int page, int size, String status, Integer userId, String planType) {
+    public PageResponse<AdminPaymentDto> getAllPaymentsAdmin(int page, int size, String status, Integer userId, String planType, String search) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         
-        Page<Payment> paymentPage = paymentRepository.findByFilters(status, userId, planType, pageable);
+        Page<Payment> paymentPage = paymentRepository.findByFilters(status, userId, planType, search, pageable);
         
         Page<AdminPaymentDto> dtoPage = paymentPage.map(paymentMapper::toAdminDto);
         return PageResponse.from(dtoPage);

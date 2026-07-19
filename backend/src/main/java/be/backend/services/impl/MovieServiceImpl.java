@@ -42,7 +42,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -176,16 +179,20 @@ public class MovieServiceImpl implements MovieService {
     public PageResponse<AdminMovieDto> getAllMoviesAdmin(int page, int size, String search, Boolean isActive) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "addedAt"));
 
-        Page<Movie> moviePage;
-        if (hasText(search)) {
-            moviePage = movieRepository.searchByKeyword(search.trim(), pageable);
-        } else if (isActive != null) {
-            moviePage = isActive
-                    ? movieRepository.findByIsActiveTrue(pageable)
-                    : movieRepository.findByIsActiveFalse(pageable);
-        } else {
-            moviePage = movieRepository.findAll(pageable);
-        }
+        Specification<Movie> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (isActive != null) {
+                predicates.add(cb.equal(root.get("isActive"), isActive));
+            }
+            if (hasText(search)) {
+                String likeKeyword = "%" + search.trim().toLowerCase() + "%";
+                Predicate titleLike = cb.like(cb.lower(root.get("title")), likeKeyword);
+                predicates.add(titleLike);
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Movie> moviePage = movieRepository.findAll(spec, pageable);
 
         Map<Integer, Object[]> statsMap = fetchStatsMap(moviePage);
         return PageResponse.from(moviePage.map(m -> toAdminMovieDto(m, statsMap.get(m.getId()))));
@@ -560,51 +567,5 @@ public class MovieServiceImpl implements MovieService {
 
     private boolean hasText(String s) {
         return s != null && !s.isBlank();
-    }
-
-    // ================================================================ Diagnostics
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<Map<String, Object>> diagnoseAllMovies() {
-        List<Movie> movies = movieRepository.findAll();
-        List<Map<String, Object>> results = new java.util.ArrayList<>();
-
-        for (Movie movie : movies) {
-            Map<String, Object> info = new java.util.LinkedHashMap<>();
-            info.put("id", movie.getId());
-            info.put("title", movie.getTitle());
-
-            if (movie.getTrailerUrl() == null || movie.getTrailerUrl().isBlank()) {
-                info.put("status", "NO_URL");
-                info.put("message", "trailer_url is null/empty in DB");
-                results.add(info);
-                continue;
-            }
-
-            String decrypted;
-            try {
-                decrypted = crypto.decrypt(movie.getTrailerUrl());
-            } catch (Exception e) {
-                info.put("status", "DECRYPT_FAIL");
-                info.put("message", e.getMessage());
-                results.add(info);
-                continue;
-            }
-
-            if (!YT_PATTERN.matcher(decrypted).find()) {
-                info.put("status", "NOT_YOUTUBE");
-                info.put("decryptedPreview", decrypted.substring(0, Math.min(decrypted.length(), 80)));
-                results.add(info);
-                continue;
-            }
-
-            String embedUrl = toEmbedUrl(decrypted);
-            info.put("status", "OK");
-            info.put("embedUrl", embedUrl);
-            results.add(info);
-        }
-
-        return results;
     }
 }

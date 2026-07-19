@@ -27,5 +27,4 @@ public interface MovieService {
     void refreshAllMovieCategories();
     void refreshMovieCategories(Integer tmdbId);
     String resolveEmbedUrl(String playToken);
-    java.util.List<java.util.Map<String, Object>> diagnoseAllMovies();
 }
