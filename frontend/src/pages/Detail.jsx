@@ -111,7 +111,7 @@ const Detail = () => {
         (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
       ) {
         e.preventDefault();
-        showToast('Developer tools are disabled on this page.', 'warning');
+        showToast('warning', 'Developer tools are disabled on this page.');
       }
     };
     document.addEventListener('contextmenu', handleContextMenu);
@@ -129,7 +129,7 @@ const Detail = () => {
     }
     
     if (!movie?.playToken) {
-      showToast('Trailer not available or premium content.', 'error')
+      showToast('error', 'Trailer not available or premium content.')
       return
     }
     
@@ -139,7 +139,7 @@ const Detail = () => {
       setShowTrailer(true)
     } catch (e) {
       console.error('Failed to resolve trailer URL', e)
-      showToast('Failed to load trailer. Please try again.', 'error')
+      showToast('error', 'Failed to load trailer. Please try again.')
     }
   }
 
@@ -172,7 +172,6 @@ const Detail = () => {
       })
       setReviews(prev => [review, ...prev])
       setNewComment('')
-      setNewRating(5.0)
       setNewRating(5.0)
       showToast('success', 'Review posted successfully!')
     } catch (error) {
