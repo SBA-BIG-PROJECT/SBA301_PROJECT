@@ -15,8 +15,10 @@ import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public final class MovieSpecification {
 
@@ -119,6 +121,53 @@ public final class MovieSpecification {
                                                 )
                                         ),
                                         keyword
+                                )
+                        )
+                );
+            }
+
+            /*
+             * ========================================
+             * COUNTRY (keyword-style fallback)
+             *
+             * Movie entity currently has no dedicated country column,
+             * so country filtering matches known aliases in
+             * title/overview.
+             * ========================================
+             */
+
+            if (hasText(safeCriteria.getCountry())) {
+
+                List<Predicate> countryPredicates =
+                        countryAliases(
+                                safeCriteria.getCountry()
+                        )
+                                .stream()
+                                .map(alias -> {
+                                    String likeValue = "%" + alias + "%";
+
+                                    return cb.or(
+                                            cb.like(
+                                                    cb.lower(root.get("title")),
+                                                    likeValue
+                                            ),
+                                            cb.like(
+                                                    cb.lower(
+                                                            cb.coalesce(
+                                                                    root.<String>get("overview"),
+                                                                    ""
+                                                            )
+                                                    ),
+                                                    likeValue
+                                            )
+                                    );
+                                })
+                                .toList();
+
+                predicates.add(
+                        cb.or(
+                                countryPredicates.toArray(
+                                        new Predicate[0]
                                 )
                         )
                 );
@@ -264,10 +313,9 @@ public final class MovieSpecification {
                                                     .get("id"),
                                             root.get("id")
                                     ),
-                                    cb.equal(
-                                            cb.lower(
-                                                    genreJoin.get("name")
-                                            ),
+                                    buildGenreNamePredicate(
+                                            cb,
+                                            genreJoin,
                                             genreName
                                     )
                             );
@@ -681,5 +729,192 @@ public final class MovieSpecification {
         return value
                 .trim()
                 .toLowerCase(Locale.ROOT);
+    }
+
+    private static Predicate buildGenreNamePredicate(
+            jakarta.persistence.criteria.CriteriaBuilder cb,
+            Join<MovieGenre, Genre> genreJoin,
+            String requestedGenre
+    ) {
+
+        List<Predicate> namePredicates =
+                genreAliases(requestedGenre)
+                        .stream()
+                        .map(alias ->
+                                cb.equal(
+                                        cb.lower(genreJoin.get("name")),
+                                        alias
+                                )
+                        )
+                        .toList();
+
+        return cb.or(namePredicates.toArray(new Predicate[0]));
+    }
+
+    private static Set<String> genreAliases(
+            String requestedGenre
+    ) {
+
+        String normalized = normalize(requestedGenre);
+
+        Set<String> aliases =
+                new LinkedHashSet<>();
+
+        aliases.add(normalized);
+
+        switch (normalized) {
+
+            case "comedy" -> {
+                aliases.add("hài");
+                aliases.add("phim hài");
+            }
+
+            case "animation" -> {
+                aliases.add("hoạt hình");
+                aliases.add("phim hoạt hình");
+                aliases.add("anime");
+            }
+
+            case "action" -> {
+                aliases.add("hành động");
+                aliases.add("phim hành động");
+            }
+
+            case "horror" -> {
+                aliases.add("kinh dị");
+                aliases.add("phim kinh dị");
+            }
+
+            case "romance" -> {
+                aliases.add("tình cảm");
+                aliases.add("lãng mạn");
+            }
+
+            case "drama" -> {
+                aliases.add("chính kịch");
+                aliases.add("tâm lý");
+            }
+
+            case "science fiction" -> {
+                aliases.add("sci-fi");
+                aliases.add("khoa học viễn tưởng");
+                aliases.add("viễn tưởng");
+            }
+
+            case "adventure" -> aliases.add("phiêu lưu");
+
+            case "mystery" -> aliases.add("bí ẩn");
+
+            case "family" -> aliases.add("gia đình");
+
+            case "thriller" -> {
+                aliases.add("gây cấn");
+                aliases.add("giật gân");
+            }
+
+            case "fantasy" -> {
+                aliases.add("giả tưởng");
+                aliases.add("giả tượng");
+            }
+
+            case "crime" -> aliases.add("hình sự");
+
+            case "history" -> aliases.add("lịch sử");
+
+            case "documentary" -> aliases.add("tài liệu");
+
+            case "war" -> aliases.add("chiến tranh");
+
+            case "western" -> aliases.add("miền tây");
+
+            case "tv movie" -> aliases.add("phim truyền hình");
+
+            default -> {
+                // Keep original normalized genre only.
+            }
+        }
+
+        return aliases;
+    }
+
+    private static Set<String> countryAliases(
+            String country
+    ) {
+
+        String normalized = normalize(country);
+
+        Set<String> aliases =
+                new LinkedHashSet<>();
+
+        aliases.add(normalized);
+
+        switch (normalized) {
+
+            case "japan" -> {
+                aliases.add("japanese");
+                aliases.add("nhat");
+                aliases.add("nhat ban");
+                aliases.add("nhật");
+                aliases.add("nhật bản");
+            }
+
+            case "south korea" -> {
+                aliases.add("korea");
+                aliases.add("korean");
+                aliases.add("han");
+                aliases.add("han quoc");
+                aliases.add("hàn");
+                aliases.add("hàn quốc");
+            }
+
+            case "united states" -> {
+                aliases.add("usa");
+                aliases.add("american");
+                aliases.add("hoa ky");
+                aliases.add("my");
+                aliases.add("mỹ");
+                aliases.add("hoa kỳ");
+            }
+
+            case "vietnam" -> {
+                aliases.add("viet nam");
+                aliases.add("vietnamese");
+                aliases.add("viet");
+                aliases.add("việt nam");
+                aliases.add("việt");
+            }
+
+            case "china" -> {
+                aliases.add("chinese");
+                aliases.add("trung");
+                aliases.add("trung quoc");
+                aliases.add("trung quốc");
+            }
+
+            case "thailand" -> {
+                aliases.add("thai");
+                aliases.add("thai lan");
+                aliases.add("thái");
+                aliases.add("thái lan");
+            }
+
+            case "france" -> {
+                aliases.add("french");
+                aliases.add("phap");
+                aliases.add("pháp");
+            }
+
+            case "united kingdom" -> {
+                aliases.add("uk");
+                aliases.add("british");
+                aliases.add("anh");
+            }
+
+            default -> {
+                // Keep original normalized country only.
+            }
+        }
+
+        return aliases;
     }
 }

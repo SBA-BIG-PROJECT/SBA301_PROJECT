@@ -1,6 +1,7 @@
 package be.backend.mapper;
 
 import be.backend.intent.ContextIntentResolver;
+import be.backend.intent.CountryIntentResolver;
 import be.backend.intent.EntityIntentResolver;
 import be.backend.intent.GenreIntentResolver;
 import be.backend.intent.MoodIntentResolver;
@@ -21,6 +22,7 @@ public class MovieIntentMapper {
     private final ContextIntentResolver contextIntentResolver;
     private final SemanticIntentResolver semanticIntentResolver;
     private final PersonIntentResolver personIntentResolver;
+    private final CountryIntentResolver countryIntentResolver;
     private final EntityIntentResolver entityIntentResolver;
     private final TimeIntentResolver timeIntentResolver;
     private final RegexIntentResolver regexIntentResolver;
@@ -43,6 +45,7 @@ public class MovieIntentMapper {
         contextIntentResolver.resolve(message, criteria);
         semanticIntentResolver.resolve(message, criteria);
         personIntentResolver.resolve(message, criteria);
+        countryIntentResolver.resolve(message, criteria);
         entityIntentResolver.resolve(message, criteria);
         timeIntentResolver.resolve(message, criteria);
         regexIntentResolver.resolve(message, criteria);

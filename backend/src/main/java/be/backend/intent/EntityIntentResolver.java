@@ -349,9 +349,14 @@ public class EntityIntentResolver implements IntentResolver {
                 criteria.getWatchContext() != null
                         && !criteria.getWatchContext().isBlank();
 
+        boolean alreadyHasCountryIntent =
+                criteria.getCountry() != null
+                        && !criteria.getCountry().isBlank();
+
         if (!alreadyHasGenreIntent
                 && !alreadyHasMoodIntent
-                && !alreadyHasContextIntent) {
+                && !alreadyHasContextIntent
+                && !alreadyHasCountryIntent) {
 
             return false;
         }

@@ -17,9 +17,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -29,6 +31,7 @@ public class MovieSearchTools {
 
     private static final int DEFAULT_RESULT_SIZE = 20;
     private static final int MAX_RESULT_SIZE = 30;
+    private static final int GENERIC_TOP_SIZE = 10;
     private static final double GOOD_RATING_THRESHOLD = 7.5;
 
     private static final int SCORE_SHARED_GENRE = 4;
@@ -41,6 +44,54 @@ public class MovieSearchTools {
     private static final String CATEGORY_UPCOMING = "upcoming";
     private static final String ROLE_ACTOR = "ACTOR";
     private static final String ROLE_DIRECTOR = "DIRECTOR";
+
+    private static final List<String> CONTEXT_OVERRIDE_CUES = List.of(
+            "thoi",
+            "thôi",
+            "doi sang",
+            "đổi sang",
+            "chi",
+            "chỉ",
+            "instead",
+            "only"
+    );
+
+    private static final List<String> BROAD_QUERY_HINTS = List.of(
+            "phim",
+            "movie",
+            "anime",
+            "animation",
+            "hài",
+            "comedy",
+            "hành động",
+            "action",
+            "kinh dị",
+            "horror",
+            "nhật",
+            "japan"
+    );
+
+    private static final Map<String, String> GENRE_KEYWORD_TO_CANONICAL =
+            new LinkedHashMap<>();
+
+    static {
+        GENRE_KEYWORD_TO_CANONICAL.put("hành động", "Action");
+        GENRE_KEYWORD_TO_CANONICAL.put("action", "Action");
+        GENRE_KEYWORD_TO_CANONICAL.put("kinh dị", "Horror");
+        GENRE_KEYWORD_TO_CANONICAL.put("horror", "Horror");
+        GENRE_KEYWORD_TO_CANONICAL.put("hài", "Comedy");
+        GENRE_KEYWORD_TO_CANONICAL.put("comedy", "Comedy");
+        GENRE_KEYWORD_TO_CANONICAL.put("animation", "Animation");
+        GENRE_KEYWORD_TO_CANONICAL.put("anime", "Animation");
+        GENRE_KEYWORD_TO_CANONICAL.put("tình cảm", "Romance");
+        GENRE_KEYWORD_TO_CANONICAL.put("romance", "Romance");
+        GENRE_KEYWORD_TO_CANONICAL.put("phiêu lưu", "Adventure");
+        GENRE_KEYWORD_TO_CANONICAL.put("adventure", "Adventure");
+        GENRE_KEYWORD_TO_CANONICAL.put("mystery", "Mystery");
+        GENRE_KEYWORD_TO_CANONICAL.put("bí ẩn", "Mystery");
+        GENRE_KEYWORD_TO_CANONICAL.put("drama", "Drama");
+        GENRE_KEYWORD_TO_CANONICAL.put("tâm lý", "Drama");
+    }
 
     private final MovieSearchService movieSearchService;
     private final RecommendationService recommendationService;
@@ -109,9 +160,41 @@ public class MovieSearchTools {
 
         normalizePaging(criteria);
 
-        return movieSearchService
+        applyGenericTopPreference(criteria, request);
+
+        List<AiMovieDto> movies = movieSearchService
                 .searchMovies(criteria)
                 .getContent();
+
+        if (!movies.isEmpty()) {
+            return movies;
+        }
+
+        // For broad queries, return closest top results instead of hard no-result.
+        if (isBroadMovieQuery(request, criteria)) {
+            return tryBroadFallback(criteria, request, movies);
+        }
+
+        if (!shouldRelaxStaleGenreContext(criteria, request)) {
+            return movies;
+        }
+
+        String preferredGenre = detectPreferredGenreFromRequest(
+                request,
+                criteria.getGenres()
+        );
+
+        if (preferredGenre == null) {
+            return tryBroadFallback(criteria, request, movies);
+        }
+
+        criteria.setGenres(List.of(preferredGenre));
+
+        List<AiMovieDto> relaxedMovies = movieSearchService
+                .searchMovies(criteria)
+                .getContent();
+
+        return tryBroadFallback(criteria, request, relaxedMovies);
     }
 
     /*
@@ -440,6 +523,183 @@ Input should be two movie titles.
         if (criteria.getSize() > MAX_RESULT_SIZE) {
             criteria.setSize(MAX_RESULT_SIZE);
         }
+    }
+
+    private void applyGenericTopPreference(
+            MovieSearchCriteria criteria,
+            String request
+    ) {
+
+        if (!isBroadMovieQuery(request, criteria)) {
+            return;
+        }
+
+        if (criteria.getSize() == null
+                || criteria.getSize() == DEFAULT_RESULT_SIZE) {
+            criteria.setSize(GENERIC_TOP_SIZE);
+        }
+
+        if (!hasText(criteria.getSortBy())) {
+            criteria.setSortBy("popular");
+            criteria.setDescending(true);
+        }
+    }
+
+    private boolean shouldRelaxStaleGenreContext(
+            MovieSearchCriteria criteria,
+            String request
+    ) {
+
+        if (criteria == null
+                || criteria.getGenres() == null
+                || criteria.getGenres().size() <= 1) {
+
+            return false;
+        }
+
+        if (hasText(criteria.getTitle())
+                || hasText(criteria.getPerson())
+                || hasText(criteria.getKeyword())) {
+
+            return false;
+        }
+
+        String lowered = request == null
+                ? ""
+                : request.toLowerCase(Locale.ROOT);
+
+        return CONTEXT_OVERRIDE_CUES.stream()
+                .anyMatch(lowered::contains);
+    }
+
+    private List<AiMovieDto> tryBroadFallback(
+            MovieSearchCriteria criteria,
+            String request,
+            List<AiMovieDto> currentMovies
+    ) {
+
+        if (currentMovies != null && !currentMovies.isEmpty()) {
+            return currentMovies;
+        }
+
+        if (!isBroadMovieQuery(request, criteria)) {
+            return currentMovies;
+        }
+
+        MovieSearchCriteria fallback =
+                MovieSearchCriteria.builder()
+                        .active(true)
+                        .page(0)
+                        .size(resolveFallbackSize(criteria))
+                        .sortBy("popular")
+                        .descending(true)
+                        .build();
+
+        if (criteria.getGenres() != null
+                && !criteria.getGenres().isEmpty()) {
+            fallback.setGenres(List.of(criteria.getGenres().get(0)));
+        }
+
+        fallback.setCountry(criteria.getCountry());
+
+        fallback.setReleaseYear(criteria.getReleaseYear());
+        fallback.setReleaseFrom(criteria.getReleaseFrom());
+        fallback.setReleaseTo(criteria.getReleaseTo());
+
+        return movieSearchService
+                .searchMovies(fallback)
+                .getContent();
+    }
+
+    private int resolveFallbackSize(
+            MovieSearchCriteria criteria
+    ) {
+
+        if (criteria.getSize() == null
+                || criteria.getSize() <= 0) {
+            return GENERIC_TOP_SIZE;
+        }
+
+        return Math.min(criteria.getSize(), GENERIC_TOP_SIZE);
+    }
+
+    private boolean isBroadMovieQuery(
+            String request,
+            MovieSearchCriteria criteria
+    ) {
+
+        if (request == null || request.isBlank()) {
+            return false;
+        }
+
+        if (hasText(criteria.getTitle())
+                || hasText(criteria.getPerson())) {
+            return false;
+        }
+
+        String lowered = request.toLowerCase(Locale.ROOT).trim();
+
+        boolean hasHint = BROAD_QUERY_HINTS.stream()
+                .anyMatch(lowered::contains);
+
+        if (!hasHint) {
+            return false;
+        }
+
+        String[] tokens = lowered.split("\\s+");
+
+        return tokens.length <= 8;
+    }
+
+    private String detectPreferredGenreFromRequest(
+            String request,
+            List<String> genres
+    ) {
+
+        if (request == null
+                || request.isBlank()
+                || genres == null
+                || genres.isEmpty()) {
+
+            return null;
+        }
+
+        String lowered = request.toLowerCase(Locale.ROOT);
+        int bestIndex = -1;
+        String bestGenre = null;
+
+        for (Map.Entry<String, String> entry : GENRE_KEYWORD_TO_CANONICAL.entrySet()) {
+
+            int keywordIndex = lowered.lastIndexOf(entry.getKey());
+
+            if (keywordIndex < 0) {
+                continue;
+            }
+
+            for (String genre : genres) {
+
+                if (!entry.getValue().equalsIgnoreCase(genre)) {
+                    continue;
+                }
+
+                if (keywordIndex > bestIndex) {
+                    bestIndex = keywordIndex;
+                    bestGenre = genre;
+                }
+            }
+        }
+
+        if (bestGenre != null) {
+            return bestGenre;
+        }
+
+        return genres.get(genres.size() - 1);
+    }
+
+    private boolean hasText(String value) {
+
+        return value != null
+                && !value.isBlank();
     }
 
     private int calculateSimilarityScore(
