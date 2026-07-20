@@ -27,9 +27,9 @@ const Detail = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { toasts, showToast, closeToast } = useToast()
-  
+
   const { addToWatchlist, removeFromWatchlist, isInWatchlist } = useWatchlist()
-  
+
   // Review states
   const [newComment, setNewComment] = useState('')
   const [newRating, setNewRating] = useState(5.0)
@@ -42,7 +42,7 @@ const Detail = () => {
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : url;
   };
-  
+
   useEffect(() => {
     window.scrollTo(0, 0);
     let active = true
@@ -58,7 +58,7 @@ const Detail = () => {
         if (!active) return
 
         setMovie(movieData)
-        
+
         // Check if in watchlist separately so it doesn't break movie loading if 403
         try {
           const inList = await isInWatchlist(id)
@@ -78,7 +78,7 @@ const Detail = () => {
             console.error('Failed to load related movies', e);
           }
         }
-        
+
         try {
           const revs = await movieService.getReviews(id, { page: 0, size: 10 });
           if (active) setReviews(revs.content || []);
@@ -127,12 +127,12 @@ const Detail = () => {
       setShowTrailer(true)
       return
     }
-    
+
     if (!movie?.playToken) {
       showToast('error', 'Trailer not available or premium content.')
       return
     }
-    
+
     try {
       const url = await movieService.resolvePlayToken(movie.playToken)
       setTrailerEmbedUrl(url)
@@ -163,7 +163,7 @@ const Detail = () => {
   const handleCommentSubmit = async (e) => {
     e.preventDefault()
     if (!newComment.trim()) return
-    
+
     setSubmitting(true)
     try {
       const review = await reviewService.createReview(id, {
@@ -259,7 +259,7 @@ const Detail = () => {
                   boxShadow: '0 2px 8px rgba(245,158,11,0.3)'
                 }}>
                   <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>
-                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z"/>
+                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
                   </svg>
                   Premium
                 </span>
@@ -300,7 +300,7 @@ const Detail = () => {
                   onClick={() => navigate('/payment')}
                   style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff' }}
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z"/></svg>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" /></svg>
                   Upgrade to Premium
                 </button>
               ) : movie.isLocked ? (
@@ -309,7 +309,7 @@ const Detail = () => {
                   type="button"
                   disabled
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" /></svg>
                   Available {new Date(movie.releaseDate).toLocaleString('en-US')}
                 </button>
               ) : (
@@ -318,7 +318,7 @@ const Detail = () => {
                   type="button"
                   onClick={() => navigate(`/watch/${movie.id}`)}
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                   Watch Now
                 </button>
               )}
@@ -330,17 +330,17 @@ const Detail = () => {
               >
                 Watch Trailer
               </button>
-              
+
               <button
                 className="btn btn--ghost"
                 type="button"
                 onClick={handleWatchlistToggle}
                 disabled={checkingWatchlist}
               >
-                {checkingWatchlist ? 'Loading...' : 
+                {checkingWatchlist ? 'Loading...' :
                   inWatchlist ? '✓ In Watchlist' : '+ Add to Watchlist'}
               </button>
-              
+
               <button
                 className="btn btn--ghost"
                 type="button"
@@ -356,7 +356,7 @@ const Detail = () => {
       {showTrailer && trailerEmbedUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
           <div className="relative w-full max-w-5xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl">
-            <button 
+            <button
               className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/50 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
               onClick={() => setShowTrailer(false)}
             >
@@ -387,7 +387,7 @@ const Detail = () => {
                   <img src={actor.profilePath.startsWith('http') ? actor.profilePath : `${IMAGE_BASE_URL}${actor.profilePath}`} alt={actor.name} />
                 ) : (
                   <div className="h-14 w-14 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-gray-400">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" /></svg>
                   </div>
                 )}
                 <div>
@@ -409,16 +409,16 @@ const Detail = () => {
         {relatedMovies.length > 0 ? (
           <div className="flex gap-4 overflow-x-auto pb-6 hide-scrollbar snap-x w-full">
             {relatedMovies.map(relMovie => (
-              <div 
-                key={relMovie.id} 
+              <div
+                key={relMovie.id}
                 className="snap-start shrink-0 w-[160px] sm:w-[180px] hm-card cursor-pointer"
                 onClick={() => navigate(`/movie/${relMovie.id}`)}
               >
                 <div className="hm-card__poster-wrap">
-                  <img 
-                    className="hm-card__poster" 
-                    src={relMovie.posterPath ? (relMovie.posterPath.startsWith('http') ? relMovie.posterPath : `${IMAGE_BASE_URL}${relMovie.posterPath}`) : noPoster} 
-                    alt={relMovie.title} 
+                  <img
+                    className="hm-card__poster"
+                    src={relMovie.posterPath ? (relMovie.posterPath.startsWith('http') ? relMovie.posterPath : `${IMAGE_BASE_URL}${relMovie.posterPath}`) : noPoster}
+                    alt={relMovie.title}
                   />
                   <div className="hm-card__overlay">
                     <button className="hm-card__info-btn">Details</button>
@@ -440,7 +440,7 @@ const Detail = () => {
         <div className="row__header mb-6">
           <h2>Reviews</h2>
         </div>
-        
+
         {!user ? (
           <div className="mb-8">
             <Link to="/login" className="inline-flex items-center gap-2 bg-[#242730] hover:bg-[#2a2d36] text-gray-300 px-6 py-3 rounded-lg text-sm font-medium transition-colors">
@@ -448,7 +448,7 @@ const Detail = () => {
             </Link>
           </div>
         ) : (
-          <form 
+          <form
             className="mb-8 flex flex-col gap-3 bg-dark-100/50 p-6 rounded-2xl border border-white/5"
             onSubmit={handleCommentSubmit}
           >
@@ -464,9 +464,9 @@ const Detail = () => {
                     onMouseLeave={() => setHoverRating(0)}
                     className="focus:outline-none transition-transform hover:scale-110"
                   >
-                    <svg 
-                      className={`w-6 h-6 ${star <= (hoverRating || newRating) ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]' : 'text-gray-600'} transition-all`} 
-                      fill="currentColor" 
+                    <svg
+                      className={`w-6 h-6 ${star <= (hoverRating || newRating) ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]' : 'text-gray-600'} transition-all`}
+                      fill="currentColor"
                       viewBox="0 0 20 20"
                     >
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
@@ -475,16 +475,16 @@ const Detail = () => {
                 ))}
               </div>
             </div>
-            
+
             <div className="relative mt-2">
-              <textarea 
+              <textarea
                 className="w-full bg-[#15161b] border border-white/10 rounded-xl p-4 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-red-500/50 resize-none min-h-[100px] text-sm transition-colors"
                 placeholder="Write your review..."
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 maxLength={1000}
               />
-              <button 
+              <button
                 type="submit"
                 disabled={submitting || !newComment.trim()}
                 className="absolute bottom-4 right-4 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-full font-medium text-sm disabled:opacity-50 transition-colors shadow-lg"
@@ -501,9 +501,15 @@ const Detail = () => {
               <div key={review.id} className="review-card">
                 <div className="review-card__header">
                   <div className="review-card__avatar">
-                    <div className="review-card__avatar-placeholder">
-                      {review.userName ? review.userName.charAt(0).toUpperCase() : 'U'}
-                    </div>
+                    {review.avatarUrl || review.userAvatarUrl ? (
+                      <img src={review.avatarUrl || review.userAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : review.userName === user?.username && user?.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="review-card__avatar-placeholder">
+                        {review.userName ? review.userName.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                    )}
                   </div>
                   <div className="review-card__meta">
                     <h4>{review.userName || 'Anonymous'}</h4>

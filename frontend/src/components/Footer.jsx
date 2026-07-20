@@ -22,10 +22,10 @@ const Footer = () => {
           <Link className="footer__link" to="/">
             Home
           </Link>
-          <Link className="footer__link" to="/search?query=popular">
+          <Link className="footer__link" to="/category/trending">
             Trending
           </Link>
-          <Link className="footer__link" to="/search?query=top">
+          <Link className="footer__link" to="/category/top-rated">
             Top Rated
           </Link>
         </div>

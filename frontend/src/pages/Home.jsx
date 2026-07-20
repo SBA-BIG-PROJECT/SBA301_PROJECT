@@ -256,6 +256,14 @@ const Home = () => {
   const [heroLoaded, setHeroLoaded] = useState(false)
   const navigate = useNavigate()
 
+  const scrollRow = (direction, id) => {
+    const row = document.getElementById(`genre-row-${id}`);
+    if (row) {
+      const scrollAmount = window.innerWidth * 0.7;
+      row.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+  };
+
   useEffect(() => {
     let active = true
     const load = async () => {
@@ -486,15 +494,33 @@ const Home = () => {
         const rowMovies = genreMovies[genre.id] || []
         if (rowMovies.length === 0) return null
         return (
-          <section key={genre.id} className="hm-section" style={{ paddingBottom: '0' }}>
-            <div className="hm-section__header">
+          <section key={genre.id} className="hm-section relative group" style={{ paddingBottom: '0' }}>
+            <div className="hm-section__header px-2">
               <div className="hm-section__title-wrap">
                 <div className="hm-section__accent" />
                 <h2 className="hm-section__title">{genre.name}</h2>
               </div>
             </div>
             
-            <div className="flex gap-4 overflow-x-auto pb-6 hide-scrollbar snap-x w-full" style={{ scrollBehavior: 'smooth' }}>
+            {/* Scroll Buttons */}
+            <button
+              onClick={() => scrollRow('left', genre.id)}
+              className="absolute left-0 top-[55%] -translate-y-1/2 z-10 w-12 h-[80%] max-h-[300px] bg-black/60 hover:bg-black/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-r-xl"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="w-8 h-8">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <button
+              onClick={() => scrollRow('right', genre.id)}
+              className="absolute right-0 top-[55%] -translate-y-1/2 z-10 w-12 h-[80%] max-h-[300px] bg-black/60 hover:bg-black/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-l-xl"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="w-8 h-8">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+
+            <div id={`genre-row-${genre.id}`} className="flex gap-4 overflow-x-auto pb-6 hide-scrollbar snap-x w-full px-2" style={{ scrollBehavior: 'smooth' }}>
               {rowMovies.map((movie) => (
                 <div key={movie.id} className="snap-start shrink-0 w-[180px] sm:w-[220px] flex">
                   <MovieCard movie={movie} onNavigate={navigate} showToast={showToast} />
