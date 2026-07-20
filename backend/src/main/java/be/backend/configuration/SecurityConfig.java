@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -46,15 +47,20 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout",
-                                "/api/v1/movies/**", // Public movie browsing
-                                "/api/v1/genres/**",
-                                "/api/v1/stream/play",// Public genre list
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/api/v1/payments/webhook",
                                 "/api/v1/payments/*/status" // Payment webhook
                         ).permitAll()
+
+                        // Public GET-only endpoints (movie browsing, reviews reading)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/movies/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/genres/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/stream/play").permitAll()
+
+                        // Review write operations - require authentication
+                        .requestMatchers(HttpMethod.POST, "/api/v1/movies/*/reviews").authenticated()
 
                         // Admin endpoints - require ADMIN role
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
