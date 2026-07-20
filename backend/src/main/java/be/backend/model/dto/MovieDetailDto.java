@@ -24,4 +24,5 @@ public class MovieDetailDto {
     private Boolean requiresPremium;
     private Boolean isLocked;
     private String playToken;
+    private Boolean requiresLogin;
 }

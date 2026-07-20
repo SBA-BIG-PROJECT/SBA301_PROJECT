@@ -42,7 +42,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -117,7 +120,12 @@ public class MovieServiceImpl implements MovieService {
         boolean requiresPremium = Boolean.TRUE.equals(movie.getIsPremium());
         dto.setRequiresPremium(requiresPremium);
 
-        boolean locked = isUpcomingLocked(movie) || (requiresPremium && !currentUserHasActivePremium());
+        boolean loggedIn = getCurrentUserOrNull() != null;
+        dto.setRequiresLogin(!loggedIn);                    // để FE biết lý do
+
+        boolean locked = !loggedIn
+                || isUpcomingLocked(movie)
+                || (requiresPremium && !currentUserHasActivePremium());
         dto.setIsLocked(locked);
 
         if (!locked && movie.getTrailerUrl() != null) {
@@ -126,7 +134,6 @@ public class MovieServiceImpl implements MovieService {
 
         return dto;
     }
-
     @Override
     @Transactional(readOnly = true)
     public PageResponse<TrendingMovieDto> getTrendingMovies(int page, int size) {
@@ -157,7 +164,12 @@ public class MovieServiceImpl implements MovieService {
         Movie movie = movieRepository.findByIdAndIsActiveTrue(movieId).orElse(null);
         if (movie == null || movie.getTrailerUrl() == null) return null;
 
-        return toEmbedUrl(crypto.decrypt(movie.getTrailerUrl()));
+        try {
+            return toEmbedUrl(crypto.decrypt(movie.getTrailerUrl()));
+        } catch (Exception e) {
+            log.warn("Không giải mã được trailer_url cho movie {}: {}", movieId, e.getMessage());
+            return null;
+        }
     }
 
     // ================================================================ Admin
@@ -167,16 +179,20 @@ public class MovieServiceImpl implements MovieService {
     public PageResponse<AdminMovieDto> getAllMoviesAdmin(int page, int size, String search, Boolean isActive) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "addedAt"));
 
-        Page<Movie> moviePage;
-        if (hasText(search)) {
-            moviePage = movieRepository.searchByKeyword(search.trim(), pageable);
-        } else if (isActive != null) {
-            moviePage = isActive
-                    ? movieRepository.findByIsActiveTrue(pageable)
-                    : movieRepository.findByIsActiveFalse(pageable);
-        } else {
-            moviePage = movieRepository.findAll(pageable);
-        }
+        Specification<Movie> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (isActive != null) {
+                predicates.add(cb.equal(root.get("isActive"), isActive));
+            }
+            if (hasText(search)) {
+                String likeKeyword = "%" + search.trim().toLowerCase() + "%";
+                Predicate titleLike = cb.like(cb.lower(root.get("title")), likeKeyword);
+                predicates.add(titleLike);
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Movie> moviePage = movieRepository.findAll(spec, pageable);
 
         Map<Integer, Object[]> statsMap = fetchStatsMap(moviePage);
         return PageResponse.from(moviePage.map(m -> toAdminMovieDto(m, statsMap.get(m.getId()))));
@@ -416,7 +432,11 @@ public class MovieServiceImpl implements MovieService {
         dto.setReleaseDate(movie.getReleaseDate());
         dto.setVoteAverage(movie.getVoteAverage());
         dto.setVoteCount(movie.getVoteCount());
-        dto.setTrailerUrl(decryptUrl(movie.getTrailerUrl())); // admin thấy link thật
+        String decryptedTrailer = decryptUrl(movie.getTrailerUrl());
+        if (movie.getTrailerUrl() != null && decryptedTrailer == null) {
+            log.warn("DECRYPT FAIL: movie {} ({}) - trailer_url không giải mã được", movie.getId(), movie.getTitle());
+        }
+        dto.setTrailerUrl(decryptedTrailer);
         dto.setAddedAt(movie.getAddedAt());
         dto.setIsActive(movie.getIsActive());
         dto.setIsPremium(movie.getIsPremium());
@@ -484,7 +504,13 @@ public class MovieServiceImpl implements MovieService {
     }
 
     private String decryptUrl(String stored) {
-        return stored != null ? crypto.decrypt(stored) : null;
+        if (stored == null) return null;
+        try {
+            return crypto.decrypt(stored);
+        } catch (Exception e) {
+            log.warn("Không giải mã được trailer_url, dữ liệu hỏng: {}", e.getMessage());
+            return null;
+        }
     }
 
     private String toEmbedUrl(String url) {

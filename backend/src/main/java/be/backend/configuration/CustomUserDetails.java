@@ -13,17 +13,23 @@ public class CustomUserDetails implements UserDetails {
     private final String email;
     private final String password;
     private final Collection<? extends GrantedAuthority> authorities;
+    private final boolean enabled;
+    private final boolean accountNonLocked;
 
     public CustomUserDetails(
             Integer userId,
             String email,
             String password,
-            Collection<? extends GrantedAuthority> authorities
+            Collection<? extends GrantedAuthority> authorities,
+            boolean enabled,
+            boolean accountNonLocked
     ) {
         this.userId = userId;
         this.email = email;
         this.password = password;
         this.authorities = authorities;
+        this.enabled = enabled;
+        this.accountNonLocked = accountNonLocked;
     }
 
     @Override
@@ -48,7 +54,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return accountNonLocked;
     }
 
     @Override
@@ -58,6 +64,6 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 }

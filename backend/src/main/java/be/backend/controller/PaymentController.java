@@ -66,10 +66,11 @@ public class PaymentController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Integer userId,
-            @RequestParam(required = false) String planType) {
+            @RequestParam(required = false) String planType,
+            @RequestParam(required = false) String search) {
         
         return ResponseEntity.ok(
-                paymentService.getAllPaymentsAdmin(page, size, status, userId, planType)
+                paymentService.getAllPaymentsAdmin(page, size, status, userId, planType, search)
         );
     }
 

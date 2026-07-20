@@ -16,4 +16,5 @@ public class MovieDto {
     private Double voteAverage;
     private Integer voteCount;
     private Boolean isPremium;
+
 }

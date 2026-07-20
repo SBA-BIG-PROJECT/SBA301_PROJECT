@@ -32,14 +32,22 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
     
     @Query("""
         SELECT p FROM Payment p
+        LEFT JOIN p.user u
         WHERE (:status IS NULL OR p.status = :status)
           AND (:userId IS NULL OR p.user.id = :userId)
           AND (:planType IS NULL OR p.planType = :planType)
+          AND (
+              :search IS NULL OR :search = ''
+              OR CAST(p.orderCode AS String) LIKE CONCAT('%', :search, '%')
+              OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))
+              OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
+          )
         ORDER BY p.createdAt DESC
         """)
     Page<Payment> findByFilters(@Param("status") String status,
                                 @Param("userId") Integer userId,
                                 @Param("planType") String planType,
+                                @Param("search") String search,
                                 Pageable pageable);
     
     long countByStatus(String status);

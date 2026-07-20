@@ -26,6 +26,8 @@ public class CryptoConfig {
             byte[] key = MessageDigest.getInstance("SHA-256")
                     .digest(secret.getBytes(StandardCharsets.UTF_8));
             this.keySpec = new SecretKeySpec(key, "AES");
+            String fp = java.util.HexFormat.of().formatHex(key).substring(0, 12);
+            System.out.println(">>> AES key fingerprint = " + fp + " | secret length = " + secret.length());
         } catch (Exception e) {
             throw new IllegalStateException("Cannot init CryptoConfig", e);
         }
@@ -60,4 +62,5 @@ public class CryptoConfig {
             throw new RuntimeException("decrypt failed", e);
         }
     }
+
 }
