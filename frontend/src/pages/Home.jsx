@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { movieService, watchlistService, authService } from '../services'
+import { movieService, watchlistService, authService, recommendationService } from '../services'
 import { useToast, ToastContainer } from '../components/Toast.jsx'
 import { translateGenre } from '../utils/genreTranslator.js'
 import noPoster from '../assets/No-Poster.svg'
@@ -244,6 +244,7 @@ const MovieCard = ({ movie, onNavigate, showToast }) => {
 const Home = () => {
   const { toasts, showToast, closeToast } = useToast()
   const [movies, setMovies] = useState([])
+  const [recommendedMovies, setRecommendedMovies] = useState([])
   const [genres, setGenres] = useState([])
   const [genreMovies, setGenreMovies] = useState({})
   const [heroMovies, setHeroMovies] = useState([])
@@ -285,6 +286,25 @@ const Home = () => {
           }
         }))
         if (active) setGenreMovies(gMovies)
+
+        if (active && authService.isAuthenticated()) {
+          try {
+            const recRes = await recommendationService.getRecommendations(0, 15)
+            if (active && recRes.content) {
+              const recs = recRes.content.map(m => ({
+                id: m.movieId,
+                title: m.title,
+                poster_path: m.posterPath,
+                vote_average: m.score,
+                isPremium: false,
+                reasons: m.reasons
+              }))
+              setRecommendedMovies(recs)
+            }
+          } catch (e) {
+            console.error('Failed to load recommendations', e)
+          }
+        }
 
       } catch (err) {
         console.error(err)
@@ -435,6 +455,31 @@ const Home = () => {
           </div>
         )}
       </section>
+
+      {/* ── RECOMMENDED FOR YOU ───────────────────────────────────────── */}
+      {recommendedMovies.length > 0 && (
+        <section className="hm-section" style={{ paddingBottom: '0' }}>
+          <div className="hm-section__header">
+            <div className="hm-section__title-wrap">
+              <div className="hm-section__accent" style={{ background: '#facc15' }} />
+              <h2 className="hm-section__title" style={{ color: '#facc15' }}>For You / Gợi ý cho bạn</h2>
+            </div>
+          </div>
+          
+          <div className="flex gap-4 overflow-x-auto pb-6 hide-scrollbar snap-x w-full" style={{ scrollBehavior: 'smooth' }}>
+            {recommendedMovies.map((movie) => (
+              <div key={movie.id} className="snap-start shrink-0 w-[180px] sm:w-[220px] flex flex-col">
+                <MovieCard movie={movie} onNavigate={navigate} />
+                {movie.reasons && movie.reasons.length > 0 && (
+                  <p className="text-xs text-yellow-500/80 mt-2 italic px-1 line-clamp-2 leading-relaxed">
+                    ✨ {movie.reasons[0]}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── GENRE ROWS ────────────────────────────────────────────────── */}
       {genres.map(genre => {

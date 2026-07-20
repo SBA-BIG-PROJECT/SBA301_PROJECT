@@ -447,6 +447,7 @@
 
   .hero__title {
     @apply text-left text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl;
+    font-family: "Bebas Neue", sans-serif;
   }
 
   .hero__subtitle {
@@ -910,7 +911,7 @@
 @utility fancy-text {
   -webkit-text-stroke: 5px rgba(206, 206, 251, 0.5);
   font-size: 190px;
-  font-family: var(--font-sans);
+  font-family: "Bebas Neue", sans-serif;
 }
 
 @utility hide-scrollbar {
@@ -1300,6 +1301,7 @@
 
 .hm-hero__title {
   @apply text-3xl font-bold leading-tight text-white;
+  font-family: 'Bebas Neue', sans-serif;
   font-size: clamp(1.5rem, 3.5vw, 2.5rem);
   margin: 0;
   text-align: left;
@@ -1687,7 +1689,6 @@
 }
 
 .ai-chat-trigger__text {
-  font-family: var(--font-sans);
   letter-spacing: 0.02em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
@@ -1712,13 +1713,7 @@
   max-width: calc(100vw - 32px);
   max-height: 620px;
   z-index: 200;
-  font-family: var(--font-sans);
   animation: ai-panel-slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.ai-chat-panel,
-.ai-chat-panel * {
-  font-family: var(--font-sans);
 }
 
 @media (max-width: 480px) {
@@ -1799,9 +1794,9 @@
 
 .ai-chat-header__title {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   color: #fff;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.01em;
 }
 
 .ai-chat-header__actions {
@@ -1895,7 +1890,7 @@
 }
 
 .ai-msg__content {
-  max-width: 82%;
+  max-width: 85%;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1906,29 +1901,22 @@
 }
 
 .ai-msg__text {
-  padding: 9px 13px;
+  padding: 10px 14px;
   border-radius: 16px;
   font-size: 13px;
   line-height: 1.5;
-  letter-spacing: 0.003em;
-  font-weight: 500;
-  word-break: break-word;
   margin: 0;
 }
 
 .ai-msg--user .ai-msg__text {
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 12px;
-  letter-spacing: 0.002em;
   border-bottom-right-radius: 4px;
 }
 
 .ai-msg--ai .ai-msg__text {
   background: rgba(255, 255, 255, 0.06);
-  color: #e5e7eb;
+  color: #d1d5db;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-bottom-left-radius: 4px;
 }
@@ -2102,36 +2090,6 @@
   font-style: italic;
 }
 
-.ai-movie-card__reason-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.ai-movie-card__reason--expanded {
-  display: block;
-  -webkit-line-clamp: unset;
-  -webkit-box-orient: initial;
-  overflow: visible;
-}
-
-.ai-movie-card__reason-toggle {
-  align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #a78bfa;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.ai-movie-card__reason-toggle:hover {
-  color: #c4b5fd;
-  text-decoration: underline;
-}
-
 .ai-movie-card__watch {
   display: inline-flex;
   align-items: center;
@@ -2286,7 +2244,6 @@
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
   font-size: 13px;
-  font-family: inherit;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
