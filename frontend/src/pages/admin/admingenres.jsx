@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminTaskbar from './admintaskbar.jsx';
 import { adminService } from '../../services';
 import { useToast, ToastContainer } from '../../components/Toast.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 
 const AdminGenres = () => {
   const { toasts, showToast, closeToast } = useToast();
@@ -17,6 +18,32 @@ const AdminGenres = () => {
   // Form states
   const [newGenreName, setNewGenreName] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
+
+  // Custom Confirm Modal States
+  const [confirmConfig, setConfirmConfig] = useState({
+      isOpen: false,
+      title: '',
+      message: '',
+      onConfirm: () => {},
+      type: 'danger'
+  });
+
+  const requestConfirm = (title, message, onConfirm, type = 'danger') => {
+      setConfirmConfig({
+          isOpen: true,
+          title,
+          message,
+          onConfirm: () => {
+              onConfirm();
+              closeConfirm();
+          },
+          type
+      });
+  };
+
+  const closeConfirm = () => {
+      setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   const fetchData = async () => {
     try {
@@ -69,28 +96,40 @@ const AdminGenres = () => {
     }
   };
 
-  const handleDeleteGenre = async (id) => {
-    if (window.confirm('Are you sure you want to delete this genre?')) {
-      try {
-        await adminService.deleteGenre(id);
-        setGenres(genres.filter(g => g.id !== id));
-      } catch (err) {
-        console.error('Error deleting genre:', err);
-        showToast('error', 'Failed to delete genre.');
-      }
-    }
+  const handleDeleteGenre = (id) => {
+    requestConfirm(
+      'Delete Genre',
+      'Are you sure you want to delete this genre?',
+      async () => {
+        try {
+          await adminService.deleteGenre(id);
+          setGenres(genres.filter(g => g.id !== id));
+          showToast('success', 'Genre deleted successfully.');
+        } catch (err) {
+          console.error('Error deleting genre:', err);
+          showToast('error', 'Failed to delete genre.');
+        }
+      },
+      'danger'
+    );
   };
 
-  const handleDeleteCategory = async (id) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
-      try {
-        await adminService.deleteCategory(id);
-        setCategories(categories.filter(c => c.id !== id));
-      } catch (err) {
-        console.error('Error deleting category:', err);
-        showToast('error', 'Failed to delete category.');
-      }
-    }
+  const handleDeleteCategory = (id) => {
+    requestConfirm(
+      'Delete Category',
+      'Are you sure you want to delete this category?',
+      async () => {
+        try {
+          await adminService.deleteCategory(id);
+          setCategories(categories.filter(c => c.id !== id));
+          showToast('success', 'Category deleted successfully.');
+        } catch (err) {
+          console.error('Error deleting category:', err);
+          showToast('error', 'Failed to delete category.');
+        }
+      },
+      'danger'
+    );
   };
 
   return (
@@ -102,7 +141,7 @@ const AdminGenres = () => {
       {/* Main Content Wrapper */}
       <main className="flex-1 md:ml-64 flex flex-col min-h-screen bg-[#0F172A]">
         {/* TopNavBar */}
-        <header className="bg-[#0F172A] flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-30 shadow-sm border-b border-[#334155]">
+        <header className="bg-[#0F172A] flex justify-between items-center w-full px-[24px] py-[16px] sticky top-0 z-30 shadow-sm border-b border-[#334155] md:hidden">
           <div className="flex items-center gap-[16px]">
             {/* Mobile Menu Button */}
             <button className="md:hidden text-[#94A3B8] hover:text-[#f8fafc] transition-colors cursor-pointer active:opacity-80">
@@ -141,10 +180,10 @@ const AdminGenres = () => {
         {/* Page Content */}
         <div className="p-[24px] md:p-[48px] flex-1 flex flex-col gap-[48px]">
           {/* Page Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-[16px]">
-            <div>
-              <h1 className="text-[32px] font-bold text-[#f8fafc] mb-[4px]">Taxonomy Management</h1>
-              <p className="text-[14px] text-[#94A3B8]">Manage content genres and structural categories for the platform.</p>
+          <div className="flex justify-between items-end text-left w-full">
+            <div className="text-left">
+              <h1 className="text-[32px] leading-[40px] tracking-[-0.01em] md:text-[48px] md:leading-[1.1] md:tracking-[-0.02em] font-extrabold text-[#f8fafc] text-left mx-0 max-w-none">Taxonomy Management</h1>
+              <p className="text-[16px] leading-[24px] text-[#94A3B8] mt-[4px] text-left">Manage content genres and structural categories for the platform.</p>
             </div>
             <div className="flex gap-[16px]">
               <button 
@@ -386,6 +425,14 @@ const AdminGenres = () => {
         </div>
       )}
 
+      <ConfirmModal
+          isOpen={confirmConfig.isOpen}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          onConfirm={confirmConfig.onConfirm}
+          onCancel={closeConfirm}
+          type={confirmConfig.type}
+      />
     </div>
   );
 };

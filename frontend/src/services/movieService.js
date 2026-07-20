@@ -18,7 +18,7 @@ const movieService = {
     if (search) {
       params.search = search
     }
-    
+
     const response = await apiClient.get('/movies', { params })
     return response.data
   },
@@ -56,8 +56,8 @@ const movieService = {
   async getTrending({ page = 0, size = 20 } = {}) {
     // TODO: Backend needs GET /movies/trending endpoint
     // Workaround: Call /movies and filter/sort
-    const response = await apiClient.get('/movies', { 
-      params: { page, size } 
+    const response = await apiClient.get('/movies', {
+      params: { page, size }
     })
     return response.data
   },
@@ -71,8 +71,8 @@ const movieService = {
    */
   async getTopRated({ page = 0, size = 20 } = {}) {
     // TODO: Backend needs GET /movies/top-rated endpoint
-    const response = await apiClient.get('/movies', { 
-      params: { page, size } 
+    const response = await apiClient.get('/movies', {
+      params: { page, size }
     })
     return response.data
   },
@@ -86,8 +86,8 @@ const movieService = {
    */
   async getNowPlaying({ page = 0, size = 20 } = {}) {
     // TODO: Backend needs GET /movies/now-playing endpoint
-    const response = await apiClient.get('/movies', { 
-      params: { page, size } 
+    const response = await apiClient.get('/movies', {
+      params: { page, size }
     })
     return response.data
   },
@@ -101,8 +101,8 @@ const movieService = {
    */
   async getUpcoming({ page = 0, size = 20 } = {}) {
     // TODO: Backend needs GET /movies/upcoming endpoint
-    const response = await apiClient.get('/movies', { 
-      params: { page, size } 
+    const response = await apiClient.get('/movies', {
+      params: { page, size }
     })
     return response.data
   },
@@ -117,8 +117,8 @@ const movieService = {
    */
   async getByGenre(genreId, { page = 0, size = 20 } = {}) {
     // TODO: Backend needs GET /movies/genre/{genreId} endpoint
-    const response = await apiClient.get('/movies', { 
-      params: { page, size, genreId } 
+    const response = await apiClient.get('/movies', {
+      params: { page, size, genreId }
     })
     return response.data
   },
@@ -156,6 +156,19 @@ const movieService = {
       console.warn('Failed to load reviews')
       return { content: [] }
     }
+  },
+
+  /**
+   * Resolve movie embed URL from play token
+   * GET /api/stream/play?token={token}
+   * @param {string} token - playToken
+   * @returns {Promise<string>} embedUrl
+   */
+  async resolvePlayToken(token) {
+    const response = await apiClient.get('/stream/play', {
+      params: { token }
+    })
+    return response.data?.embedUrl
   }
 }
 

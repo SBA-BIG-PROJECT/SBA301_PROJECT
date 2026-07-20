@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import Spinner from '../components/Spinner.jsx'
 import { movieService, reviewService } from '../services'
@@ -11,7 +11,7 @@ const Watch = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [movie, setMovie] = useState(null)
-  const [trailerKey, setTrailerKey] = useState('')
+  const [embedUrl, setEmbedUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   
@@ -24,6 +24,17 @@ const Watch = () => {
   
   // Related movies
   const [relatedMovies, setRelatedMovies] = useState([])
+
+  // Custom Player States & Refs
+  const playerWrapperRef = useRef(null)
+  const [player, setPlayer] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolume] = useState(50)
+  const [isMuted, setIsMuted] = useState(false)
+  const [controlsVisible, setControlsVisible] = useState(true)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   
   const { addToHistory } = useHistory()
   const { isAuthenticated, user } = useAuth()
@@ -59,9 +70,21 @@ const Watch = () => {
         setReviews(reviewsData.content || [])
         setRelatedMovies(relatedData.content || relatedData || [])
         
-        // Get trailerKey from backend trailerUrl
-        if (movieData?.trailerUrl) {
-          setTrailerKey(extractVideoID(movieData.trailerUrl))
+        // Try resolving the playToken if available
+        if (movieData?.playToken) {
+          try {
+            const resolvedUrl = await movieService.resolvePlayToken(movieData.playToken)
+            if (resolvedUrl) {
+              setEmbedUrl(resolvedUrl)
+            } else {
+              setErrorMessage('Trailer not available for this movie.')
+            }
+          } catch (tokenError) {
+            console.error('Failed to resolve play token:', tokenError)
+            setErrorMessage('Failed to load trailer. Please try again.')
+          }
+        } else {
+          setErrorMessage('Trailer not available for this movie.')
         }
         
         // Add to history when loaded
@@ -82,10 +105,207 @@ const Watch = () => {
 
     loadWatch()
 
-    return () => {
-      active = false
-    }
   }, [id])
+
+  useEffect(() => {
+    const handleContextMenu = (e) => e.preventDefault();
+    const handleKeyDown = (e) => {
+      if (
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'C' || e.key === 'c' || e.key === 'J' || e.key === 'j')) ||
+        (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+      ) {
+        e.preventDefault();
+        showToast('warning', 'Developer tools are disabled on this page.');
+      }
+    };
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showToast]);
+
+  // --- Load YouTube IFrame API ---
+  useEffect(() => {
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+  }, []);
+
+  // --- Initialize YT Player ---
+  useEffect(() => {
+    if (!embedUrl) return;
+    const videoId = extractVideoID(embedUrl);
+    if (!videoId) return;
+
+    let ytPlayer;
+
+    const initPlayer = () => {
+      ytPlayer = new window.YT.Player('yt-player', {
+        videoId: videoId,
+        playerVars: {
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          rel: 0,
+          showinfo: 0,
+          iv_load_policy: 3,
+        },
+        events: {
+          onReady: (event) => {
+            setPlayer(event.target);
+            setDuration(event.target.getDuration());
+            event.target.setVolume(volume);
+          },
+          onStateChange: (event) => {
+            setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              setDuration(event.target.getDuration());
+            }
+          }
+        }
+      });
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      const previousCallback = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (previousCallback) previousCallback();
+        initPlayer();
+      };
+    }
+
+    return () => {
+      if (ytPlayer && ytPlayer.destroy) {
+        ytPlayer.destroy();
+      }
+      setPlayer(null);
+      setIsPlaying(false);
+    };
+  }, [embedUrl]);
+
+  // --- Track Time Progress ---
+  useEffect(() => {
+    let interval;
+    if (isPlaying && player) {
+      interval = setInterval(() => {
+        setCurrentTime(player.getCurrentTime());
+      }, 250);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, player]);
+
+  // --- Auto-Hide Controls ---
+  useEffect(() => {
+    if (!isPlaying) {
+      setControlsVisible(true);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      setControlsVisible(false);
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, [isPlaying, currentTime]);
+
+  const handleMouseMove = () => {
+    setControlsVisible(true);
+  };
+
+  // --- Fullscreen change listener ---
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  // --- Player Event Handlers ---
+  const handlePlayPause = () => {
+    if (!player) return;
+    if (isPlaying) {
+      player.pauseVideo();
+    } else {
+      player.playVideo();
+    }
+  };
+
+  const handleSeek = (e) => {
+    if (!player) return;
+    const time = parseFloat(e.target.value);
+    player.seekTo(time, true);
+    setCurrentTime(time);
+  };
+
+  const handleVolumeChange = (e) => {
+    if (!player) return;
+    const val = parseInt(e.target.value);
+    setVolume(val);
+    player.setVolume(val);
+    if (val === 0) {
+      player.mute();
+      setIsMuted(true);
+    } else {
+      player.unMute();
+      setIsMuted(false);
+    }
+  };
+
+  const handleToggleMute = () => {
+    if (!player) return;
+    if (isMuted) {
+      player.unMute();
+      player.setVolume(volume || 50);
+      setIsMuted(false);
+    } else {
+      player.mute();
+      setIsMuted(true);
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    const element = playerWrapperRef.current;
+    if (!element) return;
+
+    if (!document.fullscreenElement) {
+      if (element.requestFullscreen) {
+        element.requestFullscreen();
+      } else if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      } else if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  const formatTime = (seconds) => {
+    if (isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault()
@@ -101,19 +321,15 @@ const Watch = () => {
       setReviews(prev => [review, ...prev])
       setNewComment('')
       setNewRating(5.0)
-      showToast('Comment posted successfully!', 'success')
     } catch (error) {
       console.error('Failed to create review', error)
-      showToast(error.response?.data?.message || 'Failed to post comment. Please try again.', 'error')
+      showToast('error', error.response?.data?.message || 'Failed to post comment. Please try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  // Keep embed link or wrap it
-  const embedUrl = trailerKey
-    ? (trailerKey.includes('http') ? trailerKey : `https://www.youtube.com/embed/${trailerKey}`)
-    : ''
+
 
   return (
     <section className="watch">
@@ -162,15 +378,95 @@ const Watch = () => {
             This movie will be available on {new Date(movie.releaseDate).toLocaleString('en-US')}
           </p>
         </div>
-      ) : trailerKey ? (
-        <div className="watch__player">
-          <iframe
-            className="watch__frame"
-            src={embedUrl}
-            title={movie?.title || 'Movie'}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
+      ) : embedUrl ? (
+        <div 
+          ref={playerWrapperRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => isPlaying && setControlsVisible(false)}
+          className="watch__player relative group overflow-hidden bg-black rounded-3xl border border-white/10 select-none w-full aspect-video"
+        >
+          {/* Lớp phủ trong suốt chặn mọi tương tác chuột trực tiếp vào iframe của YouTube */}
+          <div 
+            onClick={handlePlayPause}
+            className="absolute inset-0 z-10 bg-transparent cursor-pointer"
+          ></div>
+
+          {/* Vùng trình phát của YouTube API (chặn tất cả chuột) */}
+          <div 
+            id="yt-player" 
+            className="w-full h-full pointer-events-none"
+          ></div>
+
+          {/* Bộ điều khiển phát phim tùy chỉnh */}
+          <div 
+            className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/75 to-transparent p-6 flex flex-col gap-4 transition-opacity duration-300 ${
+              controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            {/* Thanh tua thời gian (Seek Bar) */}
+            <div className="flex items-center w-full">
+              <input
+                type="range"
+                min={0}
+                max={duration || 100}
+                value={currentTime}
+                onChange={handleSeek}
+                className="w-full h-1 bg-white/20 accent-[#E50914] rounded-lg appearance-none cursor-pointer hover:h-1.5 transition-all outline-none"
+              />
+            </div>
+
+            {/* Các nút bấm điều khiển */}
+            <div className="flex items-center justify-between w-full text-white">
+              {/* Nút bên trái */}
+              <div className="flex items-center gap-6">
+                <button 
+                  onClick={handlePlayPause} 
+                  className="focus:outline-none hover:text-[#E50914] transition-colors flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[32px] leading-none">
+                    {isPlaying ? 'pause' : 'play_arrow'}
+                  </span>
+                </button>
+
+                <span className="text-xs font-semibold text-gray-300 font-mono tracking-wider">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+              </div>
+
+              {/* Nút bên phải */}
+              <div className="flex items-center gap-6">
+                {/* Âm lượng */}
+                <div className="flex items-center gap-2 group/volume">
+                  <button 
+                    onClick={handleToggleMute} 
+                    className="focus:outline-none hover:text-[#E50914] transition-colors flex items-center justify-center"
+                  >
+                    <span className="material-symbols-outlined text-[22px] leading-none">
+                      {isMuted || volume === 0 ? 'volume_off' : volume < 50 ? 'volume_down' : 'volume_up'}
+                    </span>
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="w-0 overflow-hidden group-hover/volume:w-20 h-1 bg-white/20 accent-white rounded-lg appearance-none cursor-pointer transition-all duration-300 outline-none"
+                  />
+                </div>
+
+                {/* Toàn màn hình */}
+                <button 
+                  onClick={handleToggleFullscreen} 
+                  className="focus:outline-none hover:text-[#E50914] transition-colors flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[22px] leading-none">
+                    {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <p className="search-results__empty">
@@ -203,67 +499,38 @@ const Watch = () => {
                 </Link>
               </div>
             ) : (
-              <div className="mb-8 pl-16 relative">
-                <div className="absolute left-0 top-0 w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center font-bold text-gray-300 text-lg">
+              <div className="mb-8 flex gap-4">
+                <div className="w-10 h-10 shrink-0 rounded-full bg-gray-700 flex items-center justify-center font-bold text-gray-300 text-sm mt-1">
                   {user?.username?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
-                  <div className="mb-4 flex flex-col gap-2 bg-[#242730] p-4 rounded-lg">
-                    <p className="text-sm font-medium text-gray-300">Your rating:</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => setNewRating(star)}
-                            onMouseEnter={() => setHoverRating(star)}
-                            onMouseLeave={() => setHoverRating(0)}
-                            className="focus:outline-none transition-transform hover:scale-110"
-                          >
-                            <svg 
-                              className={`w-6 h-6 ${star <= (hoverRating || newRating) ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]' : 'text-gray-600'} transition-all`} 
-                              fill="currentColor" 
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                            </svg>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-center bg-yellow-500/10 px-3 py-1 rounded-lg border border-yellow-500/20 ml-4">
-                        <span className="font-bold text-yellow-500">{newRating}</span>
-                        <span className="text-yellow-500/50 text-xs ml-1">/ 5</span>
-                      </div>
-                    </div>
-                  </div>
                 
                 <form 
-                  className="bg-[#242730] rounded-lg overflow-hidden border border-[#2a2d36]"
+                  className="flex-1 flex flex-col gap-3"
                   onSubmit={handleCommentSubmit}
                 >
+                  {/* Comment Input */}
                   <div className="relative">
                     <textarea 
-                      className="w-full bg-transparent p-4 text-gray-200 placeholder-gray-500 focus:outline-none resize-none min-h-[100px] text-sm"
-                      placeholder="Write your comment & review..."
+                      className="w-full bg-[#242730] border border-[#2a2d36] rounded-xl p-4 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-red-500/50 resize-none min-h-[80px] text-sm transition-colors"
+                      placeholder="Add a comment..."
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       maxLength={1000}
                     />
-                  </div>
-                  <div className="bg-[#1a1c22] px-4 py-3 flex items-center justify-between border-t border-[#2a2d36]">
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-400 hover:text-gray-300 transition-colors">
-                        <input type="checkbox" className="rounded bg-gray-800 border-gray-700 text-red-500 focus:ring-red-500" />
-                        Contains spoilers?
+                    
+                    <div className="absolute bottom-3 right-3 flex items-center gap-4">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-400 hover:text-gray-300 transition-colors bg-[#1a1c22] px-2 py-1 rounded-md border border-gray-800">
+                        <input type="checkbox" className="rounded bg-gray-800 border-gray-700 text-red-500 focus:ring-red-500 w-3 h-3" />
+                        Spoilers
                       </label>
+                      <button 
+                        type="submit"
+                        disabled={submitting || !newComment.trim()}
+                        className="bg-red-600 hover:bg-red-700 text-white px-5 py-1.5 rounded-full font-medium text-xs disabled:opacity-50 transition-colors shadow-lg"
+                      >
+                        {submitting ? 'Posting...' : 'Post'}
+                      </button>
                     </div>
-                    <button 
-                      type="submit"
-                      disabled={submitting || !newComment.trim()}
-                      className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-md font-medium text-sm disabled:opacity-50 transition-colors"
-                    >
-                      {submitting ? 'Submitting...' : 'Submit'}
-                    </button>
                   </div>
                 </form>
               </div>
@@ -288,19 +555,10 @@ const Watch = () => {
                     </div>
                     
                     <div className="flex-1">
-                      <div className="flex items-baseline gap-2 mb-1">
+                      <div className="flex items-baseline gap-2 mb-2">
                         <h4 className="font-bold text-gray-200 text-[15px]">{review.userName || 'Anonymous user'}</h4>
                         <span className="text-xs text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded">Lv.1 - Beginner</span>
                       </div>
-                      
-                      {review.rating && (
-                        <div className="flex items-center gap-1 text-red-500 text-xs font-bold mb-2">
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                          </svg>
-                          <span>{(Number(review.rating) / 2).toFixed(1)} Points</span>
-                        </div>
-                      )}
                       
                       <div className="text-gray-300 text-[15px] leading-relaxed whitespace-pre-wrap mb-3">
                         {review.comment}

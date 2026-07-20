@@ -52,15 +52,13 @@ const AdminAnalytics = () => {
       <AdminTaskbar />
 
       <main className="flex-1 md:ml-64 flex flex-col min-h-screen bg-[#0F172A]">
-        {/* Header */}
-        <header className="px-[24px] md:px-[48px] py-[24px] border-b border-[#334155] sticky top-0 z-30 bg-[#0F172A]/90 backdrop-blur-md flex items-center justify-between">
-          <div>
-            <h1 className="text-[28px] font-bold text-[#f8fafc]">Analytics Dashboard</h1>
-            <p className="text-[13px] text-[#94A3B8] mt-[2px]">Platform performance and user engagement metrics.</p>
-          </div>
-        </header>
-
         <div className="p-[24px] md:p-[40px] flex flex-col gap-[40px]">
+          <div className="flex justify-between items-end text-left w-full">
+            <div className="text-left">
+              <h1 className="text-[32px] leading-[40px] tracking-[-0.01em] md:text-[48px] md:leading-[1.1] md:tracking-[-0.02em] font-extrabold text-[#f8fafc] text-left mx-0 max-w-none">Analytics Dashboard</h1>
+              <p className="text-[16px] leading-[24px] text-[#94A3B8] mt-[4px] text-left">Platform performance and user engagement metrics.</p>
+            </div>
+          </div>
 
           {/* ─── Overview Summary Cards ─── */}
           {loading ? (

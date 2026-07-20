@@ -120,7 +120,7 @@ const AdminMovieDetail = () => {
         overview: movieForm.overview,
         posterPath: movieForm.posterPath,
         backdropPath: movieForm.backdropPath,
-        releaseDate: movieForm.releaseDate || null,
+        releaseDate: movieForm.releaseDate ? new Date(movieForm.releaseDate).toISOString() : null,
         voteAverage: movieForm.voteAverage ? parseFloat(movieForm.voteAverage) : null,
         voteCount: movieForm.voteCount ? parseInt(movieForm.voteCount) : null,
         trailerUrl: movieForm.trailerUrl,

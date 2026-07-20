@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { authService } from '../services'
+import { useToast, ToastContainer } from '../components/Toast.jsx'
 
 const Login = () => {
+  const { toasts, showToast, closeToast } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -36,7 +38,9 @@ const Login = () => {
       }
     } catch (err) {
       console.error('Login error:', err)
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.')
+      const errMsg = err.response?.data?.message || 'Login failed. Please check your credentials.'
+      setError(errMsg)
+      showToast('error', errMsg)
     } finally {
       setIsLoading(false)
     }
@@ -47,7 +51,6 @@ const Login = () => {
       <div className="auth__card">
         <h2>Welcome back</h2>
         {message && <div className="p-3 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">{message}</div>}
-        {error && <p className="status" style={{ color: 'red' }}>{error}</p>}
 
         <form className="auth__form" onSubmit={handleSubmit}>
           <label className="auth__label" htmlFor="login-email">
@@ -109,6 +112,7 @@ const Login = () => {
           New here? <Link to="/register">Create an account</Link>
         </p>
       </div>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
     </section>
   )
 }
