@@ -54,6 +54,9 @@ public class SecurityConfig {
                                 "/api/v1/payments/*/status" // Payment webhook
                         ).permitAll()
 
+                        // Review read operations for current user - require authentication
+                        .requestMatchers(HttpMethod.GET, "/api/v1/movies/*/reviews/me").authenticated()
+
                         // Public GET-only endpoints (movie browsing, reviews reading)
                         .requestMatchers(HttpMethod.GET, "/api/v1/movies/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/genres/**").permitAll()

@@ -10,12 +10,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 public interface ReviewRepository extends JpaRepository<Review, Integer> {
 
     Page<Review> findByTmdb_IdOrderByCreatedAtDesc(Integer movieId, Pageable pageable);
 
     boolean existsByTmdb_IdAndUser_Id(Integer movieId, Integer userId);
+    Optional<Review> findByTmdb_IdAndUser_Id(Integer movieId, Integer userId);
 
     @Query("SELECT new be.backend.model.dto.RatingSummaryDto(AVG(r.rating), COUNT(r)) " +
             "FROM Review r WHERE r.tmdb.id = :movieId")

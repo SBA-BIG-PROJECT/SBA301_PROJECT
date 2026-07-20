@@ -78,6 +78,15 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional(readOnly = true)
+    public ReviewDto getMyReview(Integer movieId) {
+        User user = getCurrentUser();
+        return reviewRepository.findByTmdb_IdAndUser_Id(movieId, user.getId())
+                .map(this::toDto)
+                .orElseThrow(() -> new ResourceNotFoundException("No review found for user on movie " + movieId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public RatingSummaryDto getRatingSummary(Integer movieId) {
         return reviewRepository.getRatingSummary(movieId);
     }

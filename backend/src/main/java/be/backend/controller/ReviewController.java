@@ -36,6 +36,12 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.getReviews(movieId, page, size));
     }
 
+    // READ (me) - get the current user's review for a movie
+    @GetMapping("/movies/{movieId}/reviews/me")
+    public ResponseEntity<ReviewDto> getMyReview(@PathVariable Integer movieId) {
+        return ResponseEntity.ok(reviewService.getMyReview(movieId));
+    }
+
     // READ (singleton) — aggregate score for a movie (1 movie = 1 average score)
     @GetMapping("/movies/{movieId}/rating")
     public ResponseEntity<RatingSummaryDto> getMovieRating(@PathVariable Integer movieId) {
