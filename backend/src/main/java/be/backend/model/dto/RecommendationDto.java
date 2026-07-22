@@ -15,6 +15,10 @@ public class RecommendationDto {
     private String title;
 
     private String posterPath;
+    
+    private Double voteAverage;
+    
+    private java.time.Instant releaseDate;
 
     private double score;
 

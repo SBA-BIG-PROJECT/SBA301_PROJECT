@@ -642,6 +642,12 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         dto.setPosterPath(
                 candidate.getMovie().getPosterPath());
+                
+        dto.setVoteAverage(
+                candidate.getMovie().getVoteAverage());
+                
+        dto.setReleaseDate(
+                candidate.getMovie().getReleaseDate());
 
         dto.setScore(
                 candidate.getScore());
