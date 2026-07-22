@@ -1,3 +1,11 @@
+server:
+  port: ${PORT:8080}
+  tomcat:
+    threads:
+      max: 20
+      min-spare: 4
+    max-connections: 100
+
 spring:
   config:
     import: optional:file:.env[.properties]
@@ -7,6 +15,9 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
 
   ai:
     openai:
@@ -17,7 +28,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         default_batch_fetch_size: 100
