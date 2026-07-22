@@ -43,6 +43,7 @@ public interface ViewLogRepository extends JpaRepository<ViewLog, Integer> {
     SELECT v.tmdb.id, v.tmdb.title, v.tmdb.posterPath, COUNT(v.id) as viewCount
     FROM ViewLog v
     WHERE v.watchedAt BETWEEN :startDate AND :endDate
+      AND v.tmdb.isActive = true
     GROUP BY v.tmdb.id, v.tmdb.title, v.tmdb.posterPath
     ORDER BY viewCount DESC
 """)

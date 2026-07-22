@@ -36,6 +36,7 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
     @Query("""
         SELECT r.tmdb.id, r.tmdb.title, r.tmdb.posterPath, COUNT(r.id) as reviewCount, AVG(r.rating) as avgRating
         FROM Review r
+        WHERE r.tmdb.isActive = true
         GROUP BY r.tmdb.id, r.tmdb.title, r.tmdb.posterPath
         HAVING COUNT(r.id) >= 5
         ORDER BY avgRating DESC
