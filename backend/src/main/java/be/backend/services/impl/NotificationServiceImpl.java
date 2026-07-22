@@ -217,6 +217,15 @@ public class NotificationServiceImpl implements NotificationService {
         );
     }
 
+    @Override
+    @Transactional
+    public void createAddedToWatchlistNotification(User user, String movieTitle) {
+        createNotification(
+                user,
+                "Movie \"" + movieTitle + "\" has been added to your watchlist."
+        );
+    }
+
 // ---------- Helpers ----------
 
     private void createNotification(

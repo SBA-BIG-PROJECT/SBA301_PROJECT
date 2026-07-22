@@ -25,5 +25,7 @@ public interface NotificationService {
     void createPremiumExpiringNotification(User user, int remainingDays);
 
     void createAccountBannedNotification(User user, String reason);
+    
+    void createAddedToWatchlistNotification(User user, String movieTitle);
 }
 

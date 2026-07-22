@@ -31,6 +31,7 @@ public class WatchlistServiceImpl implements WatchlistService {
     private final MovieRepository movieRepository;
     private final UserRepository userRepository;
     private final WatchlistMapper watchlistMapper;
+    private final be.backend.services.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -48,7 +49,10 @@ public class WatchlistServiceImpl implements WatchlistService {
         watchlist.setTmdb(movie);
         watchlist.setAddedAt(Instant.now());
 
-        return watchlistMapper.toDto(watchlistRepository.save(watchlist));
+        Watchlist saved = watchlistRepository.save(watchlist);
+        notificationService.createAddedToWatchlistNotification(user, movie.getTitle());
+        
+        return watchlistMapper.toDto(saved);
     }
 
     @Override
