@@ -176,13 +176,16 @@ public class MovieServiceImpl implements MovieService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<AdminMovieDto> getAllMoviesAdmin(int page, int size, String search, Boolean isActive) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "addedAt"));
+    public PageResponse<AdminMovieDto> getAllMoviesAdmin(int page, int size, String search, Boolean isActive, Boolean isPremium) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "isActive").and(Sort.by(Sort.Direction.DESC, "addedAt")));
 
         Specification<Movie> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (isActive != null) {
                 predicates.add(cb.equal(root.get("isActive"), isActive));
+            }
+            if (isPremium != null) {
+                predicates.add(cb.equal(root.get("isPremium"), isPremium));
             }
             if (hasText(search)) {
                 String likeKeyword = "%" + search.trim().toLowerCase() + "%";
@@ -324,9 +327,6 @@ public class MovieServiceImpl implements MovieService {
     @Override
     @Transactional
     public AdminMovieDto setMoviePremium(Integer tmdbId, boolean isPremium) {
-        if (isPremium && movieRepository.countByIsPremiumTrue() >= MAX_PREMIUM_MOVIES) {
-            throw new IllegalStateException("Maximum " + MAX_PREMIUM_MOVIES + " premium movies allowed");
-        }
         Movie movie = findMovieById(tmdbId);
         movie.setIsPremium(isPremium);
         Movie saved = movieRepository.save(movie);

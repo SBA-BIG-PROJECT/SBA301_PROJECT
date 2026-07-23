@@ -54,8 +54,12 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         stats.setBannedUsers(userRepository.countByBannedAtIsNotNull());
         
         // Content statistics
-        stats.setTotalMovies(movieRepository.count());
+        long totalMovs = movieRepository.count();
+        long premMovs = movieRepository.countByIsPremiumTrue();
+        stats.setTotalMovies(totalMovs);
         stats.setActiveMovies(movieRepository.countByIsActiveTrue());
+        stats.setPremiumMovies(premMovs);
+        stats.setStandardMovies(Math.max(0L, totalMovs - premMovs));
         stats.setTotalReviews(reviewRepository.count());
         stats.setTotalGenres(genreRepository.count());
         

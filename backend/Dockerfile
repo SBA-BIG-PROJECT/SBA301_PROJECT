@@ -14,4 +14,4 @@ COPY --from=build /app/target/*.jar app.jar
 ENV PORT=8080
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "java -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=32m -Xss256k -Xmx180m -Xms96m -XX:+UseG1GC $JAVA_TOOL_OPTIONS -Dserver.port=${PORT} -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "java -XX:+TieredCompilation -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=48m -Xss256k -Xmx160m -Xms80m -XX:+UseSerialGC $JAVA_TOOL_OPTIONS -Dserver.port=${PORT} -jar app.jar"]

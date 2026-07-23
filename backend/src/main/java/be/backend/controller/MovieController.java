@@ -73,10 +73,11 @@ public class MovieController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) Boolean isActive) {
+            @RequestParam(required = false) Boolean isActive,
+            @RequestParam(required = false) Boolean isPremium) {
         
         return ResponseEntity.ok(
-                movieService.getAllMoviesAdmin(page, size, search, isActive)
+                movieService.getAllMoviesAdmin(page, size, search, isActive, isPremium)
         );
     }
 

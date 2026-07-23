@@ -24,6 +24,8 @@ public class AdminDashboardStatsDto {
     // Content statistics
     private Long totalMovies;
     private Long activeMovies;
+    private Long premiumMovies;
+    private Long standardMovies;
     private Long totalReviews;
     private Long totalGenres;
     

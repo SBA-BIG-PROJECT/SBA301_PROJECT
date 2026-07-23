@@ -16,7 +16,7 @@ public interface MovieService {
     PageResponse<TrendingMovieDto> getTrendingMovies(int page, int size);
     
     // --- Admin Methods ---
-    PageResponse<AdminMovieDto> getAllMoviesAdmin(int page, int size, String search, Boolean isActive);
+    PageResponse<AdminMovieDto> getAllMoviesAdmin(int page, int size, String search, Boolean isActive, Boolean isPremium);
     AdminMovieDto getMovieDetailAdmin(Integer tmdbId);
     AdminMovieDto createMovie(AdminCreateMovieRequest request);
     AdminMovieDto updateMovie(Integer tmdbId, AdminUpdateMovieRequest request);

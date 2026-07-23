@@ -99,6 +99,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(
+            IllegalStateException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     // Feature not implemented -> 501
     @ExceptionHandler(UnsupportedOperationException.class)
     public ResponseEntity<ErrorResponse> handleUnsupportedOperation(
