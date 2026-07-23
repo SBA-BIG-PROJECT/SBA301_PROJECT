@@ -11,6 +11,7 @@ import be.backend.model.response.AuthResponse;
 import be.backend.repository.UserRepository;
 import be.backend.services.AuthService;
 import be.backend.services.JwtService;
+import be.backend.services.NotificationService;
 import be.backend.services.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final RefreshTokenService refreshTokenService;
+    private final NotificationService notificationService;
     
 
 
@@ -61,6 +63,9 @@ public class AuthServiceImpl implements AuthService {
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Create welcome notification
+        notificationService.createWelcomeNotification(user);
 
         return buildTokens(user);
     }

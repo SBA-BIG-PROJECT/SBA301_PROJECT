@@ -27,5 +27,7 @@ public interface NotificationService {
     void createAccountBannedNotification(User user, String reason);
     
     void createAddedToWatchlistNotification(User user, String movieTitle);
+    
+    void createWelcomeNotification(User user);
 }
 

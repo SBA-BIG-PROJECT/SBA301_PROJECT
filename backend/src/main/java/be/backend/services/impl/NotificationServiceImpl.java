@@ -226,6 +226,16 @@ public class NotificationServiceImpl implements NotificationService {
         );
     }
 
+    @Override
+    @Transactional
+    public void createWelcomeNotification(User user) {
+        String name = user.getFullName() != null && !user.getFullName().isBlank() ? user.getFullName() : user.getEmail();
+        createNotification(
+                user,
+                "Welcome back, " + name + "!"
+        );
+    }
+
 // ---------- Helpers ----------
 
     private void createNotification(
