@@ -57,8 +57,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
     
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'SUCCESS'")
     BigDecimal sumTotalRevenue();
-    
-    long countByStatusAndPaidAtAfter(String status, Instant after);
+
+    List<Payment> findByStatusAndCreatedAtBefore(String status, Instant cutoff);
     
     @Query("""
         SELECT p.planType, COUNT(p), SUM(p.amount)

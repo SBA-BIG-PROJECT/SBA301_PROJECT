@@ -13,9 +13,9 @@ import org.springframework.data.repository.query.Param;
 public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
-    
-    // Admin queries
-    Page<User> findByDeletedAtIsNull(Pageable pageable);
+
+    List<User> findByIsPremiumTrueAndDeletedAtIsNullAndPremiumExpiresAtBefore(Instant now);
+    List<User> findByIsPremiumTrueAndDeletedAtIsNullAndPremiumExpiresAtBetween(Instant from, Instant to);
     
     @Query("""
         SELECT u FROM User u

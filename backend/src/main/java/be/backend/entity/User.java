@@ -97,4 +97,10 @@ public class User {
     @JoinColumn(name = "user_id")
     private Set<Watchlist> watchlists = new LinkedHashSet<>();
 
+    @Transient
+    public boolean hasActivePremium() {
+        return Boolean.TRUE.equals(isPremium)
+                && premiumExpiresAt != null
+                && premiumExpiresAt.isAfter(Instant.now());
+    }
 }
